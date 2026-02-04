@@ -1,6 +1,6 @@
 # ELEC4712_Decentralised_Blog
 ## Intended Workflow
-
+This project describes a decentralised blogging protocol where users host their own signed content objects on static servers (such as  GitHub Pages) instead of relying on a centralised or administrator controlled backend. Each interaction - posts, comments, likes, forwards and follow requests is created locally, signed with the user’s private key and uploaded to their static server. Other users then fetch and verify these objects using public keys. Overall, the aim is to define a minimal interaction workflow that operates through static hosting and client-side verification. 
 
 ## Follow Request
 ```mermaid
