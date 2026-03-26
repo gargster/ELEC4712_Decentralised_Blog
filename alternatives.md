@@ -1,7 +1,7 @@
 # Alternative Decentralised Social Protocols
 ## ActivityPub
 ## Posting Workflow
-# Brief Description:
+### Brief Description:
 The following sequence diagram shows how Alice's followers recieve the posts she makes. First of all, Alice creates a Post within here client (e.g. Mastodon app) which then constructs this as a Create activity. The client then sends this to Alice's server by making an HTTP POST to her outbox endpoint. The server validates this activity and stores it Alice's outbox. Following this, Alice's server iterates through all her followers and pushes this same Create activity to each follower's server by POSTing it to their inbox endpoints. The follower's server then all validate the messages and update their timeline. Last of all, the follower's clients get notfied or manually fetch the updated timelines from their server and Alice's post is rendered to their feeds.
 ```mermaid
 sequenceDiagram
@@ -19,10 +19,10 @@ sequenceDiagram
     FollowerServers->>FollowerServers: Validate signature & store
     FollowerServers->>FollowerClients: Notify clients
 ```
-# Brief Description:
+## Following Workflow
+### Brief Description:
 The sequence diagram shows how Alice starts following Bob. First, Alice specifies Bob's handle with key word Follow on her client. Alice's Client sends this as a Follow activity to her server by HTTP POSTing it to her outbox. This Follow activty is then forwarded to Bob's Server by POSTing to Bob's Inbox endpoint. Bob's server then validates the request, and if accepted adds Alice to his followers list. This server then sends a Accept activity to Alice's Server through POSTing to its inbox. The server then validates, stores the Accept activity and marks Bob as followed. Now, whenever Bob posts, Bob's server will push that post to ALice's server, which will then appear in her timeline.  
 
-## Following Workflow
 ```mermaid
 sequenceDiagram
     participant Alice
@@ -40,7 +40,7 @@ sequenceDiagram
 ```
 ## Nostr
 ## Posting Workflow
-# Brief Description:
+### Brief Description:
 The following sequence diagram shows Alice's followers receieve the posts which Alice posts. Firstly once Alice makes her post, Alice's Client Creates a signed event of kind 1 and publishes it to one or more relays. These relays validate the event and store it, then it forwards the event to all of Alice's 'followers' (clients that have subscribed to Alice's public key). The follower's client then build the follower's feed with Alice's post. 
 
 ```mermaid
@@ -58,7 +58,7 @@ sequenceDiagram
     FollowerClients->>FollowerClients: Receive event & update feed
 ```
 ## Following Workflow
-# Brief Description:
+### Brief Description:
 The following sequence diagram demonstrates how following works in Nostr, which is handled entirely on the client side. Once Bob decides to Follow Alice, Bob's client creates a signed contacts event (kind 3) which lists Alice's public key. This event is then forwarded to multiple relays, later Bob's client sends a REQ subscription message to the relays. This simply tells the relays to send events associated with a target public key. Finally, the relays send Alice's past events and streams her future events. 
 
 ```mermaid
@@ -77,10 +77,10 @@ sequenceDiagram
 ```
 ## Git Based Attempts
 ## social4git
-# Brief Description:
+## Posting Workflow
+### Brief Description:
 The following sequence diagrams shows how posting operates in social4Git, which is a Git-based pull-replication model. When Alice makes a post, her client creates the post file and metadata file which are both commited and pushed to her public repository. Followers recieve the posts only upon manually running social4git sync, which fetches updates from Alice's public repository and copies the new post into their own private repository. 
 
-## Posting Workflow
 ```mermaid
 sequenceDiagram
     participant Alice
