@@ -98,6 +98,7 @@ sequenceDiagram
 ```
 ## Following + Replication Workflow
 ### Brief Description:
+```mermaid
 sequenceDiagram
     participant Bob
     participant BobClient
@@ -124,6 +125,7 @@ sequenceDiagram
         Bob receives Alice's posts only during gossip replication.
         SSB pulls missing messages when devices connect.
         No real-time delivery or push notifications.
+```
 
 
 
