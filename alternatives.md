@@ -75,6 +75,58 @@ sequenceDiagram
     BobClient->>Relays: REQ (subscribe to Alice)
     Relays->>BobClient: Send past & stream future events
 ```
+## Secure Scuttlebutt (SSB)
+## Posting Workflow
+### Brief Description:
+```mermaid
+sequenceDiagram
+    participant Alice
+    participant AliceClient as BobClient
+    participant AliceFeed as Alice's Local Feed
+
+    Alice->>AliceClient: Write new post
+    AliceClient->>AliceClient: Create message object (content)
+    AliceClient->>AliceClient: Assign next sequence number (seq = last_seq + 1)
+    AliceClient->>AliceClient: Compute hash of previous message (prev = hash(previous_message))
+    AliceClient->>AliceClient: Sign message with Aice's private key (signature = sign(content + seq + prev))
+    AliceClient->>AliceFeed: Append signed message to local feed 
+
+    Note over AliceFeed:
+        Post is stored ONLY in Alice's local feed.
+        SSB dont NOT push posts to followers when posting.
+        Bob receieves this post later during gossip replication. 
+```
+## Following + Replication Workflow
+### Brief Description:
+sequenceDiagram
+    participant Bob
+    participant BobClient
+    participant BobFollowList as Bob's Follow List
+    participant AliceClient
+    participant AliceFeed as Alice's Local Feed
+    participant BobFeed as Bob's Local Copy of Alice's Feed
+
+    Bob->>BobClient: Follow Alice (add Alice's feed ID)
+    BobClient->>BobFollowList: Store Alice's feed ID
+
+    Note over BobClient: Replication occurs via gossip when devices connect
+
+    BobClient->>AliceClient: Gossip: "What is your latest sequence number?"
+    AliceClient->>BobClient: "My latest sequence number is N"
+
+    BobClient->>AliceClient: Request missing messages
+    AliceClient->>BobClient: Send missing signed messages
+
+    BobClient->>BobClient: Verify signatures using Alice's public key
+    BobClient->>BobFeed: Append verified messages to Bob's local copy
+
+    Note over BobFeed:
+        Bob receives Alice's posts only during gossip replication.
+        SSB pulls missing messages when devices connect.
+        No real-time delivery or push notifications.
+
+
+
 ## Git Based Attempts
 ## social4git
 ## Posting Workflow
