@@ -78,6 +78,8 @@ sequenceDiagram
 ## Secure Scuttlebutt (SSB)
 ## Posting Workflow
 ### Brief Description:
+The sequence diagram shows the posting workflow in SSB. Once Alice writes a new post, Alice's client creates a message object containing the post content. It asssigns the object the next identifying sequence number in her feed and computes the hash of the previous message, adehering to the feeds linked list data structure. The client then signs this entire message using Alice's private key and appendsit to Alice's local append-only feed. Since SSB is offline-first, when Alice posts, nothing is sent to anyone immediately and followers like Bob will only recieve this post later when the devices connect and gossip replication occurs. 
+
 ```mermaid
 sequenceDiagram
     participant Alice
@@ -95,6 +97,8 @@ sequenceDiagram
 ```
 ## Following + Replication Workflow
 ### Brief Description:
+This sequence diagram shows how Bob follows Alice by adding her feed ID to his local follow list but does not notfy Alice. Later, when Bob's device connects with Alice's device (e.g. through wifi, pub server) gossip replication begins. This process involves Bob's client asking the Alice's client, what her latest sequence number is. Alice's client responds with the latest (highest) sequence number, so Bob's client then requests any missing messages from before. Once Alice's Client sends the missing signed messages, Bob verifies each signature using Alice's public key. These verfied messages are then appended to Bob's local copy of Alice's feed. Overall, this is a pull-based process and only happens when peers connect. 
+
 ```mermaid
 sequenceDiagram
     participant Bob
