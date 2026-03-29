@@ -88,13 +88,10 @@ sequenceDiagram
     AliceClient->>AliceClient: Create message object (content)
     AliceClient->>AliceClient: Assign next sequence number (seq = last_seq + 1)
     AliceClient->>AliceClient: Compute hash of previous message (prev = hash(previous_message))
-    AliceClient->>AliceClient: Sign message with Alice's private key (signature = sign(content + seq + prev))
+    AliceClient->>AliceClient: Sign message with private key (signature = sign(content + seq + prev))
     AliceClient->>AliceFeed: Append signed message to local feed
 
-    Note over AliceFeed:
-    Post is stored ONLY in Alice's local feed.
-    SSB does NOT push posts to followers when posting.
-    Bob receives this post later during gossip replication.
+    Note over AliceFeed: Post is stored ONLY in Alice's local feed.<br>SSB does NOT push posts to followers when posting.<br>Bob receives this post later during gossip replication.
 ```
 ## Following + Replication Workflow
 ### Brief Description:
@@ -121,10 +118,7 @@ sequenceDiagram
     BobClient->>BobClient: Verify signatures using Alice's public key
     BobClient->>BobFeed: Append verified messages to Bob's local copy
 
-    Note over BobFeed:
-    Bob receives Alice's posts only during gossip replication.
-    SSB pulls missing messages when devices connect.
-    No real-time delivery or push notifications.
+    Note over BobFeed: Bob receives Alice's posts only during gossip replication.<br>SSB pulls missing messages when devices connect.<br>No real-time delivery or push notifications.
 ```
 ## Git Based Attempts
 ## social4git
