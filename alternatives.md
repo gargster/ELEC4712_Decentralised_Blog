@@ -81,20 +81,20 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     participant Alice
-    participant AliceClient as BobClient
-    participant AliceFeed as Alice's Local Feed
+    participant AliceClient
+    participant AliceFeed as Alices_Local_Feed
 
     Alice->>AliceClient: Write new post
     AliceClient->>AliceClient: Create message object (content)
     AliceClient->>AliceClient: Assign next sequence number (seq = last_seq + 1)
     AliceClient->>AliceClient: Compute hash of previous message (prev = hash(previous_message))
-    AliceClient->>AliceClient: Sign message with Aice's private key (signature = sign(content + seq + prev))
-    AliceClient->>AliceFeed: Append signed message to local feed 
+    AliceClient->>AliceClient: Sign message with Alice's private key (signature = sign(content + seq + prev))
+    AliceClient->>AliceFeed: Append signed message to local feed
 
     Note over AliceFeed:
-        Post is stored ONLY in Alice's local feed.
-        SSB dont NOT push posts to followers when posting.
-        Bob receieves this post later during gossip replication. 
+    Post is stored ONLY in Alice's local feed.
+    SSB does NOT push posts to followers when posting.
+    Bob receives this post later during gossip replication.
 ```
 ## Following + Replication Workflow
 ### Brief Description:
@@ -102,10 +102,10 @@ sequenceDiagram
 sequenceDiagram
     participant Bob
     participant BobClient
-    participant BobFollowList as Bob's Follow List
+    participant BobFollowList as Bobs_Follow_List
     participant AliceClient
-    participant AliceFeed as Alice's Local Feed
-    participant BobFeed as Bob's Local Copy of Alice's Feed
+    participant AliceFeed as Alices_Local_Feed
+    participant BobFeed as Bobs_Copy_of_Alices_Feed
 
     Bob->>BobClient: Follow Alice (add Alice's feed ID)
     BobClient->>BobFollowList: Store Alice's feed ID
@@ -122,13 +122,10 @@ sequenceDiagram
     BobClient->>BobFeed: Append verified messages to Bob's local copy
 
     Note over BobFeed:
-        Bob receives Alice's posts only during gossip replication.
-        SSB pulls missing messages when devices connect.
-        No real-time delivery or push notifications.
+    Bob receives Alice's posts only during gossip replication.
+    SSB pulls missing messages when devices connect.
+    No real-time delivery or push notifications.
 ```
-
-
-
 ## Git Based Attempts
 ## social4git
 ## Posting Workflow
