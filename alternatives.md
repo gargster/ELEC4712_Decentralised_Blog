@@ -174,6 +174,8 @@ sequenceDiagram
 ## gitsocial
 ## Posting Workflow
 ### Brief Description:
+The following sequence diagram shows how posting works in GitSocial. As opposed to social4git, gitsocial has a single Git repository per user which has a dedicated branch called gitsocial for all social activity. When Alice makes a post, Alice's client represents the post as a Git commit on this gitsocial branch. This commit contains the post text along with the GitMsg metadata which indicates whether it is a post, comment, repost, or quote. In order to publish the post, this commit is pushed to Alice's repsoitory, making it available for followers. Since gitsocial is a pull-based replication model, her do not recieve these posts immediately, but the posts become visible when the follower later fetches the gitsocial branch during sync.
+
 ```mermaid
 sequenceDiagram
     participant Alice
@@ -191,6 +193,8 @@ sequenceDiagram
 ```
 ## Following + Replication Workflow
 ### Brief Description:
+The following sequence diagram shows the following and replication workflow. For Bob to folllow Alice this means Bob needs to add Alice's repository URL to a follow-list JSON file stored inside Bob's repository. The steps required for updating this file are usual git steps involving modifying the file, git adding, commiting and then pushing to Bob's Repository. Compared to other conventional protocols, this follow action is local as Alice does not need to approve anything. Later when Bob runs sync, his client reads the follow list to determine which repositores to fetch from. For each of the followed users, the client fetches the gitsocial branch from their repository and the returned commits are stored in Bob's repository. Lastly, to build or update Bob's feed view with Alice's commits (or whoever he follows), Bob's Client interprets GitMsg metadata.
+
 ```mermaid
 sequenceDiagram
     participant Bob
