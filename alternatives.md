@@ -151,11 +151,12 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
-    participant Alice
+    participant Bob
     participant BobBrowser as BobBrowser
     participant BobFollowList as follow-list.json
-    participant AliceSite as AliceStaticSite
+    participant Alice as Alice
     participant AliceBrowser as AliceBrowser
+    participant AliceSite as AliceStaticSite
     participant KeyEnvelope as key-envelope-for-bob.json
     participant IndexFile as index.json
     participant AlicePosts as /satellite/posts/
