@@ -171,3 +171,48 @@ sequenceDiagram
     BobClient->>BobClient: git add && git commit
     BobClient->>BobPrivateRepo: git push
 ```
+## gitsocial
+## Posting Workflow
+### Brief Description:
+```mermaid
+sequenceDiagram
+    participant Alice
+    participant AliceClient as AliceClient
+    participant AlicePublicRepo as AlicePublicRepo
+    participant AliceGitSocialBranch as AliceGitSocialBranch
+
+    Alice->>AliceClient: gitsocial post "Hello!"
+    AliceClient->>AliceClient: Create commit message (post text)
+    AliceClient->>AliceClient: Attach GitMsg metadata (type = post/comment/repost/quote)
+    AliceClient->>AliceGitSocialBranch: git commit -m "Hello"! (on gitsocial branch)
+    AliceGitSocialBranch->>AlicePublicRepo: git push origin gitsocial (publish branch)
+
+    Note over AliceGitSocialBranch: Posts are commits on the gitsocial branch.<br>Pushing makes them available for followers to fetch later.
+```
+## Following + Replication Workflow
+### Brief Description:
+```mermaid
+sequenceDiagram
+    participant Bob
+    participant BobClient as BobClient
+    participant BobPublicRepo as BobPublicRepo
+    participant BobFollowList as BobFollowList
+    participant AlicePublicRepo as AlicePublicRepo
+    participant AliceGitSocialBranch as AliceGitSocialBranch
+
+    Bob->>BobClient: gitsocial follow <AliceRepoURL>
+    BobClient->>BobFollowList: Update follow.list.json 
+    BobClient->>BoPublicRepo: git add follow-list.json && git commit -m "Update follow list"
+    BobClient->>BobPublicRepo: git push (publish updated follow list)
+
+    Note over BobFollowList: Follow list is a JSON file storing repository URLs to fetch from.
+
+    Bob->>Boblient: gitsocial sync
+    BobClient->>AlicePublicRepo: git fetch <AliceRepoURL> gitsocial
+    AlicePublicRepo->>BobClient: Return new commits from gitsocial branch
+
+    BobClient->>BobPublicRepo: Store fetched commits locally
+    BobClient->>BobClient: Read GitMsg metadata (e.g. post/comment/repost/quote)<br>and build/update Bob's feed view
+
+    Note over BobPublicRepo: Bob receives Alice's posts here during fetch.<br>Feed is constructed by reading commits from followed repos.<br>Replication is pull-based and not real-time.
+```
