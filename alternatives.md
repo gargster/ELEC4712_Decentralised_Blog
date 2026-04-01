@@ -124,6 +124,71 @@ sequenceDiagram
 
     Note over BobFeed: Bob receives Alice's posts only during gossip replication.<br>SSB pulls missing messages when devices connect.<br>No real-time delivery or push notifications.
 ```
+## sAT Protocol (s@)
+## Posting Workflow
+### Brief Description:
+
+```mermaid
+sequenceDiagram
+    participant Alice
+    participant AliceBrowser as AliceBrowser
+    participant AliceSite as AliceStaticSite
+    participant PostsDir as /satellite/posts/
+    participant IndexFile as index.json
+
+    Alice->>AliceBrowser: Write new post ("Hello!")
+    AliceBrowser->>AliceBrowser: Create JSON object (id, author, timestamp, text)
+    AliceBrowser->>AliceBrowser: Generate new symmetric content key
+    AliceBrowser->>AliceBrowser: Encrypt JSON post with symmetric content key
+    AliceBrowser->>PostsDir: Upload encrypted post file (id.json)
+    AliceBrowser->>IndexFile: Append post ID to index.json (plaintext)
+    AliceBrowser->>AliceSite: Upload updated index.json
+
+    Note over AliceSite: index.json is a plain list of post IDs that followers used to locate and fetch encrypted posts
+```
+## Following + Replication Workflow
+### Brief Description:
+
+```mermaid
+sequenceDiagram
+    participant Alice
+    participant BobBrowser as BobBrowser
+    participant BobFollowList as follow-list.json
+    participant AliceSite as AliceStaticSite
+    participant AliceBrowser as AliceBrowser
+    participant KeyEnvelope as key-envelope-for-bob.json
+    participant IndexFile as index.json
+    participant AlicePosts as /satellite/posts/
+
+    Bob->>BobBrowser: sAT follow alice.com
+    BobBrowser->>BobFollowList: Add "alice.com" to follow-list.json
+
+    BobBrowser->>AlicSite: Notify follow (request key envelope)
+    AliceSite->>AliceBrowser: Deliver follow request to Alice
+
+    Alice->>AliceBrowser: Approve follow (implicit or automatic)
+    AliceBrowser->>AliceBrowser: Encrypt symmetric content key for Bob
+    AliceBrowser->>KeyEnvelope: Create key-envelope-for-bob.json
+    AliceBrowser->>AliceSite: Upload key envelope for Bob
+
+    Note over KeyEnvelope: Key envelope contains the symmetric content key<br>encrypted with Bob's public key.
+
+    Bob->>BobBrowser: sAT sync
+    BobBrowser->>AliceSite: Fetch key-envelope-for-bob.json
+    AliceSite->>BobBrowser: Return encrypted content key
+    BobBrowser->>BobBrowser: Decrypt key envelope using Bob's private key<br>(recover symmetric content key)
+
+    BobBrowser->>AlicSite: Fetch index.json
+    AliceSite->>IndexFile: Return plaintext list of post IDs
+    BobBrowser->>BobBrowser: Read IDs (e.g. ["123","122","121"])
+
+    BobBrowser->>AlicePosts: Fetch encrypted post files (for each ID)
+    AlicePosts->>BobBrowser: Return encrypted posts
+    BobBrowser->>BobBrowser: Decrypt posts using symmetric content key 
+    BobBrowser->>BobBrowser: Build/update Bob's feed view
+
+    Note over BobBrowser: Followers first fetch index.json to discover post IDs.<br>They then fetch each encrypted post file from /satellite/posts/<id>.json<br>and decrypt it locally using the recovered symmetric content key.
+```
 ## Git Based Attempts
 ## social4git
 ## Posting Workflow
