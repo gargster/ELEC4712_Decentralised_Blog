@@ -133,8 +133,8 @@ sequenceDiagram
     participant Alice
     participant AliceBrowser as AliceBrowser
     participant AliceSite as AliceStaticSite
-    participant PostsDir as alice.com/satellite/posts/ (encrypted post files)
-    participant IndexFile as alice.com/satellite/index.json (post ID list)
+    participant PostsDir as alice.com/satellite/posts/
+    participant IndexFile as alice.com/satellite/index.json
 
     Alice->>AliceBrowser: Write new post ("Hello!")
     AliceBrowser->>AliceBrowser: Create JSON object (id, author, timestamp, text)
@@ -156,8 +156,8 @@ sequenceDiagram
     participant BobFollowList as follow-list.json
     participant AliceBrowser as AliceBrowser
     participant AliceSite as AliceStaticSite
-    participant IndexFile as alice.com/satellite/index.json (post ID list)
-    participant AlicePosts as alice.com/satellite/posts/ (encrypted post files)
+    participant IndexFile as alice.com/satellite/index.json
+    participant AlicePosts as alice.com/satellite/posts/
 
     Bob->>BobBrowser: sAT follow alice.com
     BobBrowser->>BobFollowList: Add "alice.com" to follow-list.json
