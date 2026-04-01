@@ -209,8 +209,10 @@ sequenceDiagram
 
     Bob->>BobClient: gitsocial sync
     BobClient->>BobFollowList: Read follow-list.json (get list of repos to fetch)
+
     BobClient->>AlicePublicRepo: git fetch <AliceRepoURL> gitsocial
-    AlicePublicRepo->>BobClient: Return new commits from gitsocial branch
+    AliceRepo->>AliceGitSocialBranch: Resolve gitsocial branch
+    AliceGitSocialBranch->>BobClient: Return new commits from gitsocial branch
 
     BobClient->>BobPublicRepo: Store fetched commits locally
     BobClient->>BobClient: Read GitMsg metadata (e.g. post/comment/repost/quote)<br>and build/update Bob's feed view
