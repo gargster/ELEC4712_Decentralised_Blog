@@ -202,12 +202,13 @@ sequenceDiagram
 
     Bob->>BobClient: gitsocial follow <AliceRepoURL>
     BobClient->>BobFollowList: Update follow.list.json 
-    BobClient->>BoPublicRepo: git add follow-list.json && git commit -m "Update follow list"
+    BobClient->>BobPublicRepo: git add follow-list.json && git commit -m "Update follow list"
     BobClient->>BobPublicRepo: git push (publish updated follow list)
 
     Note over BobFollowList: Follow list is a JSON file storing repository URLs to fetch from.
 
-    Bob->>Boblient: gitsocial sync
+    Bob->>BobClient: gitsocial sync
+    BobClient->>BobFollowList: Read follow-list.json (get list of repos to fetch)
     BobClient->>AlicePublicRepo: git fetch <AliceRepoURL> gitsocial
     AlicePublicRepo->>BobClient: Return new commits from gitsocial branch
 
