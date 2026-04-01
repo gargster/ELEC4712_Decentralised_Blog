@@ -133,8 +133,8 @@ sequenceDiagram
     participant Alice
     participant AliceBrowser as AliceBrowser
     participant AliceSite as AliceStaticSite
-    participant PostsDir as /satellite/posts/
-    participant IndexFile as index.json
+    participant PostsDir as alice.com/satellite/posts/ (encrypted post files)
+    participant IndexFile as alice.com/satellite/index.json (post ID list)
 
     Alice->>AliceBrowser: Write new post ("Hello!")
     AliceBrowser->>AliceBrowser: Create JSON object (id, author, timestamp, text)
@@ -144,7 +144,7 @@ sequenceDiagram
     AliceBrowser->>IndexFile: Append post ID to index.json (plaintext)
     AliceBrowser->>AliceSite: Upload updated index.json
 
-    Note over AliceSite: index.json is a plain list of post IDs that followers used to locate and fetch encrypted posts
+    Note over AliceSite: alice.com/satellite/posts/ is a folder on Alice's static site<br>containing encrypted post files named by their IDs.<br>alice.com/satellite/index.json is a plaintext list of those IDs.
 ```
 ## Following + Replication Workflow
 ### Brief Description:
@@ -154,20 +154,17 @@ sequenceDiagram
     participant Bob
     participant BobBrowser as BobBrowser
     participant BobFollowList as follow-list.json
-    participant Alice as Alice
     participant AliceBrowser as AliceBrowser
     participant AliceSite as AliceStaticSite
-    participant KeyEnvelope as key-envelope-for-bob.json
-    participant IndexFile as index.json
-    participant AlicePosts as /satellite/posts/
+    participant IndexFile as alice.com/satellite/index.json (post ID list)
+    participant AlicePosts as alice.com/satellite/posts/ (encrypted post files)
 
     Bob->>BobBrowser: sAT follow alice.com
     BobBrowser->>BobFollowList: Add "alice.com" to follow-list.json
 
-    BobBrowser->>AlicSite: Notify follow (request key envelope)
-    AliceSite->>AliceBrowser: Deliver follow request to Alice
+    BobBrowser->>AliceSite: Send follow request
+    AliceSite->>AliceBrowser: Deliver follow request
 
-    Alice->>AliceBrowser: Approve follow (implicit or automatic)
     AliceBrowser->>AliceBrowser: Encrypt symmetric content key for Bob
     AliceBrowser->>KeyEnvelope: Create key-envelope-for-bob.json
     AliceBrowser->>AliceSite: Upload key envelope for Bob
@@ -179,16 +176,17 @@ sequenceDiagram
     AliceSite->>BobBrowser: Return encrypted content key
     BobBrowser->>BobBrowser: Decrypt key envelope using Bob's private key<br>(recover symmetric content key)
 
-    BobBrowser->>AlicSite: Fetch index.json
+    BobBrowser->>AliceSite: Fetch index.json
     AliceSite->>IndexFile: Return plaintext list of post IDs
     BobBrowser->>BobBrowser: Read IDs (e.g. ["123","122","121"])
 
     BobBrowser->>AlicePosts: Fetch encrypted post files (for each ID)
     AlicePosts->>BobBrowser: Return encrypted posts
-    BobBrowser->>BobBrowser: Decrypt posts using symmetric content key 
+    BobBrowser->>BobBrowser: Decrypt posts using symmetric content key
     BobBrowser->>BobBrowser: Build/update Bob's feed view
 
-    Note over BobBrowser: Followers first fetch index.json to discover post IDs.<br>They then fetch each encrypted post file from /satellite/posts/<id>.json<br>and decrypt it locally using the recovered symmetric content key.
+    Note over BobBrowser: Followers fetch index.json to discover post IDs,<br>then fetch each encrypted post file from /satellite/posts/<id>.json<br>and decrypt it locally using the recovered symmetric content key.
+
 ```
 ## Git Based Attempts
 ## social4git
