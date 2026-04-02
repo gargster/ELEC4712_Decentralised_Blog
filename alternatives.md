@@ -127,6 +127,7 @@ sequenceDiagram
 ## sAT Protocol (s@)
 ## Posting Workflow
 ### Brief Description:
+The following diagram shows how posting works in s@ which is entirely static site based and all encryption & processing happens on the browser, not on a server. Once Alice writes a new post on her browser, the browser constructs a plaintext JSON object of the post and it's meta data. A fresh symmetric key is newly generated for this post, and used to encrypt the whole JSON post. This encrypyted post is then named according to its id and uploaded to the posts subfolder within Alice's static site. Alice's browser then updates the index.json file (which is a file listing all post IDs in order) to include the new post's id. Finally, this updated index.json is uploaded to Alice's static site so that her followers can later discover the new post.
 
 ```mermaid
 sequenceDiagram
@@ -148,6 +149,7 @@ sequenceDiagram
 ```
 ## Following + Replication Workflow
 ### Brief Description:
+The following diagram shows how Bob follows Alice, and later syncronizes to recieve her posts. First of all, Bob intiates a follow action in his browser, specififying Alice's domain name which is then added to Bob's local json follow list by his browser. Bob's Browser then sends a follow request to Alice's static site which then forwards this request to Alice's Browser. Alice's browser then encrypts the symmetric content key (used to decrypt her posts) for Bob specifically using his public key. This encrypted package, known as the key envelope for Bob is then uploaded Alice's Static Site by Alice's Browser. Later, when Bob synchronises Bob's Browser fetches the key envelope and decrypts it with his private key, discovering the symmetric content key. Next, the index.json on Alice's Static Site is fetched by Bob's Browser which lists all Alice's post IDs in plaintext. Each of the IDs in the list corresponds to an encrypted post file within Alice's Static Site (under posts subdirectory). All of these posts are fetched and decrypted by Bob locally using the symmetric content key thus building Bob's feed.
 
 ```mermaid
 sequenceDiagram
