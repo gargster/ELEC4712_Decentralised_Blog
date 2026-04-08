@@ -289,3 +289,51 @@ sequenceDiagram
 
     Note over BobPublicRepo: Bob receives Alice's posts here during fetch.<br>Feed is constructed by reading commits from followed repos.<br>Replication is pull-based and not real-time.
 ```
+## Octotown
+## Posting Workflow
+### Brief Description:
+The following sequence diagram shows how posting works in Octotown, which unlike other Git-based protocols, reuses GitHub's existing Issues system. Each user has a repository named .social which contains all posts represented as GitHub Issues. When Alice writes a post in the Octotown client, the client constructs a REST API request to the GitHubIssuesAPI, including the post content in the JSON body to the .social endpoint of Alice. Upon recieving the request, GitHub creates a new issue inside the .social repository, which now becomes the published post which followers can later fetch and interact with. 
+
+```mermaid
+sequenceDiagram
+    participant Alice
+    participant AliceClient as AliceClient
+    participant GitHubIssuesAPI as GitHubIssuesAPI
+    participant AliceSocialRepo as AliceSocialRepo (.social)
+
+    Alice->>AliceClient: Write new post "Hello!"
+    AliceClient->>AliceClient: Prepare REST request<br>POST /repos/Alice/.social/issues<br>Body = { "title": "Hello!", "body": "My first post" }
+    AliceClient->>GitHubIssuesAPI: Send POST request (create Issue)
+    GitHubIssuesAPI->>AliceSocialRepo: Create new Issue (store post)
+    Note over AliceSocialRepo: The .social repo is a normal GitHub repository.<br>Posts are stored as Issues, not files or commits.
+```
+## Following + Replication Workflow
+### Brief Description:
+The following sequence diagram shows how following works in Octotown, which entirely functions on GitHub's in-built follow system. First of all, Bob has to follow Alice's GitHub profile which then updates GitHub's own follow list of Bob. Next, when Bob opens the Ocototown client to view his feed, his client begins replication by querying GitHub's Follow API to retrive the list of GitHub accounts Bob follows, which should include Alice. Since this list contains only user identities, the client has to determine which of these users participate in social actions through Octotown by checking whether they have a .social repository. For each of the followed users, the client checks if their repository has a .social repository, which would rturn true for Alice meaning she is a octotown user. After confriming this, Bob's client fetches posts, utilising GitHub's list issues for repository operation. Consequently this build's Bob's feed with all issues (posts) stored in the .social repository of the users he follows, including Alice.
+
+```mermaid
+sequenceDiagram
+    participant Bob
+    participant BobClient as BobClient (Octotown UI)
+    participant GitHubFollowAPI as GitHubFollowAPI
+    participant GitHubIssuesAPI as GitHubIssuesAPI
+    participant AliceSocialRepo as AliceSocialRepo (.social)
+
+    Bob->>GitHubFollowAPI: Click "Follow" on Alice's GitHub profile
+    GitHubFollowAPI->>GitHubFollowAPI: Update Bob's follow list
+
+    Bob->>BobClient: Open Octotown client (view feed)
+    BobClient->>GitHubFollowAPI: GET /users/Bob/following (fetch users who Bob follows)
+    GitHubFollowAPI->>BobClient: Return followed users (only user accounts, includes Alice)
+
+    BobClient->>AliceSocialRepo: GET /repos/Alice/.social (check if repo exists)
+    AliceSocialRepo->>BobClient: .social repo found (Alice is an octotown user)
+
+    BobClient->>GitHubIssuesAPI: GET /repos/Alice/.social/issues
+    GitHubIssuesAPI->>BobClient: Return posts (Issues)
+
+    BobClient->>BobClient: Build Bob's feed from fetched posts
+    Note over BobClient: Replication is pull-based and only occurs<br>when Bob opens the Octotown client.
+```
+
+
