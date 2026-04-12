@@ -335,5 +335,51 @@ sequenceDiagram
     BobClient->>BobClient: Build Bob's feed from fetched posts
     Note over BobClient: Replication is pull-based and only occurs<br>when Bob opens the Octotown client.
 ```
+## Git as Federation Transport
+## Posting Workflow
+### Brief Description:
+
+```mermaid
+sequenceDiagram
+    participant AliceUser as Alice (User on AliceServer)
+    participant AliceServer as AliceServer
+    participant AliceRepo as AliceServerRepo (Git Repo)
+    participant BobServer as Bobserver (Server AliceServer Follows)
+    participant CarolServer as Carolserver (Server AliceServer Follows)
+
+    AliceUser->>AliceServer: Create new post ("Hello!")
+
+    AliceServer->>AliceServer: Generate JSON file for post<br>e.g., users/alice/posts/0012.json
+
+    AliceServer->>AliceRepo: git commit -m "New post by Alice"<br>(commit includes JSON post file)
+    AliceRepo->>AliceRepo: Store commit in server's Git History
+
+    AliceServer->>BobServer: git push bob-server main<br>(send new post commit to followed server)
+    AliceServer->>CarolServer: git push bob-server main<br>(send new post commit to followed server)
+    
+    Note over AliceRepo: BobServer and CarolServer do NOT recieve the post here.<br>They only get it later when they run git fetch. 
+```
+## Following + Replication Workflow
+### Brief Description:
+
+```mermaid
+sequenceDiagram
+    participant Admin as Admin (BobServer Operator)
+    participant BobServer as BobServer
+    participant BobRepo as BobServerRepo (Git Repo)
+    participant AliceServer as AliceServer
+    participant AliceRepo as AliceServerRepo (Git Repo)
+
+    Admin->>BobServer: Add AliceServer as a remote<br>git remote add alice-server git@alice.social:stegodon.git
+    BobServer->>BobServer: Store remote configuration<br>(BobServer now follows AliceServer)
+
+    BobServer->>AliceServer: git fetch alice-server main<br>(periodically fetch new commits)
+    AliceServer->>BobServer: Return new commits<br>(include JSON post files)
+
+    BobRepo->>BobServer: Import JSON posts from fetched commits
+    BobServer->>BobServer: Update timelines for all local users<br>(Bob, Tom, etc)
+
+    Note over BobRepo: Replication is pull-based<br>BobServer fetches posts from AliceServer. 
+```
 
 
