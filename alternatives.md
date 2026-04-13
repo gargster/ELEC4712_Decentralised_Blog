@@ -355,7 +355,7 @@ sequenceDiagram
     AliceRepo->>AliceRepo: Store commit in server's Git History
 
     AliceServer->>BobServer: git push bob-server main<br>(send new post commit to followed server)
-    AliceServer->>CarolServer: git push bob-server main<br>(send new post commit to followed server)
+    AliceServer->>CarolServer: git push carol-server main<br>(send new post commit to followed server)
     
     Note over AliceRepo: BobServer and CarolServer do NOT recieve the post here.<br>They only get it later when they run git fetch. 
 ```
@@ -365,21 +365,23 @@ sequenceDiagram
 ```mermaid
 sequenceDiagram
     participant Admin as Admin (BobServer Operator)
-    participant BobServer as BobServer
-    participant BobRepo as BobServerRepo (Git Repo)
-    participant AliceServer as AliceServer
-    participant AliceRepo as AliceServerRepo (Git Repo)
+    participant BobServer as BobServer (Application)
+    participant BobRepo as BobServerRepo (Git Object Store)
+    participant AliceServer as AliceServer (Git Server)
 
     Admin->>BobServer: Add AliceServer as a remote<br>git remote add alice-server git@alice.social:stegodon.git
     BobServer->>BobServer: Store remote configuration<br>(BobServer now follows AliceServer)
 
     BobServer->>AliceServer: git fetch alice-server main<br>(periodically fetch new commits)
-    AliceServer->>BobServer: Return new commits<br>(include JSON post files)
+    AliceServer->>BobServer: Send Git packfile<br>(compressed Git objects: commits, trees, blobs)
 
-    BobRepo->>BobServer: Import JSON posts from fetched commits
-    BobServer->>BobServer: Update timelines for all local users<br>(Bob, Tom, etc)
+    BobServer->>BobRepo: Write fetched commits into repo<br>(Git stores objects and updates Alice’s latest commit pointer)
+    BobServer->>BobRepo: Read commits from repo<br>(application scans for JSON post files)
+    
+    BobServer->>BobServer: Parse JSON post files from commits<br>(convert Git objects into social posts)
+    BobServer->>BobServer: Update timeline database<br>(Bob, Tom, etc. now see Alice’s posts)
 
-    Note over BobRepo: Replication is pull-based<br>BobServer fetches posts from AliceServer. 
+     Note over BobRepo: BobRepo never initiates anything.<br>It only stores Git objects written during fetch.<br>BobServer (the application) must actively read and import posts.
 ```
 
 
