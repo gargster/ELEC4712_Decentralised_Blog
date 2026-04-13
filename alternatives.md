@@ -338,6 +338,7 @@ sequenceDiagram
 ## Git as Federation Transport
 ## Posting Workflow
 ### Brief Description:
+The following diagram shows the posting workflow for Git as Federation Transport which is a multiple-users per server based model. A single server (e.g. AliceServer) hosts a community of users, similar to Mastadon. Once a user on the server (Alice) creates a post, the server converts the post into a JSON file which is then commited and stored into the servers's Git Repository. After committing, the server pushes the commit (containing the post) to every other server AliceServer follows (here servers follow other servers as opposed to users following users). The push action does not mean that the other servers have actally receieved the post socially since it only transfer Git Objects. Only when the remote servers later run git fetch during their replication cycle, will they be able to built the feed with the posts.
 
 ```mermaid
 sequenceDiagram
@@ -361,6 +362,7 @@ sequenceDiagram
 ```
 ## Following + Replication Workflow
 ### Brief Description:
+The following diagram shows how "following" works in this model, which is server-to-server and not user-to-user. For BobServer to follow AliceServer, BobServer's operator (e.g. admin) adds AliceServer as a Git remote. Once this is configured BobServer periodically runs git fetch to pull new commits from servers it follow which now includes AliceServer. AliceServer responds to BobServer by sending Git packfile which is a bundle of compressed Git objects containing the JSON post file which however is not in a readable form yet. Next, Git on BobServer writes these fetched objects into BobServer's Git repository, while updating its pointer to AliceServer's latest commit. In order to find the JSON post files, BobServer scans the new commits in the repository. The server parses these JSON files and imports them into its own timeline database, upon which the users on BobServer (e.g. Bob, Tom) can see Alice's posts. Overall this model is pull-based, meaning even if AliceServer had pushed to BobServer, BobServer would not show the post unless it later performs a fetch and imports it. This can be seen as a negative as AliceServer's push may effectively be wasted - the server it inteded to send post won't recieve the post until they choose to fetch it.
 
 ```mermaid
 sequenceDiagram
@@ -377,7 +379,7 @@ sequenceDiagram
 
     BobServer->>BobRepo: Write fetched commits into repo<br>(Git stores objects and updates Alice’s latest commit pointer)
     BobServer->>BobRepo: Read commits from repo<br>(application scans for JSON post files)
-    
+
     BobServer->>BobServer: Parse JSON post files from commits<br>(convert Git objects into social posts)
     BobServer->>BobServer: Update timeline database<br>(Bob, Tom, etc. now see Alice’s posts)
 
