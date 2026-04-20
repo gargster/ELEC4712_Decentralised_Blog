@@ -230,7 +230,6 @@ sequenceDiagram
     participant Relay as Relay/BGS (Global Update Collector)
     participant DID as DID Service (Public Key Lookup)
     participant AppView as AppView (Global Index + Feeds)
-    participant AlicePDS as Alice's PDS
 
     Bob->>BobPDS: Click "Follow Alice"
     BobPDS->>BobPDS: Create follow record<br>(type: app.bsky.graph.follow)
