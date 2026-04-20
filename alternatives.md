@@ -264,6 +264,48 @@ sequenceDiagram
 ```
 
 ## Git Based Attempts
+
+## gitweets
+## Posting Workflow
+### Brief Description:
+
+```mermaid
+sequenceDiagram
+    participant Alice as Alice (User)
+    participant Repo as Alice's Gitweets Repo<br>(normal Git Repo used as timeline)
+    participant GitHub as GitHub API
+    participant Viewer as Gitweets Viewer<br>(static HTML page)
+
+    Alice->>Repo: make post "Hello"<br>(creates commit with tweet text)
+    Repo->>GitHub: Push commit to GitHub
+    GitHub->>Viewer: Provide commit history via REST API
+    Viewer->>Alice: Render timelines from commit history
+```
+## Viewing/Following Workflow
+### Brief Description:
+
+```mermaid
+sequenceDiagram
+    participant Bob as Bob (User)
+    participant BobRepo as Bob's Gitweets Repo
+    participant AliceRepo as Alice's Gitweets Repo
+    participant GitHub as GitHub API
+    participant Viewer as Gitweets Viewer<br>(static HTML page)
+
+    Bob->>BobRepo: git remote add alice <AliceRepoURL><br>(manual follow)
+    Bob->>BobRepo: git fetch alice<br>(download Alice's commits)
+
+    Note over BobRepo: Alice's commits are fetched locally<br>but not part of Bob's timeline yet.
+    
+    Bob->>Viewer: Open Alice's Gitweets page<br>(viewer fetches commit history)    
+    GitHub->>Viewer: Provide Alice's commit history via REST API
+    Viewer->>Bob: Render Alice's timeline
+    
+    Bob->>BobRepo: Optional: cherry-pick Alice's commit<br>(retweet into Bob's timelines)
+    BobRepo->>GitHub: Optional: git push<br>(publish retweet to Bob's GitHub repo)
+```
+
+
 ## social4git
 ## Posting Workflow
 ### Brief Description:
