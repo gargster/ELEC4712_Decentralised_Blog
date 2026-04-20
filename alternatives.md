@@ -192,6 +192,7 @@ sequenceDiagram
 ## AT Protocol
 ## Posting Workflow
 ### Brief Description:
+The following diagram shows the posting workflow in AT Protocol, where each user has their own Personal Data Server (PDS) to which users interact with to create posts. When Alice creates a post, her PDS creates a post record (app.bsky.feed.post) which contains the post content and metadata. The post record is then signed with Alice's private key and written into Alice's repo (Alice’s repo = her AT Protocol repository, a signed Merkle tree of records stored on her PDS — not a GitHub repository) by Alice's PDS. The PDS announces a repo update to the Relay/BGS service which collects updates from many PDS and appends them to the firehose (stream of all repo events across the network). The AppView then receieves the events, including Alice's post record who's signature is then verified using Alice's public key (which is fetched from Alice's DID Document). Once the post is verfied, AppView indexes the post into its global database so it can later be used for feeds, search and discovery. The post is not fetched from Alice's repository directly, instead followers later retrieve Alice's posts from AppView when requesting from timeline.
 
 ```mermaid
 sequenceDiagram
@@ -222,6 +223,9 @@ sequenceDiagram
 ```
 ## Following + Replication Workflow
 ### Brief Description:
+The diagram belows shows the following and replication workflow for AT Protocol, when Bob tries to follow Alice, Bob's BDS creates a follow record inside Bob's repository. This follow record is signed by Bob's private key and written into Bob's repo by the PDS which then announces this update to Relay/BGS, in turn which adds the event to the firehose stream of events. Next once, AppView receives the follow event from the firehose, it uses Bob's public key to verify the signature of the event and upon verification updates its social graph to record that Bob follows Alice. However this step does not deliver Alice's post to Bob, but only later when Bob opens his app and requests his feed/timeline, he can see Alice's post. Internally when Bob requests his timeline, AppView looks up Bob's follow graph to determine who he follows. Then indexed posts from users (including Alice) which were previously processing during the posting workflow are retrieved, lastly building Bob's feed by combining posts from all follwed users.
+
+then retrieves indexed posts from users (including Alice) 
 
 ```mermaid
 sequenceDiagram
