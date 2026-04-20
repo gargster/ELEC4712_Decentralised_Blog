@@ -218,7 +218,7 @@ sequenceDiagram
     AppView->>AppView: Verify signature on post<br>(using Alice's public key)
     AppView->>AppView: Index post<br>("Post by Alice at time T")
 
-    Note over AppView: Followers do NOT fetch Alice's repo.<br>AppView verifies, indexes, and serves posts<br>to followers like Bob when they request their food.
+    Note over AppView: Followers do NOT fetch Alice's repo.<br>AppView verifies, indexes, and serves posts<br>to followers like Bob when they request their feed.
 ```
 ## Following + Replication Workflow
 ### Brief Description:
@@ -229,35 +229,35 @@ sequenceDiagram
     participant BobPDS as Bob's PDS (Stores Bob's Repo)
     participant Relay as Relay/BGS (Global Update Collector)
     participant DID as DID Service (Public Key Lookup)
-    participant AppView  as AppView (Global Index + Feeds)
+    participant AppView as AppView (Global Index + Feeds)
     participant AlicePDS as Alice's PDS
 
     Bob->>BobPDS: Click "Follow Alice"
-
     BobPDS->>BobPDS: Create follow record<br>(type: app.bsky.graph.follow)
     BobPDS->>BobPDS: Sign follow record with Bob's private key
     BobPDS->>BobPDS: Write signed follow record into Bob's repo
 
     BobPDS->>Relay: Announce repo update<br>("Bob now follows Alice")
-
     Relay->>Relay: Add update to firehose stream<br>(firehose = continuous stream of all repo events)
     Relay->>AppView: Deliver firehose event<br>(event = one update from a user's repo)
 
     AppView->>DID: Fetch Bob's DID Document<br>(get Bob's public key)
-    DID->>AppView: Return public key 
+    DID->>AppView: Return public key
     AppView->>AppView: Verify signature on follow record<br>(using Bob's public key)
 
     AppView->>AppView: Update social graph<br>("Bob follows Alice")
-    
     Bob->>AppView: Request home timeline
 
     AppView->>AppView: Look up Bob's follow graph<br>(find users Bob follows e.g. Alice)
     AppView->>AppView: Retrieve indexed posts<br>(posts previously indexed from Alice)
     AppView->>AppView: Build Bob's feed<br>(combine posts from all followed users)
 
+    
+    Note over AppView: Updating the social graph does not deliver posts to Bob. Bob only sees Alice's posts when he requests his home timeline and AppView uses the follow graph and indexed posts to build his feed.
+    
+
     AppView->>Bob: Return posts from followed users<br>(includes Alice's posts)
 
-    Note over AppView: Updating the social graph does not deliver posts to Bob; Bob only sees Alice's posts when he requests his home timeline and AppView uses the follow graph and indexed posts to build his feed.
 ```
 
 ## Git Based Attempts
