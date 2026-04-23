@@ -268,6 +268,7 @@ sequenceDiagram
 ## gitweets
 ## Posting Workflow
 ### Brief Description:
+The following diagram shows the posting worflow in gitweets, where a standard Git repository is treated as user's timeline. To create post, Alice simply creates a Git commit where the commit message is the post text. The commit is then pushed to Alice's public GitHub repository, updating her timeline. Later, people can view Alice's posts by opening the Gitweets static viewer, which fetches commit history from GitHub's REST API and displays each commit as a post. Their is no dedicated Gitweets client, instead the viewer is just a static HTML page that can be loaded in the browser by anyone.
 
 ```mermaid
 sequenceDiagram
@@ -283,7 +284,7 @@ sequenceDiagram
 ```
 ## Viewing/Following Workflow
 ### Brief Description:
-
+The following diagram shows the viewing workflow for Gitweets which has no built-in follow system, instead Bob manually adds Alice's Gitweets repository as a Git remote and fetches her commits. Fetching does not merge the commits into Bob's timeline but only downloads them locally. Thus to actually view Alice's posts Bob opens the Gitweets viewer pointed at Alice's repository which then retrieves Alice's commit history, rendering it as her timeline. If Bob wants to "retweet" he picks one of Alice's commits and commits and pushes it into his own repository, which makes it appear on his own timeline.
 ```mermaid
 sequenceDiagram
     participant Bob as Bob (User)
