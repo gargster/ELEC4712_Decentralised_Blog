@@ -1,5 +1,11 @@
 # Alternative Decentralised Social Protocols
 ## ActivityPub
+## What it is
+ActivityPub is a decentralised social networking protocol where users interact through servers that exchange structured social activities (e.g., Create, Like, Follow) using JSON‑LD over HTTP. It is widely used across the Fediverse and enables interoperability between platforms such as Mastodon and Peer‑Tube. This makes it one of the most established standards for federated social communication.
+
+## How it works 
+ActivityPub uses an inbox/outbox model where a user’s client constructs an activity (such as a Create or Follow), sends it to their server, and the server validates and stores it. The server then forwards this activity to the inboxes of follower servers, which also validate it and update their timelines accordingly. This results in a push‑based, server‑mediated delivery mechanism.
+
 ## Posting Workflow
 ### Brief Description:
 The following sequence diagram shows how Alice's followers recieve the posts she makes. First of all, Alice creates a Post within here client (e.g. Mastodon app) which then constructs this as a Create activity. The client then sends this to Alice's server by making an HTTP POST to her outbox endpoint. The server validates this activity and stores it Alice's outbox. Following this, Alice's server iterates through all her followers and pushes this same Create activity to each follower's server by POSTing it to their inbox endpoints. The follower's server then all validate the messages and update their timeline. Last of all, the follower's clients get notfied or manually fetch the updated timelines from their server and Alice's post is rendered to their feeds.
@@ -38,6 +44,51 @@ sequenceDiagram
     BobServer->>AliceServer: POST /inbox (Accept activity)
     AliceServer->>AliceServer: Store Accept & mark Bob as followed
 ```
+## Strengths
+- Rich social vocabulary (Create, Like, Follow, Undo, Announce) which is good for social protocols and many others don’t have it.
+
+- The servers provide security compared to most other protocols as they validate activities (including checking signatures and ensuring message integrity).
+
+- This has been used and adapted across the Fediverse.
+
+- Simple to understand server‑to‑server model.
+
+- The person who attempts to follow you can be validated and accepted/declined, and they receive confirmation once completed.
+
+- Clear HTTP‑based design makes it easy to implement and reason about, contributing to its widespread adoption and interoperability.
+
+## Limitations
+- Although the inbox/outbox provide clear responsibilities, it creates a significant infrastructure burden.
+
+- Unlike Git, which is pull‑based and only replicates when users request updates, ActivityPub is push‑based. This is good for immediacy but becomes expensive at scale (as seen in Mastodon, where push fan‑out is a major bottleneck).
+
+- Not Git‑based: no directed acyclic graph, versioning, reverting, or history benefits that Git provides.
+
+- Moderation burden on each server → can resemble many smaller versions of centralised social media, where popular servers may still impose restrictive moderation.
+
+- Server dependency means users rely on their server for identity, availability, and data storage.
+
+- Push‑based fan‑out (server sends a post to every follower) becomes extremely expensive for large accounts, causing scalability issues and centralisation pressure.
+
+## Relevance to my project
+- This shows the initial idea of the project → an attempt at decentralised social media.
+
+- It has much of the functionality I would want: a rich social vocabulary of activity types exchanged via HTTP into inboxes and outboxes and validated for integrity (rather than relying on implicit or ad‑hoc mechanisms). The posts themselves are converted to JSON‑LD objects, which may be promising.
+
+- The fact that the followed person can accept the request and update followers is good and common across protocols.
+
+- Compared to other protocols, this has more integrity and social‑media‑oriented functionality, but we need to adapt these ideas into a pull‑based model without servers.
+
+- Static‑based systems would not have push‑based notifications; instead, followers would manually fetch posts, so an alternative lightweight notification mechanism may be required.
+
+- Overall contrast:
+  - Git = pull‑based, versioned, structured, static‑hostable  
+  - ActivityPub = push‑based, server‑dependent, unversioned
+
+- The concept of Activity types is a key takeaway (as it enables many social actions), and the integrity‑checking approach is also relevant.
+
+- Highlights what our protocol should avoid (server dependency, push fan‑out (server sends to ever follower)) and what concepts we can reuse (structured activity types, validation steps), helping clarify the architectural direction for a Git‑based, pull‑oriented alternative.
+
 ## Nostr
 ## Posting Workflow
 ### Brief Description:
