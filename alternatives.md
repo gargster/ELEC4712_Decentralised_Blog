@@ -90,6 +90,12 @@ sequenceDiagram
 - Highlights what our protocol should avoid (server dependency, push fan‑out (server sends to ever follower)) and what concepts we can reuse (structured activity types, validation steps), helping clarify the architectural direction for a Git‑based, pull‑oriented alternative.
 
 ## Nostr
+## What it is
+Nostr is a decentralised social protocol where users publish signed events to independent relays, which store and forward these events to subscribers. It uses public‑key cryptography for identity, allowing users to retain their identity across relays. Its design focuses on simplicity, censorship‑resistance, and minimal reliance on trusted infrastructure.
+
+## How it works
+Users create events (for example, kind‑1 events for posts and kind‑3 events for follows) from the notes or actions they perform in their client. The client signs each event with the user’s private key and forwards it to one or more relays. The relays validate the signature using the user’s public key and, if valid, store the event. Clients then subscribe to relays (using REQ messages) to receive past and future events and build the user’s feed. Overall, Nostr achieves a structured social workflow similar to ActivityPub, but using relays instead of servers.
+
 ## Posting Workflow
 ### Brief Description:
 The following sequence diagram shows Alice's followers receieve the posts which Alice posts. Firstly once Alice makes her post, Alice's Client Creates a signed event of kind 1 and publishes it to one or more relays. These relays validate the event and store it, then it forwards the event to all of Alice's 'followers' (clients that have subscribed to Alice's public key). The follower's client then build the follower's feed with Alice's post. 
@@ -126,6 +132,38 @@ sequenceDiagram
     BobClient->>Relays: REQ (subscribe to Alice)
     Relays->>BobClient: Send past & stream future events
 ```
+## Strengths
+- Compared to ActivityPub, where there is the issue of servers banning users and if a server is shut down the user loses their identity, in Nostr users maintain their identity and followers through their public key, even if banned on one relay.
+
+- Nostr is built to be inherently censorship‑resistant. Users can freely publish their updates on multiple relays, creating a decentralised ecosystem that stands strong against censorship attempts.
+
+- Identity is portable because it is tied to cryptographic keys rather than server accounts, which reduces dependence on any single operator.
+
+- Relays are relatively simple components (store‑and‑forward nodes), which makes the protocol easy to deploy and contributes to resilience.
+
+## Limitations
+- As mentioned, the followed user does not get to accept or deny the request, and their past posts are fetched along with any future posts they make.
+
+- According to analysis from Stacker News (https://stacker.news/items/241444), relays do not track what messages a client already has or what it still needs. As a result, clients often download entire message histories, which wastes bandwidth and computation.
+
+- The same source notes that there is no structured way to relate messages other than timestamps. Because timestamps are the only ordering mechanism, they can be faked, allowing malicious users to create events that appear in the future or the past. This reflects weak ordering guarantees and introduces security risks.
+
+- Furthermore, the reliability of relays is not sufficient: they can drop or lose messages, and there is no robust replication strategy to ensure consistent delivery across relays.
+
+- These weaknesses of the relay model and the insufficient tracking and ordering of posts suggest that a more structured replication strategy, such as Git’s DAG‑based commit model, could be more suitable.
+
+## Relevance to my project
+- Shows a truly decentralised platform which has a similar workflow to ActivityPub but with relays instead of servers. It provides integrity with public‑key infrastructure, which is important for my own protocol.
+
+- The use of different types of notes (event kinds) for different types of social actions suggests a common pattern (similar to ActivityPub) where different categories represent different actions while keeping the workflow consistent.
+
+- The relays show how a decentralised protocol is meant to allow user identity to persist even if they are banned on one site, which has implications for the design of my protocol. However, the relays themselves have many limitations.
+
+- The relays do not track client state, and the ordering of commits is not structured, leading to security risks (as with timestamp‑based ordering). Git’s commit‑based structured DAG model tries to address these issues appropriately.
+
+- Nostr therefore illustrates both the benefits of decentralised, key‑based identity and the drawbacks of unstructured replication, reinforcing the motivation for a Git‑based, pull‑oriented, integrity‑preserving protocol design.
+
+
 ## Secure Scuttlebutt (SSB)
 ## Posting Workflow
 ### Brief Description:
