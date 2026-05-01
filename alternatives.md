@@ -165,6 +165,13 @@ sequenceDiagram
 
 
 ## Secure Scuttlebutt (SSB)
+## What it is
+Secure Scuttlebutt (SSB) is a decentralised social protocol where each user maintains an append‑only log (their feed) stored locally on their device. Each message in the feed is a signed JSON object linked to the previous message, forming a cryptographically verifiable chain. SSB is designed for offline‑first communication and peer‑to‑peer replication without servers.
+
+## How it works
+When a user creates a post, their client constructs a message object, assigns it the next sequence number, computes the hash of the previous message, and signs the new message with the user’s private key. The signed message is appended to the user’s local feed, forming a linked list of append‑only logs.
+Following another user simply involves adding their feed ID to the local follow list. Replication occurs later through gossip: when two devices connect, they exchange sequence numbers and transfer any missing signed messages. Each received message is verified using the author’s public key before being appended to the local log.
+
 ## Posting Workflow
 ### Brief Description:
 The sequence diagram shows the posting workflow in SSB. Once Alice writes a new post, Alice's client creates a message object containing the post content. It asssigns the object the next identifying sequence number in her feed and computes the hash of the previous message, adehering to the feeds linked list data structure. The client then signs this entire message using Alice's private key and appendsit to Alice's local append-only feed. Since SSB is offline-first, when Alice posts, nothing is sent to anyone immediately and followers like Bob will only recieve this post later when the devices connect and gossip replication occurs. 
@@ -213,6 +220,39 @@ sequenceDiagram
 
     Note over BobFeed: Bob receives Alice's posts only during gossip replication.<br>SSB pulls missing messages when devices connect.<br>No real-time delivery or push notifications.
 ```
+## Strengths
+- The feed is strongly protected as it is stored locally and cryptographically signed, and the protocol is largely spam‑resistant because you only receive messages from people you follow.
+
+- The protocol is fully decentralised, with no central servers controlling visibility or access; replication occurs purely through peer‑to‑peer gossip.
+
+- The linked‑list structure of messages resembles how commits are stored in Git, showing that a Git‑like model is conceptually compatible with decentralised social data.
+
+- Gossip replication has been successfully deployed in real‑world contexts, such as European train networks (SBB free Wi‑Fi), demonstrating its offline‑first robustness.
+
+- Users only download messages from peers they follow, which spreads data reliably and reduces exposure to harassment or unsolicited content.
+
+## Limitations 
+- Gossip replication is reliable but spreads data slowly, since users only download messages from peers they follow. This suggests that Git‑based replication could be more efficient, as it allows peers to synchronise without requiring local connectivity and leverages existing infrastructure.
+
+- The append‑only log structure is similar to Git but far less flexible. Because logs cannot be rewritten or pruned, storage grows indefinitely and the timeline cannot be reorganised, unlike Git’s DAG which supports branching, merging, and history editing.
+
+- According to external analysis (e.g., Medium’s “Definitive Guide to Secure Scuttlebutt”), SSB’s documentation is sparse and its user interfaces are not intuitive, which reduces accessibility for new users.
+
+- Due to the append‑only nature of logs, storage usage becomes a serious limitation over time.
+
+- As data grows, gossip replication becomes increasingly inefficient, since peers must exchange large amounts of data during synchronisation.
+
+- The rigidity of the append‑only model and the slow, proximity‑based replication highlight the need for a more structured and scalable replication strategy, such as Git’s DAG‑based approach.
+
+## Relevance to my project
+- SSB shows a decentralised model without servers or relays forwarding posts; instead, replication occurs later through gossip when devices connect. This aligns closely with the static‑site‑based, pull‑oriented design of my protocol.
+
+- The structure of feeds is similar to Git, demonstrating the viability of a linked‑list‑style data structure. However, the append‑only nature introduces rigidity and storage issues, suggesting that Git’s DAG is more suitable.
+
+- The feed is strongly protected cryptographically, implying that my protocol should also sign posts (e.g., hashing content + referencing previous messages). However, SSB’s model—where only followed users can see your posts—does not scale well for large‑scale social interactions.
+
+- Compared to Git’s DAG, SSB is less flexible because it cannot restructure history, merge changes, or rewrite data. This reinforces the need for a Git‑based replication model in my protocol.
+
 ## sAT Protocol (s@)
 ## Posting Workflow
 ### Brief Description:
