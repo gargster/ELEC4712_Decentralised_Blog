@@ -477,6 +477,19 @@ sequenceDiagram
 
 - The protocol’s complexity highlights the value of a simpler, Git‑based, static‑hostable design that avoids the heavy infrastructure of PDS/BGS/AppView.
 
+## Summary of Non-Git based models:
+| Protocol     | What it does well                                                                  | Key limitations                                                                                    | Useful ideas                                                            | Gaps / Missing                                       |
+|--------------|---------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------|---------------------------------------------------------------|
+| ActivityPub  | Provides Rich Social activity types; Security using server-validated integrity; practically widely adopted | Inbox/outbox infrastructure create heavy server load; Push fan-out bottleneck (issues with push-based scaling); Server dependency | Clear and detailed structured activity model for social actions; validation check (integrity) | It is not static-hostable, push-based model is too heavy (need pull-based) |
+| Nostr        | Portable identity: as it is tied to keys rather than servers; simple relay model replaces servers | Limitations around relays: weak-ordering of messages, no state tracking beyond timestamps | Use of various types of events is useful to represent social actions | No structured replication, Git’s DAG commit model may be more suitable |
+| SSB          | Strong integrity of local feed; fully decentralised offline gossip replication              | Gossip synchronisation is slow; storage limitation of append-only feed                                      | Append-only logs (linked-list structure) resembles Git-like structure           | Need a more scalable replication approach like Git DAG        |
+| sAT          | Full static hostable; integrity through HTTPs/TLS and confidentiality through hybrid encryption. | Slow feed replication + limited features                                                                     | Dedicated /satellite/ directory for social data                                  | Slow replication: may need Git DAG for efficiency             |
+| AT Protocol  | Portable identity through DID + strong indexing/discovery                                   | Still server dependent; overly complex architecture                                                          | Shows repo-based identity + versioning -> similar to git                         | Not static-hostable; not Git-compatible                       |
+
+
+
+
+
 ## Git Based Attempts
 
 ## gitweets
