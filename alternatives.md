@@ -254,6 +254,13 @@ sequenceDiagram
 - Compared to Git’s DAG, SSB is less flexible because it cannot restructure history, merge changes, or rewrite data. This reinforces the need for a Git‑based replication model in my protocol.
 
 ## sAT Protocol (s@)
+## What it is
+The sAT Protocol (s@) is a decentralised, static‑site‑based social protocol where each user hosts their social data on their own domain under a dedicated directory named /satellite/. Posts and user metadata are stored as encrypted JSON files, and all interactions occur through browser‑side encryption and static‑site updates. It is designed for small, privacy‑preserving social groups without servers, relays, or backend infrastructure.
+
+## How it works
+When a user creates a post, their browser constructs a JSON object representing the post, generates a new symmetric content key, encrypts the post with this key, and uploads the encrypted file to /satellite/posts/. The post’s ID is appended to index.json, which acts as a plaintext list of post identifiers for replication.
+Following another user involves adding their domain to a local follow list and exchanging encrypted “key envelopes,” where the symmetric content key is encrypted individually for each follower. Replication occurs when the follower’s browser fetches the index file, retrieves encrypted posts one by one, decrypts the content key using their private key, and then decrypts each post using the symmetric key.
+
 ## Posting Workflow
 ### Brief Description:
 The following diagram shows how posting works in s@ which is entirely static site based and all encryption & processing happens on the browser, not on a server. Once Alice writes a new post on her browser, the browser constructs a plaintext JSON object of the post and it's meta data. A fresh symmetric key is newly generated for this post, and used to encrypt the whole JSON post. This encrypyted post is then named according to its id and uploaded to the posts subfolder within Alice's static site. Alice's browser then updates the index.json file (which is a file listing all post IDs in order) to include the new post's id. Finally, this updated index.json is uploaded to Alice's static site so that her followers can later discover the new post.
@@ -318,6 +325,40 @@ sequenceDiagram
 
     Note over BobBrowser: Followers fetch index.json to discover post IDs,<br>then fetch each encrypted post file from /satellite/posts/<id>.json<br>and decrypt it locally using the recovered symmetric content key.
 ```
+## Strengths
+- This protocol aligns strongly with the goal of a fully static‑hostable system: all social data is stored on static sites (e.g., GitHub Pages) with no servers, relays, or backend infrastructure.
+
+- Provides integrity through HTTPS/TLS and confidentiality through strong symmetric encryption, where each follower receives their own encrypted content key.
+
+- Unfollowing is handled securely: the user generates a new content key, re‑encrypts all posts, and issues new key envelopes only to remaining followers, ensuring the unfollowed user immediately loses access.
+
+- Represents social actions using structured JSON objects (id, author, timestamp, text, reply metadata), similar to ActivityPub’s activity objects.
+
+- The use of a dedicated `/satellite/` directory cleanly isolates social activity from the rest of the static site, similar to directory‑scoped Git‑based protocols like Octotown. 
+
+## Limitations
+- Feed aggregation is slow and does not scale well, as the browser must fetch each encrypted post file individually and decrypt them one by one.
+
+- The protocol is suited mainly for small friend groups: there is no discoverability, and connections rely on personal relationships rather than public search or federation.
+
+- There is no support for nested replies, limiting the expressiveness of social interactions.
+
+- The browser must store the user’s private key, raising practical concerns about secure key storage and portability across devices.
+
+- The replication workflow is computationally heavy: each follower must decrypt the content key and then decrypt every post, making the protocol inefficient for larger networks.
+
+## Relevance to my project
+- sAT demonstrates a purely decentralised, static‑hostable protocol with strong confidentiality and integrity guarantees, making it conceptually aligned with the goals of my project.
+
+- Its symmetric‑key‑based security model shows how confidentiality can be preserved without servers or relays, but also highlights the computational cost of per‑post encryption and decryption.
+
+- Compared to ActivityPub and Nostr, which support richer social actions, sAT is more limited (e.g., no nested replies), suggesting that a more flexible object model (e.g., ActivityPub’s activity types or Nostr’s event kinds) may be preferable.
+
+- The heavy encryption and slow replication suggest that a simpler, more efficient replication mechanism—such as Git’s DAG‑based model—may provide a better balance between security, scalability, and performance.
+
+- The use of a dedicated directory (`/satellite/`) reinforces the design idea of isolating social data within a structured subdirectory, which is also seen in Git‑based protocols like Octotown.
+
+
 ## AT Protocol
 ## Posting Workflow
 ### Brief Description:
