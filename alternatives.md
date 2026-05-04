@@ -328,7 +328,7 @@ sequenceDiagram
 ## Strengths
 - This protocol aligns strongly with the goal of a fully static‑hostable system: all social data is stored on static sites (e.g., GitHub Pages) with no servers, relays, or backend infrastructure.
 
-- Provides integrity through HTTPS/TLS and confidentiality through strong symmetric encryption, where each follower receives their own encrypted content key.
+- Provides integrity through HTTPS/TLS and confidentiality through strong symmetric encryption, where each follower receives their own encrypted content key. Importantly, sAT combines symmetric and asymmetric cryptography: posts are encrypted with a symmetric content key, and that key is then encrypted individually for each follower using asymmetric encryption. This hybrid model provides full confidentiality while avoiding the cost of encrypting large posts with public‑key cryptography.
 
 - Unfollowing is handled securely: the user generates a new content key, re‑encrypts all posts, and issues new key envelopes only to remaining followers, ensuring the unfollowed user immediately loses access.
 
@@ -350,7 +350,7 @@ sequenceDiagram
 ## Relevance to my project
 - sAT demonstrates a purely decentralised, static‑hostable protocol with strong confidentiality and integrity guarantees, making it conceptually aligned with the goals of my project.
 
-- Its symmetric‑key‑based security model shows how confidentiality can be preserved without servers or relays, but also highlights the computational cost of per‑post encryption and decryption.
+- Its symmetric‑key‑based security model shows how confidentiality can be preserved without servers or relays, but also highlights the computational cost of per‑post encryption and decryption. The hybrid use of symmetric encryption (for content) and asymmetric encryption (for distributing the content key) is an important design insight for balancing confidentiality and performance.
 
 - Compared to ActivityPub and Nostr, which support richer social actions, sAT is more limited (e.g., no nested replies), suggesting that a more flexible object model (e.g., ActivityPub’s activity types or Nostr’s event kinds) may be preferable.
 
@@ -360,6 +360,18 @@ sequenceDiagram
 
 
 ## AT Protocol
+## What it is
+AT Protocol is a decentralised social networking protocol built around signed, per‑user repositories, Personal Data Servers (PDS), and a DID‑based portable identity system. It separates identity, data storage, indexing, and distribution into distinct services (PDS, AppView, BGS, DID Service). This architecture decentralises identity and data ownership, but still relies on servers for hosting and replication.
+
+## How it works
+Each user has a Personal Data Server (PDS) that stores a signed repository containing their social records (posts, likes, follows, media blobs). The repository is a custom DAG‑like structure defined by Lexicon schemas, not a Git repository, but it similarly isolates all social activity into a structured store.
+
+When a user creates a post, the client constructs a record, signs it with the user’s private key, and writes it into the repository. AT Protocol uses public‑key cryptography for signing and identity verification, but does not encrypt posts, so all content is public.
+
+The PDS announces repository updates to the Big Graph Service (BGS), which aggregates updates from all PDS instances into a global “firehose” stream. The AppView consumes this stream, verifies signatures using the user’s DID Document, indexes the post, and makes it available for feed generation.
+
+Portable identity is enabled by the DID Service: a user’s handle (DNS name) resolves to a DID, and the DID Document contains the user’s public keys and PDS endpoint. Updating the DID Document allows the user to migrate to a new PDS without losing their identity or social graph.
+
 ## Posting Workflow
 ### Brief Description:
 The following diagram shows the posting workflow in AT Protocol, where each user has their own Personal Data Server (PDS) to which users interact with to create posts. When Alice creates a post, her PDS creates a post record (app.bsky.feed.post) which contains the post content and metadata. The post record is then signed with Alice's private key and written into Alice's repo (Alice’s repo = her AT Protocol repository, a signed Merkle tree of records stored on her PDS — not a GitHub repository) by Alice's PDS. The PDS announces a repo update to the Relay/BGS service which collects updates from many PDS and appends them to the firehose (stream of all repo events across the network). The AppView then receieves the events, including Alice's post record who's signature is then verified using Alice's public key (which is fetched from Alice's DID Document). Once the post is verfied, AppView indexes the post into its global database so it can later be used for feeds, search and discovery. The post is not fetched from Alice's repository directly, instead followers later retrieve Alice's posts from AppView when requesting from timeline.
@@ -432,6 +444,38 @@ sequenceDiagram
     AppView->>Bob: Return posts from followed users<br>(includes Alice's posts)
 
 ```
+## Strengths
+- The DID Service enables portable identity, allowing users to move between servers without losing their account, social graph, or data.
+
+- Repositories are versioned, giving AT Protocol stronger ordering guarantees than timestamp‑based protocols like Nostr.
+
+- The architecture supports advanced features: AppViews enable search, content discovery, ranking, and feed generation — capabilities missing in protocols like SSB.
+
+- The BGS can handle large‑scale metrics (likes, reposts, follows), and the Lexicon schema system ensures interoperability across servers, making AT Protocol more flexible than ActivityPub’s extension model.
+
+- The separation of PDS (write), BGS (distribution), and AppView (read) provides scalability and modularity, allowing different providers to specialise in different layers.
+
+## Limitations
+- The protocol does not solve the core problem of this project: it is still server‑dependent, requiring PDS servers and AppViews, so it is not fully decentralised or static‑hostable.
+
+- The architecture is complex, involving multiple services (PDS, BGS, AppView, DID Service), and the repository format is custom, resulting in a steep learning curve.
+
+- Follow actions are not negotiated (no accept/decline step); they are simply signed records, which may have UX implications.
+
+- Security is limited to integrity: records are signed but not encrypted, so AT Protocol does not provide confidentiality like sAT.
+
+- Users cannot replicate or view data independently, as the protocol relies on server‑side indexing rather than client‑side fetching.
+
+## Relevance to my project
+- AT Protocol demonstrates a sophisticated, large‑scale architecture that builds on ideas from ActivityPub and Nostr, while adding portable identity and advanced indexing features.
+
+- It shows how a repository‑based identity system can work, with structured records, versioning, and a DAG‑like data model — conceptually similar to Git.
+
+- However, the protocol remains server‑dependent, whereas this project aims for a fully static, serverless alternative, ideally leveraging Git’s simpler and more widely understood replication model.
+
+- Despite signing records, AT Protocol does not encrypt them, so it lacks confidentiality, which is a key requirement for some use cases.
+
+- The protocol’s complexity highlights the value of a simpler, Git‑based, static‑hostable design that avoids the heavy infrastructure of PDS/BGS/AppView.
 
 ## Git Based Attempts
 
