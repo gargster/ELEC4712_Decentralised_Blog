@@ -486,9 +486,8 @@ sequenceDiagram
 | sAT          | Full static hostable; integrity through HTTPs/TLS and confidentiality through hybrid encryption. | Slow feed replication + limited features                                                                     | Dedicated /satellite/ directory for social data                                  | Slow replication: may need Git DAG for efficiency             |
 | AT Protocol  | Portable identity through DID + strong indexing/discovery                                   | Still server dependent; overly complex architecture                                                          | Shows repo-based identity + versioning -> similar to git                         | Not static-hostable; not Git-compatible                       |
 
-
-
-
+## Transition into Git-based protocols 
+As seen in the detailed analysis, each of the Non-Git based protocols have provided key insights into what a decentralised protocol should include. For example ActivityPub provides rich activity types for structured social actions, Nostr shows how portable identity is achieved via public keys with a simple relay mode. SSB provides strong append-only integrity while sAT is fully static-hostable with confidentiality and AT like Nostr achieves portable identity but through DIDs. However, none provide an efficient static hostable scalable pull-based replication model and lack Git’s structured ordering, efficient synchronisation. Thus this naturally leads to discovering existing Git-based protocols which can provide versioning, pull replication, static hosting and structured data model for a decentralised social media platform.  
 
 ## Git Based Attempts
 
