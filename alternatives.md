@@ -492,6 +492,13 @@ As seen in the detailed analysis, each of the Non-Git based protocols have provi
 ## Git Based Attempts
 
 ## gitweets
+## What it is
+Gitweets is a very simple Git‑based social prototype where a user’s Git repository acts as their timeline, and each post is represented as a Git commit whose commit message contains the post text. The system relies entirely on standard Git operations (commit, push, fetch) and exposes posts through a static HTML viewer that reads commit history via the GitHub REST API. It is not a full social protocol, but rather a minimal demonstration of using Git as a transport layer for social content.
+
+## How it works
+When a user creates a post, they simply make a Git commit where the commit message is the post text. This commit is pushed to a remote repository (e.g., GitHub). The Gitweets Viewer — a static HTML page — fetches the repository’s commit history via the GitHub REST API and renders each commit as a post in the timeline.
+Following another user involves adding their repository URL as a Git remote and running git fetch to download their commits. However, the actual timeline is only built when the follower visits the other user’s Gitweets Viewer page, which retrieves commit history from GitHub and displays it. Social actions are extremely limited: the only action beyond posting is a “retweet,” implemented by cherry‑picking another user’s commit into one’s own repository.
+
 ## Posting Workflow
 ### Brief Description:
 The following diagram shows the posting worflow in gitweets, where a standard Git repository is treated as user's timeline. To create post, Alice simply creates a Git commit where the commit message is the post text. The commit is then pushed to Alice's public GitHub repository, updating her timeline. Later, people can view Alice's posts by opening the Gitweets static viewer, which fetches commit history from GitHub's REST API and displays each commit as a post. Their is no dedicated Gitweets client, instead the viewer is just a static HTML page that can be loaded in the browser by anyone.
@@ -531,8 +538,36 @@ sequenceDiagram
     Bob->>BobRepo: Optional: cherry-pick Alice's commit<br>(retweet into Bob's timelines)
     BobRepo->>GitHub: Optional: git push<br>(publish retweet to Bob's GitHub repo)
 ```
+## Strengths
+- Very simple mental model: posting = pushing a commit, replication = fetching commits.
 
+- Uses existing Git infrastructure, making it lightweight and easy to host on static platforms.
 
+- The GitHub REST API + static HTML viewer provides a simple way to render timelines without servers.
+
+- Although minimal, it demonstrates the core idea of using Git as a pull‑based replication mechanism for social content.
+
+## Limitations
+- Not a real social protocol: posts are just commit messages, which are not designed for long, structured, or media‑rich content.
+
+- No discovery mechanism — users must manually know each other’s repository URLs, making it unsuitable for large‑scale social use.
+
+- Very limited social actions (only posting and a crude form of reposting).
+
+- Since everything is hosted on a Git platform (e.g., GitHub), deleting the Git account wipes the user’s entire social presence — so it is not truly decentralised.
+
+- No structured data model for posts, replies, likes, or follows — everything is just Git commits.
+
+- No privacy or access control; anyone with the repo URL can view posts.
+
+## Relevance to my Project
+- Gitweets shows the base concept of using Git for decentralised, pull‑based social media: pushing for posting and fetching for replication.
+
+- Demonstrates that Git + static hosting + REST API can form a minimal social system without servers.
+
+- However, it is far too limited for real social media, lacking structured social actions, discovery, and proper post formats.
+
+- This suggests that a Git‑based protocol must incorporate ideas from non‑Git protocols (e.g., ActivityPub’s activity types) while keeping Git’s pull‑based, static‑hostable advantages.
 ## social4git
 ## Posting Workflow
 ### Brief Description:
