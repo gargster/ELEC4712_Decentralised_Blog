@@ -569,6 +569,28 @@ sequenceDiagram
 
 - This suggests that a Git‑based protocol must incorporate ideas from non‑Git protocols (e.g., ActivityPub’s activity types) while keeping Git’s pull‑based, static‑hostable advantages.
 ## social4git
+## What it is
+Social4Git is a more structured Git‑based social protocol that uses two Git repositories per user:
+
+- a public repository containing the user’s published posts, and
+
+- a private repository that stores a cached collection of posts from all the users they follow.
+
+It improves on Gitweets by storing posts as actual text files plus metadata, rather than commit messages, making it more suitable for social content. The protocol demonstrates how Git can be used for decentralised posting, following, and replication without servers, while still relying on Git’s built‑in integrity guarantees. However, it does not implement signing or encryption, so authenticity and confidentiality are not provided.
+
+## How it works
+When a user creates a post, their client generates two files:
+
+- a raw text file containing the post content, and
+
+- a metadata file containing the author’s handle and a post ID (derived from timestamp + content).
+
+These files are committed and pushed to the user’s public Git repository, meaning posting is still fundamentally “push a commit,” but with a more appropriate file‑based structure than Gitweets.
+
+To follow another user, the follower adds the target user’s public repository URL to a follow list, which is then committed and pushed to the follower’s private repository. This private repository is responsible for building the user’s feed.
+
+Replication occurs when the user runs a manual sync: the client performs git fetch on each followed user’s public repository, extracts their posts, and copies them into the follower’s private repository. This isolates published posts (public repo) from the user’s personal feed (private repo), which is a cleaner separation than Gitweets.
+
 ## Posting Workflow
 ### Brief Description:
 The following sequence diagrams shows how posting operates in social4Git, which is a Git-based pull-replication model. When Alice makes a post, her client creates the post file and metadata file which are both commited and pushed to her public repository. Followers recieve the posts only upon manually running social4git sync, which fetches updates from Alice's public repository and copies the new post into their own private repository. 
@@ -614,6 +636,45 @@ sequenceDiagram
     BobClient->>BobClient: git add && git commit
     BobClient->>BobPrivateRepo: git push
 ```
+## Strengths
+- Clear separation of concerns: the public repository is for publishing posts, while the private repository stores the user’s feed.
+
+- Uses Git’s built‑in integrity: each commit is hash‑chained, so any tampering with posts or metadata would be detectable.
+
+- Simple mental model: posting, following, and replication are implemented using familiar Git operations.
+
+- Identity is straightforward: a user’s handle is simply their public Git repository URL.
+
+- More structured than Gitweets because posts are stored as files rather than commit messages.
+
+## Limitations
+- No structured activity model: posts are plain text files with minimal metadata, so there is no support for replies, likes, reposts, or other social actions found in protocols like ActivityPub.
+
+- No discovery mechanism — users must manually know each other’s repository URLs, making the protocol unsuitable for large‑scale social use.
+
+- Anyone with the user’s public repository URL can fetch all posts; there is no follow‑request or approval step, so no privacy control.
+
+- Not fully decentralised: the protocol depends entirely on a central Git hosting provider (e.g., GitHub). If the GitHub account is deleted or suspended, the user’s entire social presence disappears.
+
+- No signing mechanism: although Git provides integrity, Social4Git does not sign commits, so there is no cryptographic proof of authorship. This is weaker than Nostr, which signs every post.
+
+- No encryption: the private repository is only private because GitHub enforces access control. If someone gains access, all synced posts are readable.
+
+- Identity is tied to the Git hosting provider (repository URL), not to a cryptographic key or portable identity layer.
+
+## Relevance to my Project
+- Social4Git demonstrates a promising approach for using Git as a pull‑based replication mechanism for decentralised social content, which aligns with the static‑hostable, serverless goals of my project.
+
+- The separation between a public posting repository and a private feed repository is a useful design idea, showing how publishing and reading can be isolated cleanly.
+
+- However, the protocol lacks structured social actions (likes, replies, reposts), so JSON‑based structured activity formats from protocols like ActivityPub could be integrated into a Git‑based design.
+
+- The absence of discovery highlights the need for a minimal discovery mechanism in my protocol so users can find each other without manually exchanging repository URLs.
+
+- The lack of signing and encryption shows that Git alone is not enough for authorship or confidentiality; however, Git’s support for commit signing (GPG/SSH) means these features could be added in a more complete design.
+
+- Most importantly, Social4Git is not fully decentralised, because it relies on GitHub for identity, storage, and availability. My protocol must avoid this by supporting portable identity and static hosting independent of any single provider.
+
 ## gitsocial
 ## Posting Workflow
 ### Brief Description:
