@@ -676,9 +676,33 @@ sequenceDiagram
 - Most importantly, Social4Git is not fully decentralised, because it relies on GitHub for identity, storage, and availability. My protocol must avoid this by supporting portable identity and static hosting independent of any single provider.
 
 ## gitsocial
+## What it is
+gitsocial is a more advanced Git‑based social protocol that uses a single Git repository per user, but isolates all social activity inside a dedicated branch called gitsocial. This is conceptually similar to sAT’s /satellite/ directory, providing a clean separation between normal project files and social actions.
+
+Instead of storing posts as files (as in Social4Git), gitsocial represents each post as a Git commit on the gitsocial branch. The commit message contains the post text along with a structured GitMsg header describing the type of social action (post, comment, repost, quote). This allows nested threads, replies, and reposts, making it far more expressive than Gitweets.
+
+gitsocial also introduces a follow list stored in JSON format, allowing users to track who they follow. During sync, the client fetches commits directly from the gitsocial branches of followed users, reading GitMsg metadata to build the user’s timeline. This avoids the duplicated storage used in Social4Git’s private repository model and results in a more scalable replication approach.
+
+However, posts are still stored inside commit messages, which introduces limitations around editing, metadata, and media support. The protocol also lacks signing, encryption, and any discovery mechanism, and remains dependent on a central Git hosting provider for identity and availability.
+
+## How it works
+When a user creates a post, their client:
+
+- creates a Git commit on the gitsocial branch,
+
+- embeds the post text in the commit message, and
+
+- attaches a structured GitMsg header describing the action type (post/comment/repost/quote), including fields such as Title, Body, Parent, Reference, and optional Signature.
+
+The client then pushes the updated gitsocial branch to the user’s public repository, making the post available for followers.
+
+To follow another user, the follower adds the target user’s repository URL to a follow list stored in a JSON file. This file is committed and pushed to the follower’s repository. During replication, the client reads this follow list, performs git fetch on each followed user’s repository, and retrieves only the commits from their gitsocial branch. The client then parses the GitMsg metadata to build the user’s feed.
+
+Unlike Social4Git, gitsocial does not copy posts into a private repository. Instead, it reads commits directly from remote repositories, avoiding duplicated storage and keeping the user’s repository small.
+
 ## Posting Workflow
 ### Brief Description:
-The following sequence diagram shows how posting works in GitSocial. As opposed to social4git, gitsocial has a single Git repository per user which has a dedicated branch called gitsocial for all social activity. When Alice makes a post, Alice's client represents the post as a Git commit on this gitsocial branch. This commit contains the post text along with the GitMsg metadata which indicates whether it is a post, comment, repost, or quote. In order to publish the post, this commit is pushed to Alice's repsoitory, making it available for followers. Since gitsocial is a pull-based replication model, her do not recieve these posts immediately, but the posts become visible when the follower later fetches the gitsocial branch during sync.
+The following sequence diagram shows how posting works in GitSocial. As opposed to social4git, gitsocial has a single Git repository per user which has a dedicated branch called gitsocial for all social activity. When Alice makes a post, Alice's client represents the post as a Git commit on this gitsocial branch. This commit contains the post text along with the GitMsg metadata which indicates whether it is a post, comment, repost, or quote. To publish the post, Alice's client pushes the updated gitsocial branch to Alice's public repository, making the commit available for followers. Since gitsocial is a pull-based replication model, her followers do not recieve these posts immediately, but the posts become visible when the follower later fetches the gitsocial branch during sync.
 
 ```mermaid
 sequenceDiagram
@@ -691,7 +715,7 @@ sequenceDiagram
     AliceClient->>AliceClient: Create commit message (post text)
     AliceClient->>AliceClient: Attach GitMsg metadata (type = post/comment/repost/quote)
     AliceClient->>AliceGitSocialBranch: git commit -m "Hello"! (on gitsocial branch)
-    AliceGitSocialBranch->>AlicePublicRepo: git push origin gitsocial (publish branch)
+    AliceClient->>AlicePublicRepo: git push origin gitsocial (publish branch)
 
     Note over AliceGitSocialBranch: Posts are commits on the gitsocial branch.<br>Pushing makes them available for followers to fetch later.
 ```
@@ -727,6 +751,43 @@ sequenceDiagram
 
     Note over BobPublicRepo: Bob receives Alice's posts here during fetch.<br>Feed is constructed by reading commits from followed repos.<br>Replication is pull-based and not real-time.
 ```
+## Strengths
+- Clean isolation of social activity using a dedicated gitsocial branch, avoiding the overhead of maintaining a separate private repository.
+
+- Resource‑efficient replication: the client reads commits directly from followed users’ repositories rather than copying posts locally, making the protocol more scalable than Social4Git.
+
+- Rich social model: the GitMsg header supports posts, comments, nested threads, reposts, and quotes — a much more complete activity model than Gitweets or Social4Git.
+
+- Follow list enables scalable social features such as follower counts, mutual follows, and potential access control, similar to ActivityPub and AT Protocol.
+
+- Simple Git‑based workflow: posting, following, and replication rely entirely on familiar Git operations (commit, push, fetch).
+
+- Integrity from Git: Git’s hash‑chained commits ensure that posts cannot be modified without detection.
+
+## Limitations
+- No mandatory signing: although GitMsg supports an optional signature field, signing is not required, so authorship cannot be cryptographically verified.
+
+- No encryption: confidentiality relies solely on Git hosting access controls; there is no built‑in encryption for posts or metadata.
+
+- Posts stored inside commit messages: commit messages are not designed for long posts, structured metadata, or media attachments, inheriting the same limitations as Gitweets.
+
+- Editing is impossible without rewriting history: modifying a commit changes its hash and the entire DAG, forcing followers to re‑fetch everything — unsuitable for social media where editing and deleting posts is common.
+
+- No discovery mechanism: users must manually know each other’s repository URLs, limiting usability and scalability.
+
+- Not fully decentralised: identity, hosting, and replication all depend on a central Git hosting provider (e.g., GitHub). If the hosting provider removes the repository, the user’s entire social presence disappears.
+
+## Relevance to my Project
+- gitsocial demonstrates a much more complete social activity model than Gitweets or Social4Git, showing how structured metadata (GitMsg) can support comments, threads, reposts, and quotes while still relying on simple Git operations.
+
+- However, storing posts inside commit messages inherits major limitations from Gitweets — no editing, no media, no structured JSON — suggesting that Social4Git’s file‑based approach is more appropriate. My protocol should extend this with JSON‑based schemas inspired by ActivityPub to support rich social actions.
+
+- The follow list is a strong idea that improves scalability and UX compared to Social4Git. My protocol should adopt a follow list, but also introduce a minimal discovery mechanism so users do not need to manually exchange repository URLs.
+
+- The lack of signing and encryption highlights the need for mandatory signing and optional encryption in my protocol.
+
+- Most importantly, gitsocial is not decentralised, as it depends entirely on a single Git hosting provider for identity and availability. My protocol must improve this by supporting portable identity (domain‑based handles) and host‑agnostic Git repositories, without requiring full peer‑to‑peer decentralisation.    
+
 ## Octotown
 ## Posting Workflow
 ### Brief Description:
