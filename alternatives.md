@@ -789,6 +789,25 @@ sequenceDiagram
 - Most importantly, gitsocial is not decentralised, as it depends entirely on a single Git hosting provider for identity and availability. My protocol must improve this by supporting portable identity (domain‑based handles) and host‑agnostic Git repositories, without requiring full peer‑to‑peer decentralisation.    
 
 ## Octotown
+## What it is
+Octotown is a public social network built entirely on GitHub, using GitHub’s existing platform features rather than Git commits or files. Instead of representing posts as commits (like gitsocial) or text files (like Social4Git), Octotown represents posts as GitHub Issues inside a dedicated repository named .social. Replies are GitHub Issue Comments, and social interactions use GitHub’s built‑in features such as labels, reactions, and notifications.
+
+A user’s identity is simply their GitHub username, and their entire social presence is stored inside their .social repository. This design gives Octotown a rich set of social features “for free,” but also makes it fully dependent on GitHub, with no Git‑level integrity guarantees and no portability.
+
+## How it works
+When a user creates a post, the client sends a REST request to the GitHub Issues API with the post content. GitHub creates an Issue inside the user’s .social repository, which becomes the post. Replies are created as Issue Comments via the same API.
+
+Following is handled through GitHub’s native follow system. To follow someone on Octotown, the user must follow them on GitHub. When the client builds the user’s feed, it queries the GitHub API to:
+- Retrieve all GitHub accounts the user follows
+
+- Filter for those that have a .social repository
+
+- Fetch Issues from those repositories
+
+- Build the timeline from those Issues
+
+Because this can be slow for users with many GitHub follows, Octotown uses GitHub Actions inside the .social repo to periodically cache profile data and reduce API usage.
+
 ## Posting Workflow
 ### Brief Description:
 The following sequence diagram shows how posting works in Octotown, which unlike other Git-based protocols, reuses GitHub's existing Issues system. Each user has a repository named .social which contains all posts represented as GitHub Issues. When Alice writes a post in the Octotown client, the client constructs a REST API request to the GitHubIssuesAPI, including the post content in the JSON body to the .social endpoint of Alice. Upon recieving the request, GitHub creates a new issue inside the .social repository, which now becomes the published post which followers can later fetch and interact with. 
@@ -834,6 +853,42 @@ sequenceDiagram
     BobClient->>BobClient: Build Bob's feed from fetched posts
     Note over BobClient: Replication is pull-based and only occurs<br>when Bob opens the Octotown client.
 ```
+## Strengths
+- Leverages GitHub’s existing infrastructure, giving Octotown a rich set of social features (labels, comments, reactions, notifications) without designing a custom activity model.
+
+- Simple mental model for GitHub users: your social presence is just another repository (.social) inside your GitHub account, similar to how sAT isolates social activity in a dedicated directory.
+
+- More expressive than other Git‑based protocols: GitHub Issues support far more interaction types than Gitweets, Social4Git, or gitsocial.
+
+- Automation via GitHub Actions allows caching and syncing to reduce API load and improve performance.
+
+- Clear separation of social activity from normal repositories through the dedicated .social repo.
+
+## Limitations
+- More centralised than other Git‑based protocols: while Gitweets, Social4Git, and gitsocial rely on Git servers in general, they can run on any Git host. Octotown is tied specifically to GitHub, using GitHub‑only features (Issues, Actions, API, follow graph).
+
+- Identity is not portable: a user’s identity is their GitHub username. If their GitHub account is suspended, their entire social presence disappears.
+
+- No Git‑level integrity: Issues are not commits, so there is no cryptographic hash‑chain protecting posts.
+
+- Not federated: cannot communicate with ActivityPub, Mastodon, or any federated network, and cannot run outside GitHub.
+
+- No discovery mechanism beyond GitHub’s own follow system — users must already be GitHub users to participate.
+
+## Relevance of my Project
+- Octotown shows a very different Git‑based social model, where posts are not commits or files but GitHub Issues. This demonstrates that Git‑based social protocols can be built on top of existing infrastructure rather than Git itself.
+
+- It reinforces the value of isolating social activity in a dedicated location (.social), similar to sAT’s /satellite/ directory — a useful idea for structuring our own protocol.
+
+- Octotown highlights how using an existing platform’s features (Issues, Actions, API) can provide rich social interactions, but also shows why platform‑specific dependencies are dangerous.
+
+- The caching approach using GitHub Actions suggests that automated caching could be useful in our protocol to reduce repeated expensive operations.
+
+- However, Octotown is too dependent on GitHub, making it more centralised than the other Git‑based protocols. This makes it unsuitable as a foundation for our protocol, which aims for portable identity, host‑agnostic Git repositories, and no reliance on GitHub‑specific features.
+
+- Therefore, while Octotown provides useful structural ideas (isolation, caching), the overall approach is not aligned with the decentralisation and portability goals of our protocol.
+
+
 ## Git as Federation Transport
 ## Posting Workflow
 ### Brief Description:
