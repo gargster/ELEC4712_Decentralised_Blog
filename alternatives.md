@@ -875,7 +875,7 @@ sequenceDiagram
 
 - No discovery mechanism beyond GitHub’s own follow system — users must already be GitHub users to participate.
 
-## Relevance of my Project
+## Relevance to my Project
 - Octotown shows a very different Git‑based social model, where posts are not commits or files but GitHub Issues. This demonstrates that Git‑based social protocols can be built on top of existing infrastructure rather than Git itself.
 
 - It reinforces the value of isolating social activity in a dedicated location (.social), similar to sAT’s /satellite/ directory — a useful idea for structuring our own protocol.
@@ -890,6 +890,20 @@ sequenceDiagram
 
 
 ## Git as Federation Transport
+## What it is
+Git‑as‑a‑Federation‑Transport is a server‑based, ActivityPub‑like protocol that uses Git push/fetch as the transport layer instead of HTTP inbox/outbox. Each server (instance) hosts a single Git repository that contains all users on that server, and the repository URL represents the server’s identity. Individual users inside the server are represented as JSON actor files, and each post is stored as a JSON file inside a user‑specific directory such as users/alice/posts/0012.json.
+
+This design gives the protocol a clear directory structure and a clean JSON‑based representation of posts, similar to sAT and the AT Protocol. However, because the architecture is server‑centric, not user‑centric, it resembles ActivityPub far more than the other Git‑based protocols you analysed.
+
+## How it works
+When a user creates a post, the server generates a JSON file for that post and stores it under the user’s directory. The server then commits this file to its Git repository. Unlike the pull‑based Gitweets/Social4Git/gitsocial model, Git‑as‑Transport uses a push‑based mechanism: the server pushes new commits to every other server it follows.
+
+However, even after receiving the push, the receiving servers do not immediately update user timelines. They must later perform a manual or scheduled fetch, scan the new commits, locate the JSON post files, and import them into their local timeline.
+
+Following is configured at the server level: an admin adds another server as a Git remote. Replication occurs when the server periodically fetches from these remotes, receiving Git packfiles containing compressed Git objects. The server then parses the JSON files inside the commits to build its feed.
+
+This workflow shows how Git can be used for server‑to‑server replication, but also highlights that the model provides no user‑level decentralisation.
+
 ## Posting Workflow
 ### Brief Description:
 The following diagram shows the posting workflow for Git as Federation Transport which is a multiple-users per server based model. A single server (e.g. AliceServer) hosts a community of users, similar to Mastadon. Once a user on the server (Alice) creates a post, the server converts the post into a JSON file which is then commited and stored into the servers's Git Repository. After committing, the server pushes the commit (containing the post) to every other server AliceServer follows (here servers follow other servers as opposed to users following users). The push action does not mean that the other servers have actally receieved the post socially since it only transfer Git Objects. Only when the remote servers later run git fetch during their replication cycle, will they be able to built the feed with the posts.
@@ -939,5 +953,53 @@ sequenceDiagram
 
      Note over BobRepo: BobRepo never initiates anything.<br>It only stores Git objects written during fetch.<br>BobServer (the application) must actively read and import posts.
 ```
+## Strengths
+- Simple federation model: replaces ActivityPub’s HTTP inbox/outbox with Git push/fetch, making server‑to‑server communication conceptually simpler for small, self‑hosted communities.
 
+- No HTTP layer: avoids the complexity of ActivityPub’s HTTP signatures, delivery failures, and inbox/outbox semantics by relying entirely on Git operations.
+
+- Clean directory structure: each user has a dedicated subdirectory, and posts are stored as JSON objects, a format already proven effective in protocols like sAT and AT.
+
+- JSON posts are easily extensible: the structure can be expanded to support replies, likes, reposts, or other social actions by adding new directories or fields.
+
+- Shows how Git replication can work with structured data, which is relevant for designing your own Git‑based protocol.
+
+## Limitations
+- Server‑level identity, not user‑level identity: identity is tied to the server domain, not to a portable or cryptographic identifier. If the server shuts down or bans a user, the user’s identity disappears — the same flaw as ActivityPub.
+
+- No user‑level decentralisation: all posting, replication, and identity management is done by the server. Users do not own their data or identity.
+
+- Single point of failure per server: if a server goes offline, all users and all posts on that server vanish from the network.
+
+- Limited social actions: the protocol currently supports only posts; no replies, comments, likes, or reposts.
+
+- Heavy server‑to‑server replication: Git packfiles contain full history, making replication slow especially as repositories grow.
+
+- Not finished: the protocol is experimental and lacks discovery, moderation, and a complete activity model.
+
+## Relevance to my Project
+Git‑as‑Transport demonstrates a very different Git‑based design, one that mirrors ActivityPub’s server‑centric federation rather than the user‑centric, static‑hostable approaches seen in Social4Git or gitsocial. Because identity and hosting are tied to servers, this model does not solve the decentralisation problems we aim to address — users cannot own their identity, and server shutdowns destroy user presence.
+
+However, the protocol provides several useful insights:
+
+- The use of JSON files for posts aligns with sAT and AT and reinforces that JSON is a flexible, structured, and extensible format for representing social actions.
+
+- The directory structure (users/<user>/posts/<id>.json) is intuitive and could inform how we organise posts in our own protocol.
+
+- The Git replication workflow (fetching packfiles, parsing JSON from commits) shows how Git can be used to distribute structured social data, even though we would not adopt the server‑based model.
+
+- The protocol confirms that server‑centric federation is not the direction we want, but the underlying idea of using Git for replication remains valuable.
+
+- Overall, Git‑as‑Transport is not suitable as a foundation for our protocol, but it provides useful design lessons about JSON‑based posts, directory structure, and Git‑based replication.
+
+## Git-based Protocols Summary Table
+# Git-based Protocols Summary Table
+
+| Protocol | What it does well | Key limitations | Useful ideas | Gaps / Missing |
+|----------|--------------------|------------------|----------------|-----------------|
+| Gitweets | Very simple / use existing Git infrastructure: posting = push commit, replication = fetch commit | Not a real social protocol - posts are a commit message, no other social actions. | Git + static hosting + REST API can form minimal social system without servers | No structured data model for posts, replies, like or follows |
+| Social4Git | Separation of concerns: public repo for posting, private for feed; Git’s built-in integrity; More structured: posts are files not commit messages | No support for replies, likes, reposts; No discovery mechanism -> users must know repo URLs; No signing/encryption | Separation between public posting and private feed; Git support for commit signing -> add integrity | Lacks structured social actions; Identity tied to git provider; Need discovery mechanism |
+| gitsocial | Clear isolation of social activity with dedicated gitsocial branch; More efficient replication than social4git; Rich social model: posts, comments, threads, reposts, quotes. | No mandatory signing; Posts stored inside commits - unsuitable for long posts; editing impossible without rewriting history | Structured metadata supports vast social actions; Follow list is strong idea - scalability; Use familiar git operations | No discovery mechanism; no mandatory signing/encryption; Posts inside commit messages - major limitations |
+| Octotown | Leverages existing GitHub: rich set of social features; Simple mental model social in .social | More centralised: tied to GitHub specifically; Identity is not portable; No git-level integrity: issues are not commits | Very different protocol: posts as GitHub Issues; Idea of isolating social activity (.social); How save resources: caching (GitHub actions) | Only discovery through GitHub follow system; No portability or Git-level integrity |
+| Git-as-a-Federation Transport | Simple federation model: git push/fetch; Clean directory structure with extensible JSON posts | No user-level decentralisation: identity is tied to and managed by server; Heavy replication | Flexibility of JSON format for representing posts: extensible for other social actions; Shows git packfile workflow | Identity is tied to servers: does not solve the original problem of decentralisation; Limited social actions/incomplete |
 
