@@ -17,7 +17,7 @@ Why portable?
 - As long as the public key stays the same, the user's idenity remains valid regardless if they move their repository to GitHub, GitLab or static host.
 Human-readable handles:
 - To make identity easier to use, a hanle (like bharat.social) is mapped to the public key
-- This mapping is stored in profile.json.
+- This mapping is stored in /social/profile.json.
 Client Responsibilities (step-by-step):
 1. When a new account is created, the client generates an Ed25519 key pair (public/private)
 2. The public key is written into /social/profile.json
@@ -121,6 +121,7 @@ Client Responsibilities (step-by-step)
 - Commits new JSON files (posts, replies, likes, follows) into /social/actions/
 - Pushes repo to Git host (GitHub, GitLab, or static host)
 2. Follower's client (periodic fetch):
+- Reads /social/discovery/following.json to determine which repos to replicate 
 - Runs git fetch at a chosen interval (e.g. every few minutes, or when the user opens the app).
 - The interval can be configured - some clients may fetch every 5 minutes, others only when the user refreshes
 3. Incremental sync:
@@ -131,7 +132,7 @@ Client Responsibilities (step-by-step)
 - For each new commit, the client checks which files were added in /social/actions/
 - It opens each new JSON file and reads the actio object
 5. Signature verification:
-- The client verifies each acttion's signature using the author's public key from profile.json
+- The client verifies each action's signature using the author's public key from /social/profile.json
 - If valid, the action is accepts; if invalid, it is ignored
 6. Feed update:
 - The client inserts the new action into the local feed database (could be a simple JSON file, SQLite, or just cached in memory)
@@ -218,8 +219,8 @@ Implementation Notes
 ### Discovery 
 Design Principle:
 Discovery maps a human-readable handle (like bharat.social) to the actual Git repository URL and public key. It works at two levels:
-- Per-user: each account publishes its own profile.json
-- Global directory: a static discovery.json that is automatically updated when new accounts are created.
+- Per-user: each account publishes its own /social/profile.json
+- Global directory: a static /social/discovery/directory.json that is automatically updated when new accounts are created.
 
 Why it matters:
 - Public keys are portable but not user-friendly
@@ -235,14 +236,14 @@ Automatic directory publishing fills that gap without servers: every client cont
 
 Client Responsibilties (Step-by-step)
 1. Account creation (author's client)
-- When a new account is created, the client automatically generates profile.json
+- When a new account is created, the client automatically generates /social/profile.json
 - This file contains: public key, handle, repo URL, display name, bio
 - The client signs profile.json with the private key
 - The user uploads profile.json to a well-known location:
   - Example: https://bharat.social/profile.json
   - If hosted on GitHub Pages: https://bharat.github.io/social/profile.json
 2. Automatic directory update:
-- At account creation, the client also appends the new handle + profile URL to a shared directory.json
+- At account creation, the client also appends the new handle + profile URL to /social/discovery/directory.json
 - This directory is hosted on a static site (e.g. GitHub Pages)
 - Example: https://social.example.org/directory.json
 3. Follower browsing:
@@ -259,7 +260,7 @@ Client Responsibilties (Step-by-step)
 - Runs git fetch to sync posts from that repo
 
 Data Structures
-profile.json (per user, authoritative)
+/social/discovery/profile.json (per user, authoritative)
 {
   "publicKey": "ed25519:abc123...",
   "handle": "bharat.social",
@@ -269,16 +270,18 @@ profile.json (per user, authoritative)
   "created": "2026-06-28T19:57:00Z",
   "signature": "base64sig..."
 }
-directory.json (auto-updated global index)
+/social/discovery/directory.json (auto-updated global index)
 {
   "directory": [
     {
       "handle": "bharat.social",
-      "profileURL": "https://bharat.social/profile.json"
+      "profileURL": "https://bharat.social/social/profile.json"
+
     },
     {
       "handle": "alice.social",
-      "profileURL": "https://alice.social/profile.json"
+      "profileURL": "https://bharat.social/social/profile.json"
+
     }
   ]
 }
@@ -469,7 +472,7 @@ When signing is needed
 - Media files -> not individually signed (integrity comes from Git commit or LFS pointer)
 - Follower verify the post JSON signature; media integrity is ensures by Git/LFS.
 
-## Redeisigned Components
+## Redesigned Components
 ### Moderation
 Design Principle:
 Moderation is decentralised and portable. Each user can publish signed blocklists and trust lists that define who they block or trust. These lists are crytographically verifiable and can be shared across repositories
@@ -477,8 +480,356 @@ Moderation is decentralised and portable. Each user can publish signed blocklist
 Why it matters:
 - Moderation is essential for safety and trust in social systems
 - Surveyed protocols showed gaps:
-  - 
+  - ActivityPub -> moderation is server-based (admins enforce rules)
+  - Nostr -> no built-in moderation; users rely on relays or external tools
+- My design principle flagged this gap: no surveyed protocol offered portable, signed moreation lists
+- Adding signed blocklists/trust lists make moderation user-controlled, verifiable, and shareable
 
+Client Responsibilties (step-by-step)
+Author's client (publishing moderation lists):
+1. User decides who to block/trust
+- This is a manual decision: the user chooses accounts they don't want to see (blocklist) or accounts they want to prioritse (trustlist)
+- They identify these accounts by their public key (e.g. ed25519:def456...) or by their handle (e.g. alice.social)
+2. Create moderation list:
+- Client generates a JSON file in /social/moderation/ (e.g. blocklist.json or trustlist.json)
+3. Add entries:
+- Each entry is a public key or handle of the account being blocked/trusted
+- Example: "blockedKeys": ["ed25519:def456..."]
+4. Sign the list:
+- Client signs the JSON file with the author's private key
+- Ensures authencity and prevents tampering
+5. Commit and push:
+- Commits the moderation file to the repository 
+- Pushes to Git host
+
+Follower's client (enforcing moderation):
+1. Run git fetch:
+- Synchronsises new commits from followed repositories
+- Retrieves updated moderation files (blocklist.json, trustlist.json)
+2. Verify signature:
+- Uses the author's public key (from their profile.json) to verify the moderation list
+- Accepts valid lists; ignores invalid ones
+3. Apply moderation rules:
+- Blocklist -> hides posts from those accounts in the feed
+- Trustlist -> highlights or prioritises posts from these accounts
+4. Update local moderation state:
+- Stores verified moderation lists locally
+- Applies them during feed rendering
+
+Data Structures
+Blocklist JSON
+{
+  "blockedKeys": ["ed25519:def456..."],
+  "signature": "base64sig..."
+}
+Trustlist JSON
+{
+  "trustedKeys": ["ed25519:abc123..."],
+  "signature": "base64sig..."
+}
+Repo layout example
+/social/actions/post-001.json
+/social/moderation/blocklist.json
+/social/moderation/trustlist.json
+/social/index.json
+
+When signing is needed
+- Moderation lists -> always signed by the author
+- Followers verify signatures before applying rules
+- Ensures moderation is authentic and portable
+
+Implementation Note
+- Publishing: Clients generate and sign moderation lists automatically when users block/trust accounts
+- Verification: Followers use crypto libraries to verify signatures
+- Storage: Moderation lists are stored in /social/moderation/
+- Application: Clients enforce block/trust rules during feed rendering
+
+### Confidenentiality 
+Design Principle:
+Confedentiality allows users to publish private posts that are only readable by selected receipients. This is achieved using group/session keys for encryption.
+
+Why it matters:
+- Social feeds often need private or semi-private communication
+- Surveyed protocols showed gaps:
+  - sAT -> supports per-post encryptions but heavy at scale
+  - ActivityPub -> relies on server-side access control, not end-to-end encryption
+  - Nostr -> messages are public unless encrypted separately 
+- Adding group/session key encryption makes private posts end-to-end secure, verifiable, and decentralised while balancing efficiency
+
+How Session Keys Work
+- A session key is a randomly generated symmetric key (e.g.AES-256)
+- Per-post model (sAT style):
+  - Each post gets its own fresh session key 
+  - Strong isolation, but heavy at scale
+- Session/group model (chosen default)
+  - One session key is generated for a coversation or time window
+  - Multiple posts in that session are encrypted with the same key
+  - The session key is distributed once to recipients, then reused until rotated
+- Balanced approach (optional):
+  - Use per-post keys for highly sensitive content
+  - Use session keys for conversational threads or bursts of posts
+  - Rotate session keys regularly (e.g. daily, per thread, or manual trigger) to limit exposure
+Clarification: In this design we adopt the session/group model as the default, because it scales better. Per-post encryption may still be available for sensitive cases, but session keys are the standard.
+
+Client Responsibilities (step-by-step)
+Author's client (publishing private posts):
+1. Compose private post:
+- User writes a post intended for specific recipients
+2. Generate or reuse session key:
+- If new session -> generate fresh symmetric key (randomBytes(32))
+- If ongoing session -> reuse existing session key 
+3. Encrypt post content:
+- Uses session key to encrypt the post text
+- Stores ciphertext in the JSON
+4. Encrypt session key for recipents:
+- For each recipient's public key, encrypts the session key once
+- These encrypted keys are written into a session key distribution file (/social/actions/session-001.json)
+5. Create post JSON:
+- Post JSON references the sessionId (e.g. "sessionId": "sess-001") 
+- Includes ciphertext and metadata
+- Signs the JSON with the author's private key
+6. Commit and push:
+- Commits both the session key distribution JSON (if new) and the post JSON
+- Pushes to Git host
+
+Follower's client (reading private posts):
+1. Run git fetch:
+- Syncs new commits from followed repos
+- Retrieves both session key distribution files and post JSONs
+2. Verify signatures:
+- Uses author's public key to verify authencity of both files
+3. Check recipient list (session file):
+- Looks at encryptedFor in the session JSON
+- If follower's public key is included, they are an intended recipient
+4. Decrypt session key:
+- Uses their private key to decrypt the session key once from the session file
+5. Decrypt post content:
+- Uses the session key to decrypt ciphertext for all posts referencing that sessionId
+6. Insert into feed database:
+- Adds decrypted posts to local feed
+- Displays them only to authorised recipients
+
+Data Structures
+Session key distribution JSON
+{
+  "sessionId": "sess-001",
+  "encryptedFor": [
+    {
+      "recipient": "ed25519:abc123...",
+      "encryptedKey": "base64encKey1..."
+    },
+    {
+      "recipient": "ed25519:def456...",
+      "encryptedKey": "base64encKey2..."
+    }
+  ],
+  "signature": "base64sig..."
+}
+Post JSON using session key 
+{
+  "id": "post-010",
+  "type": "post",
+  "author": "ed25519:xyz789...",
+  "sessionId": "sess-001",
+  "ciphertext": "base64encCiphertext...",
+  "created": "2026-07-02T18:40:00Z",
+  "signature": "base64sig..."
+}
+Purpose: Contains encrypted post content tied to a session
+Reviewed by: Follower's clients after they have decrypted the session key 
+Usage: Decrypts ciphertext using the session key from the distribution file
+
+Implementation Note:
+- Default: Session/group model for scalability
+- Distribution: Session key is published once in a signed JSON file
+- Posts: Each post references the sessionId and stores ciphertext
+- Verification: Followers verify both session and post JSON signatures
+- Decryption: Followers decrypt session key once, then reuse it for all posts in that session
+- Rotation: Session keys rotated regularly to limit expose
+
+Summary 
+Confidentiality relies on two linked files:
+- Session key distribution JSON -> defines who can decrypt the session key
+- Post JSON -> references that sessionId and stores ciphertext
+- Authors generate and distribute session keys once per session.
+- Followers fetch both files, verify signatures, decrypt the session key, then use it for all posts in that session.
+- This makes private posts scalable, secure, and verifiable.
+
+### Threading
+Design Principle:
+Replies reference parent commits. Threads are reconstructed by traversing the Git DAG (Directed Acylic Graph)
+
+Why it matters:
+- Social feeds aren't just flat lists - conversations form through replies
+- Surveyed protocols:
+  - ActivityPub -> replies reference parent posts via IDs, but threading depends on servers to mantain context
+  - Nostr -> replies reference event IDs, but threading is weak; clients often fail to reconstruct full conversation trees
+  - Git DAG -> naturally models parent/child relationship between commits, but Git-based prototypes didn't define explicit reply structures
+- Gap: Git-based prototypes lacked clear threading logic and inReplyTo fields
+- Fix: Adding explicit inReplyTo plus DAG traversal makes threads verifiable, decentralised, and easy to reconstruct.
+
+Client Responsibilities (step-by-step)
+Author's client (publishing a reply):
+1. Compose reply:
+- User writes a reply to an existing post (e.g. post-001)
+2. Create reply JSON:
+- Same workflow as a post JSON, but with:
+  - type: "reply"
+  - inReplyTo: "post-001"
+- Example file: /social/actions/post-005.json
+3. Sign and commit:
+- Signs with author's private key 
+- Commits the reply JSON
+4. Push to Git host:
+- Pushes the commit so followers can fetch it 
+
+Follower's client (reading replies):
+1. Run git fetch:
+- Syncs new commits from followed repos
+- Retrieves reply JSON files
+2. Verify signature:
+- Uses author's public key to verify authencity 
+3. Check inReplyTo:
+- Reads the parent post ID from the reply JSON
+- Links reply to its parent in local feed database
+4. Traverse DAG:
+- Builds conversation threads by following parent/child links
+- Example: post-001 -> post-005 -> post-008
+5. Render thread:
+- Displays parent post with nested replies
+- Mantains chronological order
+
+Data Structures
+Reply JSON Example: /social/actions/post-005.json
+{
+  "id": "post-005",
+  "type": "reply",
+  "author": "ed25519:xyz789...",
+  "content": "Replying to post-001",
+  "inReplyTo": "post-001",
+  "created": "2026-06-27T22:34:00Z",
+  "signature": "base64sig..."
+}
+- inReplyTo -> references parent post ID
+- type: "reply" -> distinguishes from normal posts
+- Signed for authencity
+
+Repo Layout Example
+/social/actions/post-001.json   (original post)
+/social/actions/post-005.json   (reply)
+/social/actions/post-007.json   (reply to reply)
+
+Implementation Note
+- Publishing: Replies are authored as JSON with inReplyTo
+- Verification: Followers verify signatures before linking 
+- Thread reconstruction: Clients traverse DAG edges (inReplyTo) to build conversation trees
+- Rendering: Threads displayed with parent + nested replies
+
+Example Workflow
+1. Alice posts:
+- post-001.json -> "Hello world"
+2. Bob replies:
+- post-005.json -> inReplyTo: "post-001"
+- Content: "Hi Alice!"
+3. Carol replies to Bob:
+- post-007.json -> inReplyTo: "post-005"
+- Content: "Agree with Bob"
+4. Followers fetch:
+- Clients pull all three JSONs
+- Verify signatures
+- Traverse DAG:
+  - Root: post-001
+  - Child: post-005
+  - Grandchild: post-007
+5. Render thread:
+Alice: Hello world.
+  Bob: Hi Alice!
+    Carol: Agree with Bob.
+
+Summary:
+- A reply is a specialised post JSON (type: "reply") with an extra inReplyTo pointer
+- Workflow is identical to posts: authored, signed, committed, pushed, fetched, verified
+- The difference is that replies link into threads, reconstructured by DAG traversal
+- This fixes the gap in Git-based prototypes and makes threading decentralised, verifiable, and consistent
+
+### Directory Layout (Summary)
+Purpose:
+Defines a predictable repository tree so clients know exactly where to find identity, actions, moderation lists, indexes, and media. This layout makes replication portable and parsing efficient.
+
+/social/
+  profile.json              → per-user identity (signed, global core file)
+  following.json            → follow list (defines replication scope, core for feeds)
+/social/actions/            → signed social actions
+    post-001.json
+    reply-005.json
+    like-010.json
+    follow-020.json
+/social/moderation/         → signed blocklists/trustlists
+    blocklist.json
+    trustlist.json
+/social/index.json          → optional feed index for efficiency
+/social/media/              → optional folder for binary files (Git LFS or small files)
+    photo1.jpg
+    video1.lfs
+/social/discovery/          → static discovery helpers
+    directory.json          → global directory index (auto‑updated, unsigned)
+
+- profile.json -> signed identity file with public key + handle, storedd globally 
+- following.json ->  global follow list, core for replication and feed building.
+- actions/ -> every social action (post, reply, like, follow), signed individually 
+- moderation/ -> blocklist/trustlist JSONs, signed by author
+- index.json -> convenience file pointing to recent posts (not signed)
+- media/ -> optional folder for bianry files, handled via Git LFS
+- discovery/ -> modular folder for all discovery files:
+  - directory.json (global index, auto-updated, unsigned)
+### Workflows (Summary)
+Posting:
+- Create JSON object (type: "post")
+- Sign with private key
+- Save in /social/actions/
+- Commit + push
+- Followers fetch new commit, verify signature using public key from /social/profile.json, insert into feed
+
+Replying (Threading):
+- Create JSON (type: "reply", inReplyTo: parentId)
+- Sign with private key
+- Save in /social/actions/
+- Commit + push
+- Followers fetch new commit, /social/profile.json, link reply to parent, traverse DAG, render thread
+
+Following:
+- Fetch target's /social/profile.json
+- Read public key + repo URL
+- Add entry to global /social/following.json
+- Start replication via git fetch
+- Optionally browse /social/discovery/directory.json for global handles
+
+Replication:
+- Client checks repos listed in /social/following.json
+- Fetches new commits incrementally 
+- Parses new JSON files in /social/actions/
+- Verifies signatures using public keys from /social/profile.json
+- Updates feed database
+
+Moderation:
+- Fetch blocklist/trust lisdt from /social/moderation/
+- Verify signature using public keys from /social/profile.json
+- Apply rules when rendering feed
+
+Private Posting (Confidentiality):
+- For private posts, the author creates one shared session key.
+- They encrypt the post with that key.
+- They then create a single “session file” that contains the session key encrypted separately for each recipient.
+- The post points to that session file using sessionId.
+- Followers decrypt the session key once, then use it to decrypt all posts in that session.
+
+Private Posting (Confidentiality)
+- For private posts, the author creates one shared session  key.
+- They then encrypt the post content with that session key.
+- They then create a single “session file” that contains the session key encrypted separately for each recipient.
+- The post points to that session file using sessionId.
+- Commit + push both files.
+- Followers fetch, verify via /social/profile.json, decrypt session key once, then decrypt posts.
 
 
 
