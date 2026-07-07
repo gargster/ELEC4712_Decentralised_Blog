@@ -38,6 +38,44 @@ When signing is needed:
 - Every time the client creates a new JSON object (post, reply, like, follow, blocklist)
 - The client automatically attaches a signature field to prove authencity.
 
+### Identity Workflow
+#### What it is:
+Shows a new account's identity is created and how followers fetch and verify the author's profile.json before trusting any future actions. 
+Note:
+In practice, followers reach this step after performing a Follow action, which is shown in the full Following Workflow section. Here, only the identity verification step is shown.
+
+#### How it works:
+The client generates and Ed25519 key pair, writes the public key, handle, and metadata into /social/profile.json, signs it, and publishes it. When another user follows this account, their client fetches the author's profile.json, verifies its signatures using the author's publicKey inside the file, and stores that publicKey for verifying all future posts and actions.
+
+```mermaid
+sequenceDiagram
+  participant User as NewUser
+  participant Client as AuthorClient
+  participant Repo as AuthorRepoOrSite
+  participant FollowerClient as FollowerClient
+
+  User ->> Client: Create new account
+  Client ->> Client: Generate Ed25519 key pair (publicKey, privateKey)
+  Client ->> Client: Store privateKey in secure local storage (not in Git)
+
+  Client ->> Client: Create /social/profile.json
+  Client ->> Client: Write publicKey, handle, displayName, bio, created to profile.json
+  Client ->> Client: Sign profile.json with privateKey (add signature field)
+  Client ->> Repo: Publish /social/profile.json (commit & push)
+
+  Note over Repo: profile.json is the global identity file<br>used by all followers
+
+  Note over FollowerClient: Before this step, the follower has already<br>resolved the author's handle to profileURL (shown in Following Workflow)
+
+  FollowerClient ->> Repo: HTTP GET /social/profile.json
+  Repo ->> FollowerClient: Return signed profile.json 
+
+  FollowerClient ->> FollowerClient: Verify signature using author's publicKey from profile.json
+  FollowerClient ->> FollowerClient: Store author's publicKey for future verification
+
+  Note over FollowerClient: This publicKey will be used to verify<br>posts, replies, likes, follows, and moderation lists<br>from this author. 
+```
+
 ### Social Actions
 Design Principle:
 All user activities (Social actions) are represented as typed JSON objects. This makes them predictable, portable, and easy for clients to process.
