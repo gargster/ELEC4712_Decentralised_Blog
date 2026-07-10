@@ -45,7 +45,7 @@ Note:
 In practice, followers reach this step after performing a Follow action, which is shown in the full Following Workflow section. Here, only the identity verification step is shown.
 
 #### How it works:
-The client generates and Ed25519 key pair, writes the public key, handle, and metadata into /social/profile.json, signs it, and publishes it. When another user follows this account, their client fetches the author's profile.json, verifies its signatures using the author's publicKey inside the file, and stores that publicKey for verifying all future posts and actions.
+The client generates an Ed25519 key pair, writes the public key, handle, and metadata into /social/profile.json, signs it, and publishes it. When another user follows this account, their client fetches the author's profile.json, verifies its signatures using the author's publicKey inside the file, and stores that publicKey for verifying all future posts and actions.
 
 ```mermaid
 sequenceDiagram
@@ -145,6 +145,147 @@ Crypto libraries (e.g libsodium, tweetnacl) provide ready-made functions:
 - verify(message, signature, publickey) -> follower's client check authencity
 - Thus ensuring only the true author can create valid actions and anyone can verify them.
 
+
+### Posting Workflow
+What it is
+Shows how an author creates a signed post action, publishes it to /social/actions, and how followers later fetch and verify it as part of replication.
+
+How it works
+When the user writes a new post, the client constructs a types JSON object (type: "post"), fills in the required fields (id, author, content, created), signs it with the author's private key, and saves it as /social/actions/post-XXX.json. The client then commits and pushes this file to the Git repository. Later, follower's clients fetch new commits, read the new action file, verify its signature using the author's publicKey from the author's profile.json, and insert the post into their own local feed database.
+
+```mermaid
+sequenceDiagram
+  participant Author as AuthorUser
+  participant AuthorClient as AuthorClient
+  participant Repo as AuthorRepo
+  participant FollowerClient as FollowerClient
+
+  Author ->> AuthorClient: Write new post ("Hello world"!)
+  AuthorClient ->> AuthorClient: Create JSON object (type: "post")
+  AuthorClient ->> AuthorClient: Fill fields (id, author, content, created)
+  AuthorClient ->> AuthorClient: Sign JSON with privateKey (add signature field)
+
+  AuthorClient ->> Repo: Save as /social/actions/post-001.json
+  AuthorClient ->> Repo: git commit & push new action file
+
+  Note over Repo: /social/actions/post-001.json is a signed social action<br>stored in the author's repository 
+
+  FollowerClient ->> Repo: git fetch (download only new commits)
+  Repo ->> FollowerClient: Return new commits containing newly added files<br>(e.g. /social/actions/post-001.json)
+
+  FollowerClient ->> FollowerClient: Read newly added action file (/social/actions/post-001.json)
+  FollowerClient ->> FollowerClient: Verify signature using author's publicKey from /social/profile.json
+  FollowerClient ->> FollowerClient: Insert post into local feed database (chronological order)
+```
+### Reply Action Workflow
+What it is
+Shows how an author creates a signed reply action linked to an existing post via inReplyTo, publishes it to /social/actions/, and how followers later fetch, verify, and attach it ot the correct parent post in their local feed.
+
+How it works
+When the user writes a reply to an existing post, the client constructs a typed JSON object (type: "reply"), fills in the required fields (id, author, content, inReplyTo, created), signs it with the author's private key, and saves it as /social/actions/reply-XXX.json. The client then commits and pushes this file to the Git repository. Later, follower's client run git fetch, which downloads only new commits. They read the newly added reply file, verify its signature using the author's publicKey from profile.json, insert the reply into their local feed database, and link it to the parent post using inReplyTo.
+
+```mermaid
+sequenceDiagram
+  participant Author as AuthorUser
+  participant AuthorClient as AuthorClient
+  participant Repo as AuthorRepo
+  participant FollowerClient as FollowerClient
+
+  Author ->> AuthorClient: Write reply ("Replying to post-001")
+  AuthorClient ->> AuthorClient: Identify parent post ID ("post-001")
+  AuthorClient ->> AuthorClient: Create JSON object (type: "reply")
+  AuthorClient ->> AuthorClient: Fill fields (id, author, content, inReplyTo, created)
+  AuthorClient ->> AuthorClient: Sign JSON with privateKey (add signature field)
+
+  AuthorClient ->> Repo: Save as /social/actions/reply-002.json
+  AuthorClient ->> Repo: git commit & push new reply file
+
+  Note over Repo: /social/actions/reply-002.json is a signed reply action<br>linked to parent post via inReplyTo = "post-001".
+
+  FollowerClient ->> Repo: git fetch (download only new commits)
+  Repo ->> FollowerClient: Return new commits containing newly added files<br>(e.g. /social/actions/reply-002.json)
+
+  FollowerClient ->> FollowerClient: Read newly added action file (/social/actions/reply-002.json)
+  FollowerClient ->> FollowerClient: Verify signature using author's publicKey from /social/profile.json
+
+  FollowerClient ->> FollowerClient: Insert reply into local feed database 
+  FollowerClient ->> FollowerClient: Link reply to parent post using inReplyTo = "post-001"
+  Note over FollowerClient: The feed renderer displays the reply<br>threaded under its parent post.
+```
+### Like Action Workflow
+What it is
+Shows how an author creates a signed like action referencing and existing post via target, publishes it to /social/actions/, and how followers later fetch, verify, and attach the like as metadata to the correct post in their local feed.
+
+How it works
+When the user likes a post, the client constructurs a typed JSON object (type: "like"), fills in the required fields (id, author, target, created), signs it with the author's private key, and saves it as /social/actions/like-XXX.json. The client then commits and pushes this file to the Git repository, Later, follower's clients run git fetch,, which downloads only new commits. They read the newly added like file, verify its signature using the author's publicKey from profile.json, insert the like into their feed database, and attach it as metadata to the target post.
+
+```mermaid
+sequenceDiagram
+  participant Author as AuthorUser
+  participant AuthorClient as AuthorClient
+  participant Repo as AuthorRepo
+  participant FollowerClient as FollowerClient
+
+  Author ->> AuthorClient: Like post ("post-001")
+  AuthorClient ->> AuthorClient: Identify target post ID ("post-001")
+  AuthorClient ->> AuthorClient: Create JSON object (type: "like")
+  AuthorClient ->> AuthorClient: Fill fields (id, author,target, created)
+  AuthorClient ->> AuthorClient: Sign JSON with privateKey (add signature field)
+
+  AuthorClient ->> Repo: Save as /social/actions/like-010.json
+  AuthorClient ->> Repo: git commit & push new like action file
+
+  Note over Repo: /social/actions/like-010.json is a signed like action<br>referencing target post via target = "post-001".
+
+  FollowerClient ->> Repo: git fetch (download only new commits)
+  Repo ->> FollowerClient: Return new commits containing newly added files<br>(e.g. /social/actions/like-010.json)
+
+  FollowerClient ->> FollowerClient: Read newly added action file (/social/actions/like-010.json)
+  FollowerClient ->> FollowerClient: Verify signature using author's publicKey from /social/profile.json
+
+  FollowerClient ->> FollowerClient: Insert like into local feed database 
+  FollowerClient ->> FollowerClient: Attach like as metadata to target post ("post-001")
+  Note over FollowerClient: The feed renderer displays the like<br>as metadata on the target post.
+```
+### Follow Action Workflow
+What it is
+Shows how an author creates a signed follow action referencing another user's public key via target, publishes it to /social/actions/, and how followers (i.e. clients who replicate this repositroy) later fetch, verify, and display the follow action as metadata on the target profile.
+
+How it works
+When the user decides to follow another account, the client constructs a typed JSON object (type: "follow"), fills in the required fields (id, author, target, created), signs it with the author's private key, and saves it as /social/actions/follow-XXX.json. The client then commits and pushes this file to the Git repository. Later, follower's clients run git fetch, which downloads only new commits. They read the newly added follow file, verify its signature using the authro's publicKey from profile.json, insert the follow action into their feed database, and attach it as metadat to the target profile. 
+
+Note:
+This workflow does not update follow.json - that is handled in the Following Workflow section
+
+```mermaid
+sequenceDiagram
+  participant Author as AuthorUser
+  participant AuthorClient as AuthorClient
+  participant Repo as AuthorRepo
+  participant FollowerClient as FollowerClient
+
+  Author ->> AuthorClient: Follow another user ("post author")
+  AuthorClient ->> AuthorClient: Identify target user's publicKey (from their profile.json)
+  AuthorClient ->> AuthorClient: Create JSON object (type: "follow")
+  AuthorClient ->> AuthorClient: Fill fields (id, author, target = targetPublicKey, created)
+  AuthorClient ->> AuthorClient: Sign JSON with privateKey (add signature field)
+
+  AuthorClient ->> Repo: Save as /social/actions/follow-020.json
+  AuthorClient ->> Repo: git commit & push new follow action file
+
+  Note over Repo: /social/actions/follow-020.json is a signed follow action<br>referencing target account via target = targetPublicKey.
+
+  FollowerClient ->> Repo: git fetch (download only new commits)
+  Repo ->> FollowerClient: Return new commits containing newly added files<br>(e.g. /social/actions/follow-020.json)
+
+  FollowerClient ->> FollowerClient: Read newly added action file (/social/actions/follow-020.json)
+  FollowerClient ->> FollowerClient: Verify signature using author's publicKey from /social/profile.json
+
+  FollowerClient ->> FollowerClient: Insert follow action local feed database 
+  FollowerClient ->> FollowerClient: Attach follow as metadata to target profile
+  Note over FollowerClient: The feed renderer displays the follow<br>as metadata on the target user's profile.
+```
+
 ### Replication
 Design Principle:
 Replication is pull-based and incremental. Followers fetch only new commits since their last synchronisation, instead of dowloading eveything again.
@@ -209,6 +350,55 @@ Typical workflow:
 - Run verify(message, signature, publicKey) for each action
 - Update feed database with verified actions
 
+### Replication Workflow
+What it is
+Shows how authors publish new signed social actions (posts, replies, like, follows) into /social/actions/, and how follower's clients periodically pull only new commits, parse newly added action files, verify signatures, and updated their local feed database - linking replies and attaching likes/follows as metadata.
+
+How it works
+When an author creates new actions, their client saves each one as a signed JSON file under /social/actions/, then commits and pushes to the Git host. Follower's clients, guided by following.json, periodically run git fetch against each followed repository. Git transfers only commits that are not yet present locally. For each new commit, the follower's client inspects which files were added under /social/actions/, opens each JSON action, verifies its signature using the author's publicKey from /social/profile.json, and, if valid, inserts it into the local feed database, Posts are stored chronologically; replies are linked to their parent via inReplyTo; likes and follows are attached as metadata to the target post or profile.
+
+```mermaid
+sequenceDiagram
+  participant Author as AuthorUser
+  participant AuthorClient as AuthorClient
+  participant Repo as AuthorRepo
+  participant FollowerClient as FollowerClient
+
+  Note over Author,AuthorClient: Author side – creating and publishing new signed social actions
+
+  Author ->> AuthorClient: Perform social action (post/reply/like/follow)
+  AuthorClient ->> AuthorClient: Create new action JSON
+  AuthorClient ->> AuthorClient: Sign JSON with privateKey
+  AuthorClient ->> Repo: Save file under /social/actions/<id>.json
+  AuthorClient ->> Repo: git commit and push
+
+  Note over Repo: Repo now contains new commits with new action files.
+
+  Note over FollowerClient: Replication is triggered periodically or manually.
+
+  FollowerClient ->> FollowerClient: Read following.json to determine repos to replicate
+  FollowerClient ->> Repo: git fetch origin (incremental sync)
+  Repo ->> FollowerClient: Return only new commits not already local
+
+  FollowerClient ->> FollowerClient: For each new commit, list changed files
+  FollowerClient ->> FollowerClient: Filter files under /social/actions/
+
+  FollowerClient ->> FollowerClient: For each new action file, open and parse JSON
+  FollowerClient ->> FollowerClient: Load author's publicKey from profile.json
+  FollowerClient ->> FollowerClient: Verify signature
+
+  alt Signature valid
+    FollowerClient ->> FollowerClient: Insert action into local feed database
+    FollowerClient ->> FollowerClient: If post, add chronologically
+    FollowerClient ->> FollowerClient: If reply, link via inReplyTo
+    FollowerClient ->> FollowerClient: If like, attach metadata to target post
+    FollowerClient ->> FollowerClient: If follow, attach metadata to target profile
+  else Signature invalid
+    FollowerClient ->> FollowerClient: Ignore action
+  end
+
+  Note over FollowerClient: Feed renderer uses the local feed database.
+```
 ### Follow List 
 Design Principle:
 Each user mantains a local list of account they follow. This defines the scope of replication and feed construction.
@@ -252,6 +442,55 @@ Implementation Notes
 - Storage: following.json is kept in the client's local repor or app data
 - Verification: profile.json signatues checked with crypto libraries
 - Replication: GitPython/isomorphic git fetch repos listed in following.json
+
+### Following Workflow (Follow List / following.json)
+What it is 
+A workflow that shows how a user decides to follow an account using its handle, how the client resolves that handle to the correct signd profile.json, verifies the identity, updates the local following.json, and performs an intial replication of the target's repository. The workflow defines the replication scope - it determines which repositories the client will pull posts from. It is not a social action.
+
+How it works
+When the user enters a handle (e.g. alice.social), the client resolves it to a profile URL using the Discovery layer. It fetches the signed profile.json, verifies the signature, and extracts the publicKey and repoURL. The client then appends a new entry to following.json with: the handle, publicKey, repoURL and timestamp.
+
+Immediately after updating following.json, the client performs an intial replication which is a git fetch to pull all existing posts, replies, like and follows from the target repository. All future replication is handled by the Replication workflow, which reads following.json to know which repos to sync.
+
+```mermaid
+sequenceDiagram
+  participant User as FollowerUser
+  participant FollowerClient as FollowerClient
+  participant Directory as DiscoveryDirectory
+  participant AuthorRepo as AuthorRepo
+
+  Note over User,FollowerClient: User decides to follows a new account by handle.
+
+  User ->> FollowerClient: Enter handle "alice.social"
+
+  Note over FollowerClient,Directory: Resolve handle to profile.json URL.
+
+  FollowerClient ->> Directory: Lookup "alice.social" in directory.json
+  Directory ->> FollowerClient: Return profileURL for alice.social
+
+  FollowerClient ->> AuthorRepo: HTTTP GET /social/profile.json
+  AuthorRepo ->> FollowerClient: Return signed profile.json
+
+  Note over FollowerClient: Verify identity before adding to follow list.
+
+  FollowerClient ->> FollowerClient: Verify profile.json signature
+  FollowerClient ->> FollowerClient: Read publicKey and repoURL
+
+  Note over FollowerClient: Update local follow list (following.json).
+
+  FollowerClient ->> FollowerClient: Append entry to following.json\n(handle, publicKey, repoURL, timestamp)
+
+  Note over FollowerClient,AuthorRepo: Initial replication begins immediately after following.
+
+  FollowerClient ->> AuthorRepo: git fetch origin (intial sync)
+  AuthorRepo ->> FollowerClient: Return commits containing /social/actions/*.json
+
+  FollowerClient ->> FollowerClient: Parse new action files, verify signatures, update local feed database
+
+  Note over FollowerClient: Future replication occurs periodically or manually\nas defined in the Replication Workflow.
+```
+
+
 
 ## Extension 
 ### Discovery 
