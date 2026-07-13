@@ -490,8 +490,6 @@ sequenceDiagram
   Note over FollowerClient: Future replication occurs periodically or manually\nas defined in the Replication Workflow.
 ```
 
-
-
 ## Extension 
 ### Discovery 
 Design Principle:
@@ -585,6 +583,67 @@ Implementation Note
 - Storage: Append entry to following.json
 - Replication: GitPython/isomorphic git fetch repos listed in following.json
 
+### Discovery Workflow
+What it is 
+A workflow that shows how the protocol resolves a human-readable handle (e.g. alice.social) into the profile.json containing the user's publicKey and repoURL.
+Discovery is the bridge between:
+- human-friendly identity (handle)
+- cryptographic identity (publicKey)
+- storage location (repoURL)
+Discovery operates at two levels:
+1. Per-user discvoery: each user publishes their own /social/profile.json
+2. Global directory discovery: a shared /social/discovery/directory.json which lists all known handles 
+This workflow is used before the Following workflow and is required for verifying identity and locating the correct Git repository.
+
+How it works
+When a new account is created, the client generates a signed a profile.json containing the user's publicKey, handle, repoURL, and metadata, and publishes it at a well-known URL. The client also appends the handle + profileURL to a shard directory.json hosted on a static site.
+
+When another user wants to follow this account, their client resolves the handle by fetching directory.json, locating the profileURL, fetching the signed profile.json, verifying its signature, and extracting the publicKey and repoURL.
+This verified information is then passed to the Following workflow, which updates following.json and begins replication.
+
+
+```mermaid
+sequenceDiagram
+  participant Author as AuthorUser
+  participant AuthorClient as AuthorClient
+  participant Directory as GlobalDirectory
+  participant AuthorSite as AuthorSite
+  participant Follower as FollowerUser
+  participant FollowerClient as FollowerClient
+
+  Note over Author,AuthorClient: Account creation triggers publishing of discovery data.
+
+  Author ->> AuthorClient: Create new account
+  AuthorClient ->> AuthorClient: Generate Ed25519 key pair (publicKey, privateKey)
+
+  AuthorClient ->> AuthorClient: Create /social/profile.json
+  AuthorClient ->> AuthorClient: Write publicKey, handle, repoURL, displayName, bio, created
+  AuthorClient ->> AuthorClient: Sign profile.json with privateKey
+
+  AuthorClient ->> AuthorClient: Publish /social/profile.json (commit & push)
+
+  Note over AuthorSite: profile.json is the authoritative identity file<br>used by all followers.
+
+  AuthorClient ->> Directory: Append {handle, profileURL} to directory.json
+  Directory ->> Directory: Updated global index of accounts
+
+  Note over Follower,FollowerClient: Follower browses directory to find accounts.
+
+  Follower ->> FollowerClient: Search for handle "alice.social"
+  FollowerClient ->> Directory: Fetch directory.json
+  Directory ->> FollowerClient: Return profileURL for alice.social
+
+  Note over FollowerClient: Resolve handle -> profileURL -> profile.json.
+
+  FollowerClient ->> AuthorSite: HTTP GET /social/profile.json
+  AuthorSite ->> FollowerClient: Return signed profile.json
+
+  FollowerClient ->> FollowerClient: Verify profile.json signature
+  FollowerClient ->> FollowerClient: Extract publicKey and repoURL
+
+  Note over FollowerClient: Verified identity and repoURL are passed<br>to the Following Workflow to update following.json.
+```
+
 ### Feed Indexing
 Design Principle:
 Efficient feed rendering requires an index of recent posts. Instead of scanning all files in /social/actions/, clients can read a lightweight index.json to quickly locate the latest posts.
@@ -659,6 +718,58 @@ Implementation Note
 - Storage: Feed database (local JSON, SQLite, or memory cache) is updated with verified posts
 - Efficiency: Index avoids scanning thousands of files, making sync faster
 
+### Feed indexing workflow
+What it is
+Shows how an author mantains a lightweight index.json pointing to recet post, and how follower clients use that index after replication to quickly discover which posts are new to their local feed database without rescnning all of /social/actions/. This workflow is an optimisation layer on top of Replication: it does not replace the standard signature verfication or action parsing, but narrows the search space.
+
+How it works
+When the author publishes a new post, their client creates the signed action file under /social/actions/, then updates index.json in the same repository. The index keeps a sliding window of recent post IDs (e.g. last 50) and an updated timestamp. The client commits bothe the new action file and the updated index.json and pushes them to the Git host.
+
+Follower clients, after running git fetch as part of the Replication workflow, read the latest index.json from each followed repo. They compare the latestPosts IDs in that remote index against their local feed database to determine which posts are missing. For each missing ID, the client opens the corresponding JSON file in /social/actions/, verifies its signature using the author's publicKey from profile.json, and if valid, inserts the post into the local feed database - linking replies via inReplyTo and showing likes/followes as metadata as usual.
+
+```mermaid
+sequenceDiagram
+  participant Author as AuthorUser
+  participant AuthorClient as AuthorClient
+  participant Repo as AuthorRepo
+  participant FollowerClient as FollowerClient
+
+  Note over Author,AuthorClient: Author side - publishing a new post and updating the index.
+
+  Author ->> AuthorClient: Create new post ("Hello world")
+  AuthorClient ->> AuthorClient: Create signed action file /social/actions/post-10001.json
+  AuthorClient ->> AuthorClient: Update index.josn (append "post-10001" to latestPosts, refresh updated timestamp)
+  Note over AuthorClient: Sliding window keeps only recent N posts (e.g. last 50)\nto avoid scanning thousands of files in /social/actions/.
+
+  AuthorClient ->> Repo: git commit & push\n(post10001.json + index.json)
+
+  Note over Repo: Repo now contains the new post and an updated index.json\nwith a window of recent post IDs.
+
+  Note over FollowerClient: Follower side – using index.json after replication.
+
+  FollowerClient ->> Repo: git fetch orgin (as part of Replication Workflow)
+  Repo ->> FollowerClient: Return new commits\nincludng updated /social/actions/ and index.json
+
+  FollowerClient ->> FollowerClient: Open index.json from each followed repo
+  FollowerClient ->> FollowerClient: Read latestPosts and updated timestamp
+
+  FollowerClient ->> FollowerClient: Compare latestPosts IDs\nagainst local feed database
+
+  Note over FollowerClient: index.json contains only the most recent N post IDs (sliding window).\nInstead of scanning all files in /social/actions/, the follower compares these IDs against its local feed database to find which recent posts are missing.\nThis makes synchrohisation fast because the client only inspects posts listed in latestPosts, not the entire repostory history.
+
+  FollowerClient ->> FollowerClient: Identify missing post IDs (e.g. "post-10001")
+
+  FollowerClient ->> FollowerClient: For each missing ID, open /social/actions/<id>.json
+  FollowerClient ->> FollowerClient: Verify signature using author's publicKey from profile.json 
+
+  alt Signature valid
+    FollowerClient ->> FollowerClient: Insert post into local feed database\n(update chronology, link replies, attach metadata)
+  else Signature invalid
+    FollowerClient ->> FollowerClient: Ignore post
+  end
+
+  Note over FollowerClient: Index.json is an optimization hint.\nTrust still comes from verifying each signed action file.
+```
 ### Media Handling 
 Design Principle:
 Posts can reference media files (images, audio, video). Large binary files are handled differently than JSON actions by handling via Git LFS or external storage to keep repositories efficient.
@@ -748,6 +859,76 @@ When signing is needed
 - Post JSON -> signed by the author
 - Media files -> not individually signed (integrity comes from Git commit or LFS pointer)
 - Follower verify the post JSON signature; media integrity is ensures by Git/LFS.
+
+### Media Handling Workflow (Posts with media + Git LFS/external storage)
+What it is
+Shows how an author attaches media (images/audio/video) to a post, how the client stores media files (directly or via Git LFS pointer files), references them from the post JSON, and how followers fetch, resolve, and display those media assets alongside the post. This workflow focuses on media storage and referencing, not on social action semantics (as already covered in the Posting Workflow).
+
+How it works
+When the user creates a post with media, the client saves the media file under /social/media/, optionally using Git LFS so that only a small pointer file is committed to the repository while the actual binary is stored in LFS storage. The post JSON includes a media field listing the paths to these media files. The client then commits and pushes both the post JSON and the media (or pointer) files. Followers, during replication, fetch new commits, read the post JSON, inspect the media field, and let Git/Git LFS retrieve the actual binaries. The follower verifies the post JSON signature using the author's publicKey from profile.json, then stores the post and its media references in the local feed database and renders the media inline.
+
+
+```mermaid
+sequenceDiagram
+  participant Author as AuthorUser
+  participant AuthorClient as AuthorClient
+  participant Repo as AuthorRepo
+  participant FollowerClient as FollowerClient
+  participant LFS as LFSStorage
+
+  Note over Author,AuthorClient: Author side - creating a post that includes media.
+
+  Author ->> AuthorClient: Create new post with image ("Photo from trip")
+  AuthorClient ->> AuthorClient: Save media file under /social/media/photo1.jpg
+
+  Note over AuthorClient,LFS: If media is large, Git LFS stores a pointer in the repo\nand the actual binary in LFS storage.
+
+  AuthorClient ->> LFS: Store large media binary (if using Git LFS)
+  LFS ->> AuthorClient: Return LFS pointer file (version, oid sha256, size)
+
+  AuthorClient ->> AuthorClient: Create /social/actions/post-003.json\n(type: "post", content, media = ["media/photo1.jpg"])
+  AuthorClient ->> AuthorClient: Sign post-003.json with privateKey (add signature field)
+
+  AuthorClient ->> Repo: Commit & push post-003.json\nand /social/media/ files (or LFS pointer files)
+
+  Note over Repo: Repo now contains signed post JSON\nand media files or LFS pointers under /social/media/.
+
+  Note over FollowerClient: Follower side – fetching post and resolving media.
+
+  FollowerClient ->> Repo: git fetch origin (as part of Replication Workflow)
+  Repo ->> FollowerClient: Return new commits\nincluding /social/actions/post-003.json and /social/media/*
+
+  FollowerClient ->> FollowerClient: Open /social/actions/post-003.json
+  FollowerClient ->> FollowerClient: Read media field ["media/photo1.jpg"]
+
+  Note over FollowerClient,LFS: If media path points to an LFS pointer,\nGit LFS automatically downloads the actual binary from LFS storage.
+
+  FollowerClient ->> Repo: Read /social/media/photo1.jpg or pointer file
+  Repo ->> FollowerClient: Return file
+
+  alt File is a normal media file
+    Note over FollowerClient: Small media file stored directly in the repo.\nNo LFS resolution needed.
+    FollowerClient ->> FollowerClient: Use media file as-is
+  else File is a Git LFS pointer
+    Note over FollowerClient: Pointer file contains no media - only metadata:\nversion, oid sha256, size.
+    FollowerClient ->> LFS: Request actual binary using oid sha256
+    LFS ->> FollowerClient: Return real media binary (image/audio/video)
+  end
+
+  FollowerClient ->> FollowerClient: Load author's publicKey from /social/profile.json
+  FollowerClient ->> FollowerClient: Verify signature on post-003.json
+
+  alt Signature valid
+    FollowerClient ->> FollowerClient: Insert post into local feed database\n(store content + media references)
+    Note over FollowerClient: Feed renderer displays the post\nwith media inline (image/audio/video).
+  else Signature invalid
+    FollowerClient ->> FollowerClient: Ignore post and associated media
+  end
+
+```
+
+
+
 
 ## Redesigned Components
 ### Moderation
