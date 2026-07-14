@@ -770,6 +770,26 @@ sequenceDiagram
 
   Note over FollowerClient: Index.json is an optimization hint.\nTrust still comes from verifying each signed action file.
 ```
+Intuitive example workflow:
+Step 1: One session key for the whole group
+- sessionKey = ABC123
+- All recipients share this same symmetric key.
+
+Step 2: Encrypt the post ONCE
+- ciphertext = Encrypt(plaintext, sessionKey, freshNonce)
+- This ciphertext is:
+  - unique to this post
+  - identical for all recipients
+
+Step 3: Encrypt the session key separately for each recipient
+- encryptedKeyForAlice = Encrypt(ABC123, Alice_publicKey)
+- encryptedKeyForBob   = Encrypt(ABC123, Bob_publicKey)
+- encryptedKeyForCara  = Encrypt(ABC123, Cara_publicKey)
+
+These encryptedKey values are:
+- different per recipient
+but they all decrypt to the same session key ABC123
+
 ### Media Handling 
 Design Principle:
 Posts can reference media files (images, audio, video). Large binary files are handled differently than JSON actions by handling via Git LFS or external storage to keep repositories efficient.
@@ -927,9 +947,6 @@ sequenceDiagram
 
 ```
 
-
-
-
 ## Redesigned Components
 ### Moderation
 Design Principle:
@@ -1001,6 +1018,79 @@ Implementation Note
 - Verification: Followers use crypto libraries to verify signatures
 - Storage: Moderation lists are stored in /social/moderation/
 - Application: Clients enforce block/trust rules during feed rendering
+
+### Moderation Workflow (Signed Blocklists & Trustlists)
+What it is 
+A workflow showing how users publish signed moderation lists - blocklist.json and trustlist.json - under /social/moderation/, and how followers client fetch, verify, and enforce these lists during feed rendering. 
+Moderation in this protocol is:
+- Decentralised - no servers or admins decide what you see
+- Portable - moderation lists travel with your identity
+- Cryptographically verifiable - followers only apply lists that are signed by the author
+- User-controlled - each user decides who to block or trust
+- Feed-level - moderation affects rendering, not replication
+This fills the gap identified in your designm.md where surveyed protocols lacked portable, signed moderation lists.
+
+How it works
+When a user decides to block or trust accounts, their client creates a JSON moderation file under /social/moderation/. Moderation entries are publicKeys, which is suitable because the they are the user's true identity in the protocol. Clients already obtain these publicKey earlier through the Discovery Workflowm so moderation does not perform any handle resolution.
+
+The client creates either blocklist.json or trustlist.json, inserts the chosen publicKeys signs the JSON with the author's private key, and commits/pushes it ot the repository. Follower clients fetch these moderation files during replication, verify their signatures using the author's publicKey from profile.hson, and update their local moderation state.
+
+During feed rendering:
+- Blocklist: hide posts, replies, likes, and follows from blocked publicKeys
+- Trustlist: highlight or prioritise posts from trusted publicKeys
+Moderation does not affect replication - followers still fetch all posts - but it affects visibility, ranking, and filtering in the local feed. This means blocked content is still downloaded and verified, but not shown. 
+
+```mermaid
+sequenceDiagram
+  participant Author as AuthorUser
+  participant AuthorClient as AuthorClient
+  participant Repo as AuthorRepo
+  participant FollowerClient as FollowerClient
+
+  Note over Author,AuthorClient: Author side - creating and publishing signed moderation lists.
+
+  Author ->> AuthorClient: Decide to block or trust accounts
+  AuthorClient ->> AuthorClient: User supplies publicKey\n(obtained earlier via Discovery Workflow)
+
+  alt Creating blocklist
+    AuthorClient ->> AuthorClient: Create /social/moderation/blocklist.json
+    AuthorClient ->> AuthorClient: Add publicKeys to blockedKeys[]
+  else Creating trustlist
+    AuthorClient ->> AuthorClient: Create /social/moderation/trustlist.json
+    AuthorClient ->> AuthorClient: Add publicKeys to trustedKeys[]
+  end
+
+  AuthorClient ->> AuthorClient: Sign moderation JSON wiht privateKey\n(add signature field)
+  
+  AuthorClient ->> Repo: git commit & push\n(blocklist.json or trustlist.json)
+
+  Note over Repo: Repo now contains signed moderation lists\nunder /social/moderation/.
+
+  Note over FollowerClient: Follower side - fetching and enforcing moderation.
+
+  FollowerClient ->> Repo: git fetch origin (as part of Replication Workflow)
+  Repo ->> FollowerClient: Return new commits\nincluding /social/moderation/*
+
+  FollowerClient ->> FollowerClient: Open moderation files\n(blocklist.json, trustlist.json)
+  FollowerClient ->> FollowerClient: Load author's publicKey from /social/profile.json
+  FollowerClient ->> FollowerClient: Verify signatures on moderation lists
+
+  alt Signature valid
+    FollowerClient ->> FollowerClient: Update local moderation state\n(store blockedKeys / trustedKeys)
+
+    Note over FollowerClient: Moderation applied during feed rendering\nReplication still fetches all posts.
+
+    alt Applying blocklist
+      FollowerClient ->> FollowerClient: Hide posts from blockedKeys\nand suppress replies/likes/follows from them
+    else Applying trustlist
+      FollowerClient ->> FollowerClient: Highlight posts from trustedKeys\n(e.g. boost, pin, or visually emphasise)
+    end
+  else Signature invalid
+    FollowerClient ->> FollowerClient: Ignore moderation lists\n(do not apply block/trust rules)
+  end
+
+  Note over FollowerClient: Moderation lists are portable, decentralised, and verifiable\nThey follow the same signature model as posts.
+```
 
 ### Confidenentiality 
 Design Principle:
@@ -1113,6 +1203,77 @@ Confidentiality relies on two linked files:
 - Followers fetch both files, verify signatures, decrypt the session key, then use it for all posts in that session.
 - This makes private posts scalable, secure, and verifiable.
 
+### Confidentiality Workflow (Private Posts via Session/Group Keys)
+What it is 
+Shows how an author creates private posts encrypted with a sesssion key, and how the client distributes that session key to authorised recipients using their publicKeys, and how followers fetch, verify, decrypt, and display those private posts. 
+
+Confidentiality provides end-to-end encrypted private posts without servers, using Git as the transport layer and symmetric session keys for scalable encryption. This fill that gap identified in desing.md of portable, decentralised and verifiable private posts.
+
+How it works
+When a user writes a private post, the client either generates a new session key or reuses an existing one for that conversation. The post content is encrypted using this symmetric session key.
+The client then creates a session key distribution JSON containing:
+- a sessionId
+- one symmetric session key shared by all recipients
+- multiple encryptedKey entries, one per recipient publicKey (each encryptedKey contains the same session key encrypted wiht a different recipient publicKey)
+The post JSON stores:
+- the session ID 
+- the ciphertext (same for all recipients, different per post due to fresh nonce/IV)
+- metadata
+- a signature
+Both the session distribution file and the encrypted post file are committed and pushed. Follower clients fetch these files during replication, verify signatures, check whether their publicKey appears in the session distribution JSON, decrypt the session key using their private key, and then decrypt all posts referencing that sessionId. 
+
+Private posts are inserted into the feed database and displayed only to authorised recipients. Confidentiality does not affect replication - followers still fetch all encrypted posts - but only authorised recipients can decrypt and view them. 
+
+```mermaid
+sequenceDiagram
+  participant Author as AuthorUser
+  participant AuthorClient as AuthorClient
+  participant Repo as AuthorRepo
+  participant FollowerClient as FollowerClient
+
+  Note over Author,AuthorClient: Author side – creating and publishing private encrypted posts.
+
+  Author ->> AuthorClient: Compose private post (intended for specific recipients)
+
+  alt New session
+    AuthorClient ->> AuthorClient: Generate fresh symmetric session key\n(one key shared by all recipients)
+    AuthorClient ->> AuthorClient: Create /social/actions/session-001.json\nwith sessionId and encryptedFor[]
+    Note over AuthorClient: Each encryptedKey contains the same session key,\nbut encrypted with each recipient's publicKey.
+  else Existing session
+    AuthorClient ->> AuthorClient: Reuse existing session key\n(sessionId already published)
+  end
+
+  AuthorClient ->> AuthorClient: Encrypt post content using session key
+  Note over AuthorClient: Each post has unique ciphertext (fresh nonce/IV),\nbut all authorised recipients see the same ciphertext\nbecause the post is encrypted once with the shared session key.
+
+  AuthorClient ->> AuthorClient: Create /social/actions/post-010.json\n(type: "post", sessionId, ciphertext, created)
+  AuthorClient ->> AuthorClient: Sign both JSON files with privateKey
+
+  AuthorClient ->> Repo: git commit & push\n(session-001.json if new + post-010.json)
+
+  Note over Repo: Repo now contains encrypted private posts\nand the session key distribution JSON.
+
+  Note over FollowerClient: Follower side – fetching, verifying, and decrypting private posts.
+
+  FollowerClient ->> Repo: git fetch origin (Replication Workflow)
+  Repo ->> FollowerClient: Return new commits\nincluding session-001.json and post-010.json
+
+  FollowerClient ->> FollowerClient: Open session-001.json and post-010.json
+  FollowerClient ->> FollowerClient: Verify signatures using author's publicKey\n(from /social/profile.json)
+
+  alt Follower is listed in encryptedFor[]
+    FollowerClient ->> FollowerClient: Decrypt encryptedKey using follower's privateKey\n(one-time decryption per session)
+    FollowerClient ->> FollowerClient: Use session key to decrypt ciphertext\n(ciphertext same for all recipients)
+    FollowerClient ->> FollowerClient: Insert decrypted post into local feed database
+    Note over FollowerClient: Private posts are displayed only to authorised recipients.
+  else Not an authorised recipient
+    FollowerClient ->> FollowerClient: Cannot decrypt session key\n(ciphertext remains unreadable)
+    FollowerClient ->> FollowerClient: Ignore private content during rendering
+  end
+
+  Note over FollowerClient: Summary:\n• One session key → many posts\n• Ciphertext differs per post (fresh nonce/IV)\n• Ciphertext identical for all recipients of that post\n• encryptedKey differs per recipient\n• All encryptedKeys decrypt to the same session key
+```
+
 ### Threading
 Design Principle:
 Replies reference parent commits. Threads are reconstructed by traversing the Git DAG (Directed Acylic Graph)
@@ -1209,6 +1370,61 @@ Summary:
 - Workflow is identical to posts: authored, signed, committed, pushed, fetched, verified
 - The difference is that replies link into threads, reconstructured by DAG traversal
 - This fixes the gap in Git-based prototypes and makes threading decentralised, verifiable, and consistent
+
+### Threading Workflow
+What it is 
+Threading shows how clients reconstruct coversation trees by following inReplyTo pointers and traversing the Git DAG. It explains how replies for nested structures (post -> reply -> reply -> ...) and how clients render these threads in the feed. This addresses the gaps in earlier Git-based prototypes, which lacked explicit reply structures and threading logic.
+
+How it works
+When an author publishes a reply, the reply JSON includes an inReplyTo field pointing to the parent post. Followers fetch replies during replication, verify signatures, and store them in the local feed database.
+
+Threading begins after all posts and replies are stored locally. At this point, the client perfomrs the following steps:
+1. Read all posts and replies
+The client loads every JSON file in /social/actions and extracts: id, type, inReplyTo (if present), giving the client full list of post and replies
+2. Build a mapping: postId -> children[]
+The client creates a mapping that groups replies under the post they reference. This is done by scanning each reply's inReplyTo field and adding that reply to the parent post's children[] list.
+3. Traverse the DAG using inReplyTo
+Git already provides a Directed Acyclic Graph of commits, so threading uses the reply edges inside that DAG to reconstruct the reply chain.
+4. Construct a conversation tree (client builds tree by mapping edges)
+5. Render nested replies
+
+```mermaid
+sequenceDiagram
+  participant Author as AuthorUser
+  participant AuthorClient as AuthorClient
+  participant Repo as AuthorRepo
+  participant FollowerClient as FollowerClient
+  
+  Note over Author,AuthorClient: Author side - creating a reply that links into a thread.
+
+  Author ->> AuthorClient: Write reply ("Replying to post-001")
+  AuthorClient ->> AuthorClient: Create reply JSON (type: "reply", inReplyTo: "post-001")
+  AuthorClient ->> AuthorClient: Sign reply JSON with privateKey
+  AuthorClient ->> Repo: Save as /social/actions/post-005.json
+  AuthorClient ->> Repo: git commit & push
+
+  Note over Repo: Repo now contains a reply referencing its parent via inReplyTo\n(post-005 is a reply to its parent post of post-001)
+
+  Note over FollowerClient: Follower side - fetching replies and reconstructing threads.
+
+  FollowerClient ->> Repo: git fetch origin (Replication Workflow)
+  Repo ->> FollowerClient: Return new commits including post-005.json
+
+  FollowerClient ->> FollowerClient: Open reply JSON
+  FollowerClient ->> FollowerClient: Verify signature using author's publicKey
+
+  FollowerClient ->> FollowerClient: Insert reply into local feed database
+  FollowerClient ->> FollowerClient: Link reply to parent using inReplyTo = "post-001"
+
+  Note over FollowerClient: Thread reconstruction begins.\nReplies always point to their parent post.
+
+  FollowerClient ->> FollowerClient: Traverse DAG\nFind all replies whose inReplyTo matches post-001
+  FollowerClient ->> FollowerClient: Build coversation tree:\npost-001 -> post-005 -> post-007 -> ...
+
+  FollowerClient ->> FollowerClient: Render thread with nested replies\nmantaining chronological order
+
+  Note over FollowerClient: Threading uses inReplyTo pointers + DAG traversal\nto reconstruct decentralised conversation trees.
+```
 
 ### Directory Layout (Summary)
 Purpose:
