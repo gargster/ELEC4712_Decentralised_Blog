@@ -8,6 +8,9 @@ import json
 from src.identity.keypair import KeyPair
 from src.identity.signer import Signer
 from src.identity.profile import ProfileCreator
+# Import social action modules
+from src.actions.post import PostAction
+from src.actions.reply import ReplyAction
 
 # Path to test social repo
 SOCIAL_PATH = os.path.join(
@@ -15,6 +18,7 @@ SOCIAL_PATH = os.path.join(
     "..",
     "social"
 )
+# Identity test functions
 def test_keypair_generation():
     print("\n=== Test: KeyPair Generation ===")
     keypair = KeyPair()
@@ -50,12 +54,35 @@ def test_profile_creation():
         profile_data = json.load(file)
     print("Profile.json contents: ")
     print(json.dumps(profile_data, indent=2))
+# Social action test functions
+def test_post_action():
+    print("\n=== Test: Post Action ===")
+    post_action = PostAction(SOCIAL_PATH)
+    path, post_obj = post_action.create_post("Hello world from Bharat!")
+    print("Post created at:", path)
+    print("Post JSON contents:")
+    print(json.dumps(post_obj, indent=2))
+
+def test_reply_action():
+    print("\n=== Test: Reply Action ===")
+    reply_action = ReplyAction(SOCIAL_PATH)
+    # Reply to an existing post (e.g. post-001)
+    path, reply_obj = reply_action.create_reply(
+        parent_id="post-001",
+        content="Replying to your post!"
+    )
+    print("Reply created at:", path)
+    print("Reply JSON contents:")
+    print(json.dumps(reply_obj, indent=2))
 
 def main():
+    # Identity
     public_key, private_key = test_keypair_generation()
     test_signing(public_key, private_key)
     test_profile_creation()
-
+    # Social Action
+    test_post_action()
+    test_reply_action()
 
 if __name__ == "__main__":
     main()
