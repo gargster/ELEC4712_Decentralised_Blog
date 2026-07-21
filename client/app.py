@@ -11,6 +11,9 @@ from src.identity.profile import ProfileCreator
 # Import social action modules
 from src.actions.post import PostAction
 from src.actions.reply import ReplyAction
+from src.actions.like import LikeAction
+from src.actions.follow import FollowAction
+
 
 # Path to test social repo
 SOCIAL_PATH = os.path.join(
@@ -75,6 +78,29 @@ def test_reply_action():
     print("Reply JSON contents:")
     print(json.dumps(reply_obj, indent=2))
 
+def test_like_action():
+    print("\n=== Test: Like Action ===")
+    like_action = LikeAction(SOCIAL_PATH)
+    # Like an existing post (e.g. post-001)
+    path, like_obj = like_action.create_like("post-001")
+
+    print("Like created at:", path)
+    print("Like JSON contents:")
+    print(json.dumps(like_obj, indent=2))
+
+def test_follow_action():
+    print("\n=== Test: Follow Action ===")
+    follow_action = FollowAction(SOCIAL_PATH)
+
+    # Follow another user (their public key)
+    target_pk = "ed25519:def456..."  # placeholder for testing
+
+    path, follow_obj = follow_action.create_follow(target_pk)
+
+    print("Follow created at:", path)
+    print("Follow JSON contents:")
+    print(json.dumps(follow_obj, indent=2))
+
 def main():
     # Identity
     public_key, private_key = test_keypair_generation()
@@ -83,6 +109,8 @@ def main():
     # Social Action
     test_post_action()
     test_reply_action()
+    test_like_action()
+    test_follow_action()
 
 if __name__ == "__main__":
     main()
