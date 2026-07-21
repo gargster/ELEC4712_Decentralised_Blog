@@ -102,10 +102,13 @@ def test_follow_action():
     print(json.dumps(follow_obj, indent=2))
 
 def main():
-    # Identity
+    # Identity (these are just demos, not real identity loading)
     public_key, private_key = test_keypair_generation()
     test_signing(public_key, private_key)
-    test_profile_creation()
+    # Create profile ONLY if it does not already exist
+    # This simulates real client behaviour: identity is created once and reused forever
+    if not os.path.exists(os.path.join(SOCIAL_PATH, "profile.json")):
+        test_profile_creation()
     # Social Action
     test_post_action()
     test_reply_action()

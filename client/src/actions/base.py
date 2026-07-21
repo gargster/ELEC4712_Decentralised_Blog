@@ -95,7 +95,22 @@ class ActionBase:
         # TEMPORARY:
         # For early testing, generate a new keypair each time.
         # Later this will load the user's real keys from profile.json + keystor
-        keyPair = KeyPair()
-        return keyPair.public_key(), keyPair.private_key()
+        # keyPair = KeyPair()
+        # return keyPair.public_key(), keyPair.private_key()
+        
+        # Load publicKey from /social/profile.json
+        profile_path = os.path.join(self.social_path, "profile.json")
+        with open(profile_path, "r") as file:
+            profile = json.load(file)
+        public_key = profile["publicKey"]
+
+        # Load privateKey from /social/keystore/private.key
+        keystore_path = os.path.join(self.social_path, "keystore", "private.key")
+        with open(keystore_path, "r") as file:
+            private_key = file.read().strip()
+        return public_key, private_key
+    
+
+    
     
     

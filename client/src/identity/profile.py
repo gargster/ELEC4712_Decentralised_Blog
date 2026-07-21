@@ -3,12 +3,16 @@
 # Sign profile.json using the private key 
 import json
 from datetime import datetime, timezone
+import os
 from .keypair import KeyPair
 from .signer import Signer
 class ProfileCreator:
     def __init__(self, base_path: str):
         # Path to the user's /social/ directory 
         self.base_path = base_path
+        # Keystore path for storing the private key
+        self.keystore_path = os.path.join(self.base_path, "keystore")
+        self.private_key_file = os.path.join(self.keystore_path, "private.key")
     
     def build_profile_json(self, handle: str, display_name: str, bio: str):
         # Step 1: Build the profile JSON object.
@@ -41,6 +45,12 @@ class ProfileCreator:
             json.dump(profile, f, indent=2)
         return profile_path
     
+    def save_private_key(self, private_key: str):
+        # Save private key to /social/keystore/private.key
+        os.makedirs(self.keystore_path, exist_ok=True)
+        with open(self.private_key_file, "w") as file:
+            file.write(private_key)
+    
     def create_profile(self, handle: str, display_name: str, bio: str):
         # High-level method that calls the three steps to create and save a signed profile.json
         # Step 1: Build JSON 
@@ -49,6 +59,8 @@ class ProfileCreator:
         signed_profile = self.sign_profile_json(profile, private_key)
         # Step 3: Save the signed profile JSON
         profile_path = self.save_profile_json(signed_profile)
+        # Step 4: Save private key to keystore
+        self.save_private_key(private_key)
         # Add debug output
         print("Account created.")
         print("Public key:", signed_profile["publicKey"])
