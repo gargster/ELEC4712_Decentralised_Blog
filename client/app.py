@@ -1,6 +1,7 @@
 # Purpose
 # Step-by-step testing of core components(Identuty, Signing, Profile Creation)
 # Before adding CLI commands, or Git integration
+import argparse
 import os
 import json
 
@@ -21,99 +22,94 @@ SOCIAL_PATH = os.path.join(
     "..",
     "social"
 )
-# Identity test functions
-def test_keypair_generation():
-    print("\n=== Test: KeyPair Generation ===")
-    keypair = KeyPair()
-    public_key = keypair.public_key()
-    private_key = keypair.private_key()
-    print("Public Key:", public_key)
-    print("Private Key:", private_key)
-    return public_key, private_key
-def test_signing(public_key, private_key):
-    print("\n=== Test: Signing JSON ===")
-    # Sample JSON data to sign
-    sample_obj = {
-        "author": public_key,
-        "message": "Testing signature"
-    }
-    signer = Signer(private_key)
-    signature = signer.sign_json(sample_obj)
-    sample_obj["signature"] = signature
-    print("Signed JSON:")
-    print(json.dumps(sample_obj, indent=2))
-    return signature
-def test_profile_creation():
-    print("\n=== Test: Profile Creation ===")
-    profile_creator = ProfileCreator(SOCIAL_PATH)
+def print_allowed_commands():
+    print("\n==================== Allowed Commands ====================")
+    print("profile create --handle <handle> --name <name> --bio <bio>")
+    print("    Example: python app.py profile create --handle bharat.social --name Bharat --bio \"Student at USYD\"")
+    print() 
+    print("post <content>")
+    print("    Example: python app.py post \"Hello world\"")
+    print()
+    print("reply <parent_id> <content>")
+    print("    Example: python app.py reply post-001 \"Nice post!\"")
+    print()
+    print("like <target_id>")
+    print("    Example: python app.py like post-001")
+    print()
+    print("follow <target_public_key>")
+    print("    Example: python app.py follow ed25519:abc123...")
+    print("===========================================================\n")
 
-    handle = "bharat.social"
-    display_name = "Bharat"
-    bio = "Student at USYD."
-
-    profile_path = profile_creator.create_profile(handle, display_name, bio)
-    print("Profile created at:", profile_path)
-    with open(profile_path, "r") as file:
-        profile_data = json.load(file)
-    print("Profile.json contents: ")
-    print(json.dumps(profile_data, indent=2))
-# Social action test functions
-def test_post_action():
-    print("\n=== Test: Post Action ===")
-    post_action = PostAction(SOCIAL_PATH)
-    path, post_obj = post_action.create_post("Hello world from Bharat!")
-    print("Post created at:", path)
-    print("Post JSON contents:")
-    print(json.dumps(post_obj, indent=2))
-
-def test_reply_action():
-    print("\n=== Test: Reply Action ===")
-    reply_action = ReplyAction(SOCIAL_PATH)
-    # Reply to an existing post (e.g. post-001)
-    path, reply_obj = reply_action.create_reply(
-        parent_id="post-001",
-        content="Replying to your post!"
-    )
-    print("Reply created at:", path)
-    print("Reply JSON contents:")
-    print(json.dumps(reply_obj, indent=2))
-
-def test_like_action():
-    print("\n=== Test: Like Action ===")
-    like_action = LikeAction(SOCIAL_PATH)
-    # Like an existing post (e.g. post-001)
-    path, like_obj = like_action.create_like("post-001")
-
-    print("Like created at:", path)
-    print("Like JSON contents:")
-    print(json.dumps(like_obj, indent=2))
-
-def test_follow_action():
-    print("\n=== Test: Follow Action ===")
-    follow_action = FollowAction(SOCIAL_PATH)
-
-    # Follow another user (their public key)
-    target_pk = "ed25519:def456..."  # placeholder for testing
-
-    path, follow_obj = follow_action.create_follow(target_pk)
-
-    print("Follow created at:", path)
-    print("Follow JSON contents:")
-    print(json.dumps(follow_obj, indent=2))
 
 def main():
-    # Identity (these are just demos, not real identity loading)
-    public_key, private_key = test_keypair_generation()
-    test_signing(public_key, private_key)
-    # Create profile ONLY if it does not already exist
-    # This simulates real client behaviour: identity is created once and reused forever
-    if not os.path.exists(os.path.join(SOCIAL_PATH, "profile.json")):
-        test_profile_creation()
-    # Social Action
-    test_post_action()
-    test_reply_action()
-    test_like_action()
-    test_follow_action()
+    # print custom help menu each time program starts
+    print_allowed_commands()
+    # Create main parser
+    parser = argparse.ArgumentParser(description="Decentralised Social CLI")
+    # Create subcommand group
+    sub = parser.add_subparsers(dest="command")
+
+    # ---------------- POST ----------------
+    post = sub.add_parser("post")
+    post.add_argument("content")
+
+    # ---------------- PROFILE ----------------
+    p = sub.add_parser("profile")
+    p.add_argument("create") # user must type profile create
+    p.add_argument("--handle", required=True)
+    p.add_argument("--name", required=True)
+    p.add_argument("--bio", required=True)
+
+    # ---------------- REPLY ----------------
+    reply = sub.add_parser("reply")
+    reply.add_argument("parent_id")
+    reply.add_argument("content")
+
+    # ---------------- LIKE ----------------
+    like = sub.add_parser("like")
+    like.add_argument("target_id")
+
+    # ---------------- FOLLOW ----------------
+    follow = sub.add_parser("follow")
+    follow.add_argument("target_public_key")
+
+    # Parse user input
+    args = parser.parse_args()
+
+    # Dispatch based on subcommand
+    if args.command == "profile":
+        creator = ProfileCreator(SOCIAL_PATH)
+        creator.create_profile(args.handle, args.name, args.bio)
+        print("Profile created for:", args.handle)    
+        return
+    if args.command == "post":
+        action = PostAction(SOCIAL_PATH)
+        path, obj = action.create_post(args.content)
+        print("Post created at:", path)
+        print("Post object:", obj)
+        return
+
+    if args.command == "reply":
+        action = ReplyAction(SOCIAL_PATH)
+        path, obj = action.create_reply(args.parent_id, args.content)
+        print("Reply created at:", path)
+        print("Reply object:", obj)
+        return
+
+    if args.command == "like":
+        action = LikeAction(SOCIAL_PATH)
+        path, obj = action.create_like(args.target_id)
+        print("Like created at:", path)
+        print("Like object:", obj)
+        return
+
+    if args.command == "follow":
+        action = FollowAction(SOCIAL_PATH)
+        path, obj = action.create_follow(args.target_public_key)
+        print("Follow created at:", path)
+        print("Follow object:", obj)
+        return
+
 
 if __name__ == "__main__":
     main()

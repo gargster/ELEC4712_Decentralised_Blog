@@ -91,13 +91,7 @@ class ActionBase:
             json.dump(action, f, indent=2)
         return path
     
-    def _load_identity(self):
-        # TEMPORARY:
-        # For early testing, generate a new keypair each time.
-        # Later this will load the user's real keys from profile.json + keystor
-        # keyPair = KeyPair()
-        # return keyPair.public_key(), keyPair.private_key()
-        
+    def _load_identity(self):        
         # Load publicKey from /social/profile.json
         profile_path = os.path.join(self.social_path, "profile.json")
         with open(profile_path, "r") as file:
