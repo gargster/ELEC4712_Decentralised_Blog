@@ -8,3 +8,8 @@ class PostAction(ActionBase):
     # Implements the "post" action as defined in design.md
     def create_post(self, content: str):
         return self._create("post", content=content)
+    
+    def run(self, args):
+        return self.create_post(args.content)
+
+

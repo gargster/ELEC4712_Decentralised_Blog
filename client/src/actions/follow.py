@@ -5,5 +5,9 @@ class FollowAction(ActionBase):
     def _extend(self, obj, target):
         obj["target"] = target
         return obj 
+    
     def create_follow(self, target_public_key: str):
         return self._create("follow", target=target_public_key)
+    
+    def run(self, args):
+        return self.create_follow(args.target_public_key)

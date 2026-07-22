@@ -15,6 +15,8 @@ from src.actions.reply import ReplyAction
 from src.actions.like import LikeAction
 from src.actions.follow import FollowAction
 
+from src.actions.action_factory import ActionRegistry, ActionFactory
+
 
 # Path to test social repo
 SOCIAL_PATH = os.path.join(
@@ -73,42 +75,67 @@ def main():
     follow = sub.add_parser("follow")
     follow.add_argument("target_public_key")
 
+    # Register Actions
+    ActionRegistry.register("post", PostAction)
+    ActionRegistry.register("reply", ReplyAction)
+    ActionRegistry.register("like", LikeAction)
+    ActionRegistry.register("follow", FollowAction)
+
     # Parse user input
     args = parser.parse_args()
 
-    # Dispatch based on subcommand
+    # If no command was provided
+    if args.command is None:
+        parser.print_help()
+        return
+
     if args.command == "profile":
         creator = ProfileCreator(SOCIAL_PATH)
         creator.create_profile(args.handle, args.name, args.bio)
         print("Profile created for:", args.handle)    
         return
-    if args.command == "post":
-        action = PostAction(SOCIAL_PATH)
-        path, obj = action.create_post(args.content)
-        print("Post created at:", path)
-        print("Post object:", obj)
-        return
+    # Use factory method pattern
+    action = ActionFactory.create(args.command, SOCIAL_PATH)
+    path, obj = action.run(args)
 
-    if args.command == "reply":
-        action = ReplyAction(SOCIAL_PATH)
-        path, obj = action.create_reply(args.parent_id, args.content)
-        print("Reply created at:", path)
-        print("Reply object:", obj)
-        return
+    print(f"{args.command.capitalize()} created at:", path)
+    print(f"{args.command.capitalize()} object:", obj)
 
-    if args.command == "like":
-        action = LikeAction(SOCIAL_PATH)
-        path, obj = action.create_like(args.target_id)
-        print("Like created at:", path)
-        print("Like object:", obj)
-        return
 
-    if args.command == "follow":
-        action = FollowAction(SOCIAL_PATH)
-        path, obj = action.create_follow(args.target_public_key)
-        print("Follow created at:", path)
-        print("Follow object:", obj)
-        return
+
+    # Dispatch based on subcommand
+    # if args.command == "profile":
+    #     creator = ProfileCreator(SOCIAL_PATH)
+    #     creator.create_profile(args.handle, args.name, args.bio)
+    #     print("Profile created for:", args.handle)    
+    #     return
+    # if args.command == "post":
+    #     action = PostAction(SOCIAL_PATH)
+    #     path, obj = action.create_post(args.content)
+    #     print("Post created at:", path)
+    #     print("Post object:", obj)
+    #     return
+
+    # if args.command == "reply":
+    #     action = ReplyAction(SOCIAL_PATH)
+    #     path, obj = action.create_reply(args.parent_id, args.content)
+    #     print("Reply created at:", path)
+    #     print("Reply object:", obj)
+    #     return
+
+    # if args.command == "like":
+    #     action = LikeAction(SOCIAL_PATH)
+    #     path, obj = action.create_like(args.target_id)
+    #     print("Like created at:", path)
+    #     print("Like object:", obj)
+    #     return
+
+    # if args.command == "follow":
+    #     action = FollowAction(SOCIAL_PATH)
+    #     path, obj = action.create_follow(args.target_public_key)
+    #     print("Follow created at:", path)
+    #     print("Follow object:", obj)
+    #     return
 
 
 if __name__ == "__main__":
