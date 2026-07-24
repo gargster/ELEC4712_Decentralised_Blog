@@ -16,7 +16,7 @@ from src.actions.like import LikeAction
 from src.actions.follow import FollowAction
 
 from src.actions.action_factory import ActionRegistry, ActionFactory
-
+from src.replication.git_publisher import GitPublisher
 
 # Path to test social repo
 SOCIAL_PATH = os.path.join(
@@ -101,42 +101,14 @@ def main():
     print(f"{args.command.capitalize()} created at:", path)
     print(f"{args.command.capitalize()} object:", obj)
 
-
-
-    # Dispatch based on subcommand
-    # if args.command == "profile":
-    #     creator = ProfileCreator(SOCIAL_PATH)
-    #     creator.create_profile(args.handle, args.name, args.bio)
-    #     print("Profile created for:", args.handle)    
-    #     return
-    # if args.command == "post":
-    #     action = PostAction(SOCIAL_PATH)
-    #     path, obj = action.create_post(args.content)
-    #     print("Post created at:", path)
-    #     print("Post object:", obj)
-    #     return
-
-    # if args.command == "reply":
-    #     action = ReplyAction(SOCIAL_PATH)
-    #     path, obj = action.create_reply(args.parent_id, args.content)
-    #     print("Reply created at:", path)
-    #     print("Reply object:", obj)
-    #     return
-
-    # if args.command == "like":
-    #     action = LikeAction(SOCIAL_PATH)
-    #     path, obj = action.create_like(args.target_id)
-    #     print("Like created at:", path)
-    #     print("Like object:", obj)
-    #     return
-
-    # if args.command == "follow":
-    #     action = FollowAction(SOCIAL_PATH)
-    #     path, obj = action.create_follow(args.target_public_key)
-    #     print("Follow created at:", path)
-    #     print("Follow object:", obj)
-    #     return
-
+    # Git Publishing - repo root is where .git lives
+    # app.py is in client/, so go one level up the reach repo root
+    repo_root = os.path.dirname(os.path.dirname(__file__))
+    # Create a GitPublisher bound to the project root repo
+    publisher = GitPublisher(repo_root)
+    # Commit and push the newly created action file
+    # obj['id'] should be like "post-001", "reply-002", etc 
+    publisher.publish(path, f"Add {obj['id']}")
 
 if __name__ == "__main__":
     main()
