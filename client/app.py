@@ -17,6 +17,7 @@ from src.actions.follow import FollowAction
 
 from src.actions.action_factory import ActionRegistry, ActionFactory
 from src.replication.git_publisher import GitPublisher
+from src.replication.replicator import Replicator
 
 # Path to test social repo
 SOCIAL_PATH = os.path.join(
@@ -40,6 +41,9 @@ def print_allowed_commands():
     print()
     print("follow <target_public_key>")
     print("    Example: python app.py follow ed25519:abc123...")
+    print()
+    print("replicate")
+    print("    Example: python app.py replicate")
     print("===========================================================\n")
 
 
@@ -75,6 +79,9 @@ def main():
     follow = sub.add_parser("follow")
     follow.add_argument("target_public_key")
 
+    # ---------------- REPLICATE ----------------
+    replicate = sub.add_parser("replicate")
+
     # Register Actions
     ActionRegistry.register("post", PostAction)
     ActionRegistry.register("reply", ReplyAction)
@@ -94,7 +101,17 @@ def main():
         creator.create_profile(args.handle, args.name, args.bio)
         print("Profile created for:", args.handle)    
         return
-    # Use factory method pattern
+    # ---------------- REPLICATE (NEW) ----------------
+    elif args.command == "replicate":
+        # path to client/
+        client_root = os.path.dirname(__file__)
+        # path to social/
+        social_root = SOCIAL_PATH
+        r = Replicator(client_root, social_root)
+        r.run()
+        return
+    # ---------------- ALL OTHER SOCIAL ACTIONS ----------------
+    # Use factory method pattern for all other social actions
     action = ActionFactory.create(args.command, SOCIAL_PATH)
     path, obj = action.run(args)
 

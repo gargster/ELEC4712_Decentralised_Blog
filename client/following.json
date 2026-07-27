@@ -1,0 +1,16 @@
+{
+  "following": [
+    {
+      "handle": "ed25519:0cb21e6075876b6939cad9d4a551c8bd87941ed39477ac173d35125e4234fe92",
+      "publicKey": "ed25519:0cb21e6075876b6939cad9d4a551c8bd87941ed39477ac173d35125e4234fe92",
+      "repoURL": "https://github.com/bgar5324/ELEC4712_Decentralised_Blog.git",
+      "added": "2026-07-24T10:24:08.597001Z"
+    },
+    {
+      "handle": "ed25519:0cb21e6075876b6939cad9d4a551c8bd87941ed39477ac173d35125e4234fe92",
+      "publicKey": "ed25519:0cb21e6075876b6939cad9d4a551c8bd87941ed39477ac173d35125e4234fe92",
+      "repoURL": "https://github.com/bgar5324/ELEC4712_Decentralised_Blog.git",
+      "added": "2026-07-24T10:24:28.661163Z"
+    }
+  ]
+}
