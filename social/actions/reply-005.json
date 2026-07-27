@@ -1,0 +1,9 @@
+{
+  "id": "reply-005",
+  "type": "reply",
+  "author": "ed25519:0cb21e6075876b6939cad9d4a551c8bd87941ed39477ac173d35125e4234fe92",
+  "created": "2026-07-27T01:44:40.494028Z",
+  "content": "Nice post!",
+  "inReplyTo": "post-003",
+  "signature": "psAVYuzXL1dChQXnUyKcfEGF1Nr0O16mcdrVzpKcM6nc6WSiZxKtCJQF3jbfoJuNe1+Zj4EN3XFb3T4wEwZuDA=="
+}
