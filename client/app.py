@@ -22,7 +22,8 @@ from src.replication.replicator import Replicator
 # Path to test social repo
 SOCIAL_PATH = os.path.join(
     os.path.dirname(__file__),
-    "..",
+    "..", 
+    "bharat-social",
     "social"
 )
 def print_allowed_commands():
@@ -119,8 +120,12 @@ def main():
     print(f"{args.command.capitalize()} object:", obj)
 
     # Git Publishing - repo root is where .git lives
-    # app.py is in client/, so go one level up the reach repo root
-    repo_root = os.path.dirname(os.path.dirname(__file__))
+    # repo_root = os.path.dirname(os.path.dirname(__file__))
+    repo_root = os.path.join(
+        os.path.dirname(__file__),
+        "..",
+        "bharat-social"
+    )
     # Create a GitPublisher bound to the project root repo
     publisher = GitPublisher(repo_root)
     # Commit and push the newly created action file
