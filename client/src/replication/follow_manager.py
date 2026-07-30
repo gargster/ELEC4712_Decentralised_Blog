@@ -1,13 +1,22 @@
 import os
 import json
 from datetime import datetime, timezone
+from src.utils.identity_loader import load_identity
 # Manages follow.json (local list of repos the user follows)
 # This file is not signed or pushed, but is private to the client
 class FollowManager:
     def __init__(self, client_root: str):
         # following.json will live in the client root
         self.client_root = client_root
-        self.follow_file = os.path.join(client_root, "following.json")
+        # self.follow_file = os.path.join(client_root, "following.json")
+        identity = load_identity()
+        identity_name = identity["activeIdentity"]
+        self.follow_file = os.path.join(
+            client_root,
+            "state",
+            identity_name,
+            "following.json"
+        )
         # If file doesn't exist, create an empty structure
         if not os.path.exists(self.follow_file):
             with open(self.follow_file, "w") as file:

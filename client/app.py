@@ -19,11 +19,14 @@ from src.actions.action_factory import ActionRegistry, ActionFactory
 from src.replication.git_publisher import GitPublisher
 from src.replication.replicator import Replicator
 
-# Path to test social repo
+from src.utils.identity_loader import load_identity
+from src.replication.follow_manager import FollowManager
+
+identity = load_identity()
+
 SOCIAL_PATH = os.path.join(
     os.path.dirname(__file__),
-    "..", 
-    "bharat-social",
+    identity["repoPath"],
     "social"
 )
 def print_allowed_commands():
@@ -102,15 +105,22 @@ def main():
         creator.create_profile(args.handle, args.name, args.bio)
         print("Profile created for:", args.handle)    
         return
+    
     # ---------------- REPLICATE (NEW) ----------------
     elif args.command == "replicate":
         # path to client/
         client_root = os.path.dirname(__file__)
         # path to social/
-        social_root = SOCIAL_PATH
+        #social_root = SOCIAL_PATH
+        # TEMP FIX: replicate Bharat's repo
+        social_root = os.path.join(
+            os.path.dirname(__file__),
+            "../bharat-social/social"
+        )
         r = Replicator(client_root, social_root)
         r.run()
         return
+        
     # ---------------- ALL OTHER SOCIAL ACTIONS ----------------
     # Use factory method pattern for all other social actions
     action = ActionFactory.create(args.command, SOCIAL_PATH)
@@ -120,11 +130,9 @@ def main():
     print(f"{args.command.capitalize()} object:", obj)
 
     # Git Publishing - repo root is where .git lives
-    # repo_root = os.path.dirname(os.path.dirname(__file__))
     repo_root = os.path.join(
         os.path.dirname(__file__),
-        "..",
-        "bharat-social"
+        identity["repoPath"]
     )
     # Create a GitPublisher bound to the project root repo
     publisher = GitPublisher(repo_root)

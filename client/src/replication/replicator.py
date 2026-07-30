@@ -1,6 +1,8 @@
 import os
 import json
 from src.identity.verifier import Verifier
+from src.utils.identity_loader import load_identity
+
 # Minimal replication engine which reads follow.json, 
 # scans /social/actions for JSON files,
 # verifies signatures and insert valid actions into feed.json
@@ -10,10 +12,11 @@ class Replicator:
         self.client_root = client_root
         # social_root = social/ directory (where actions live)
         self.social_root = social_root 
-        # following.json = local follow list
-        self.follow_file = os.path.join(client_root, "following.json")
-        # feed.json = local feed database 
-        self.feed_file = os.path.join(client_root, "feed.json")
+
+        identity = load_identity()
+        identity_name = identity["activeIdentity"]
+        self.follow_file = os.path.join(client_root, "state", identity_name, "following.json")
+        self.feed_file = os.path.join(client_root, "state", identity_name, "feed.json")
 
     def load_following(self):
         # load the list of accounts the user follows.
