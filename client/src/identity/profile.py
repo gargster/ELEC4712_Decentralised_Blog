@@ -6,6 +6,9 @@ from datetime import datetime, timezone
 import os
 from .keypair import KeyPair
 from .signer import Signer
+
+from src.utils.identity_loader import load_identity
+
 class ProfileCreator:
     def __init__(self, base_path: str):
         # Path to the user's /social/ directory 
@@ -19,10 +22,17 @@ class ProfileCreator:
         keypair = KeyPair()
         public_key = keypair.public_key()
         private_key = keypair.private_key()
-        
+
+        # Load identity to derive repo path / URL (temporary)
+        identity = load_identity()
+        repo_path = identity["repoPath"]
+        # Temp: for now treat repoURL as local path so Replicator can use it, later: "https://github.com/...git"
+        repo_url = repo_path
+
         profile = {
             "publicKey": public_key,
             "handle": handle,
+            "repoURL": repo_url,
             "displayName": display_name,
             "bio": bio,
             "created": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")

@@ -81,7 +81,8 @@ def main():
 
     # ---------------- FOLLOW ----------------
     follow = sub.add_parser("follow")
-    follow.add_argument("target_public_key")
+    follow.add_argument("target_handle")
+    # follow.add_argument("target_public_key")
 
     # ---------------- REPLICATE ----------------
     replicate = sub.add_parser("replicate")

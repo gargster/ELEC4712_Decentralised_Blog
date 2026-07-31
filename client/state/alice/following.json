@@ -1,10 +1,10 @@
 {
   "following": [
     {
-      "handle": "ed25519:12e0b38dc08c3a2f7e9a05d91ec3311818415a3d660f6616f2b714c0882e7595",
-      "publicKey": "ed25519:12e0b38dc08c3a2f7e9a05d91ec3311818415a3d660f6616f2b714c0882e7595",
-      "repoURL": "https://github.com/bgar5324/ELEC4712_Decentralised_Blog.git",
-      "added": "2026-07-29T21:41:06.485833Z"
+      "handle": "bharat.social",
+      "publicKey": "ed25519:49be51fe1d9c5342af6001f37bb97c1e1f26ae6aed09f55d2e9288507e47f2e4",
+      "repoURL": "../bharat-social",
+      "added": "2026-07-31T00:51:31.946399Z"
     }
   ]
 }

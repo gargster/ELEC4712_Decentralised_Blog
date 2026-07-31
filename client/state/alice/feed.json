@@ -1,28 +1,20 @@
 {
   "feed": [
     {
-      "id": "follow-001",
-      "type": "follow",
-      "author": "ed25519:12e0b38dc08c3a2f7e9a05d91ec3311818415a3d660f6616f2b714c0882e7595",
-      "created": "2026-07-28T07:17:12.449350Z",
-      "target": "ed25519:12e0b38dc08c3a2f7e9a05d91ec3311818415a3d660f6616f2b714c0882e7595",
-      "signature": "Yr/Sw0QZhGCoDg8MrTPur4DUEr6oKoC1UthXct8W+3YwkRtDwj75n6akVKt2yzGOxhzzG/2/KCuQqq0o4IyeDw=="
+      "id": "post-010",
+      "type": "post",
+      "author": "ed25519:49be51fe1d9c5342af6001f37bb97c1e1f26ae6aed09f55d2e9288507e47f2e4",
+      "created": "2026-07-30T09:25:12.272718Z",
+      "content": "Hello from Bharat! How are you?",
+      "signature": "D+Adqt50F8XJ4Zh1AodZyIm1xoXcjU3+G5S9zukbUbexjtSJ3ckHfpO4/K/lcrxHVb7u1D0ZXv+thpCt1ZMsAA=="
     },
     {
-      "id": "post-008",
+      "id": "post-011",
       "type": "post",
-      "author": "ed25519:12e0b38dc08c3a2f7e9a05d91ec3311818415a3d660f6616f2b714c0882e7595",
-      "created": "2026-07-28T06:43:43.306090Z",
-      "content": "Testing GitPublisher",
-      "signature": "LXDHI0mQsJljL7WYGAFz3YxSuysB9ZbFciZbL7cbQwHMcWVAozx33ENGPi3Mvu/yi8ZCqNoamE+bdeRjZLY+CQ=="
-    },
-    {
-      "id": "post-009",
-      "type": "post",
-      "author": "ed25519:12e0b38dc08c3a2f7e9a05d91ec3311818415a3d660f6616f2b714c0882e7595",
-      "created": "2026-07-28T06:52:18.577685Z",
-      "content": "This should appear in feed",
-      "signature": "JufVawawHKZdBy0hLwWExmvnzwJ/+evUpt5Nc8YNl9JwbqyM25PzTKIrZaGlQ953ICKtdz/BoHleXOmf9E81BA=="
+      "author": "ed25519:49be51fe1d9c5342af6001f37bb97c1e1f26ae6aed09f55d2e9288507e47f2e4",
+      "created": "2026-07-30T09:28:15.041303Z",
+      "content": "Bonjour from Bharat! How are you?",
+      "signature": "ZgeCaEDXPhUBlTbbBPmnhSnhbV7nKwugZtY/wGqw9pP+ODWW6kZ/cyYxPJ0jL35+4yA3IGgJyzmdfJw8bhB2Dg=="
     }
   ]
 }
