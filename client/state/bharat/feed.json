@@ -1,0 +1,20 @@
+{
+  "feed": [
+    {
+      "id": "follow-003",
+      "type": "follow",
+      "author": "ed25519:377290b2f495048e2b2a97b74e84bbd52610bb16ce0d2fadede15fe090217f31",
+      "created": "2026-07-31T00:51:31.916236Z",
+      "target": "ed25519:49be51fe1d9c5342af6001f37bb97c1e1f26ae6aed09f55d2e9288507e47f2e4",
+      "signature": "c12xSVP1PnCLienFu0uoF8Wg/oVEmkhBYsQKUk2iQNoihpP14sH+QpfMlYIax0wXnQwxvSQwShWXWX3RaIP4DA=="
+    },
+    {
+      "id": "post-001",
+      "type": "post",
+      "author": "ed25519:377290b2f495048e2b2a97b74e84bbd52610bb16ce0d2fadede15fe090217f31",
+      "created": "2026-08-02T03:01:32.676281Z",
+      "content": "Hello Bharat, this is Alice!",
+      "signature": "Nd5bId056Bcd3bZpNhMiXe/F76bDoIOhEC+EKKReFl1K2ZqBGNgRon+KnrIeaaU/WU0yvNpAMDQ07dVG1WetCg=="
+    }
+  ]
+}

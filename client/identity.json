@@ -1,6 +1,6 @@
 {
-  "activeIdentity": "alice",
-  "repoPath": "../alice-social",
-  "publicKey": "ed25519:AlicePublicKey",
-  "privateKey": "AlicePrivateKey"
+  "activeIdentity": "bharat",
+  "repoPath": "../bharat-social",
+  "publicKey": "ed25519:BharatPublicKey",
+  "privateKey": "BharatPrivateKey"
 }

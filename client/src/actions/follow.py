@@ -1,4 +1,5 @@
 import os
+from src.discovery.directory_loader import DirectoryLoader
 from src.discovery.profile_verifier import ProfileVerifier
 from src.actions.base import ActionBase
 from src.replication.follow_manager import FollowManager
@@ -21,52 +22,48 @@ class FollowAction(ActionBase):
         # - Update following.json
         # - Create follow-XXX.json social action
         handle = args.target_handle
-        # Temporary: resolve handle to local profile.json path
-        #base_dir = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-        base_dir = os.path.dirname(
+
+        # project root (ELEC4712_Decentralised_Blog/)
+        # project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+        # # client root (ELEC4712_Decentralised_Blog/client/)
+        # client_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+        project_root = os.path.dirname(
+            os.path.dirname(
                 os.path.dirname(
-                    os.path.dirname(
-                        os.path.dirname(__file__)
-                    )
+                    os.path.dirname(__file__)
                 )
             )
-        if handle == "bharat.social":
-            profile_path = os.path.join(base_dir, "bharat-social", "social", "profile.json")
-        elif handle == "alice.social":
-            profile_path = os.path.join(base_dir, "alice-social", "social", "profile.json")
-        else:
-            raise ValueError(f"Unknown handle (temporary mapping): {handle}")
-        # 1. Verify profile.json and extrac publicKey + repoURL
+        )
+
+        client_root = os.path.dirname(
+            os.path.dirname(
+                os.path.dirname(__file__)
+            )
+        )
+
+
+
+
+
+        # 1. Resolve handle to repoURL 
+        dl = DirectoryLoader(client_root)
+        repo_path = dl.resolve(handle)
+
+        # 2. Load profile.json from that repo 
+        profile_path = os.path.join(project_root, repo_path, "social", "profile.json")
+
+        # 3. Verify profile.json 
         pv = ProfileVerifier(profile_path)
         info = pv.verify()
-        target_public_key = info["publicKey"]
-        repo_url = info["repoURL"]
 
-        # 2. Create the follow social action (signed JSON)
-        path, obj = self.create_follow(target_public_key)
+        # 4. Create follow action
+        path, obj = self.create_follow(info["publicKey"])
 
-        # 3. Update following.json
-        client_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-
-
+        # 5. Update following.json
         fm = FollowManager(client_root)
         fm.add_follow(
-            handle = info["handle"],
-            public_key = target_public_key,
-            repo_url= repo_url
+                    handle = info["handle"],
+                    public_key = info["publicKey"],
+                    repo_url= info["repoURL"]
         )
         return path, obj
-
-        # # Create the follow social action
-        # path, obj = self.create_follow(args.target_public_key)
-        # # Update following.json
-        # #client_root = os.path.dirname(os.path.dirname(__file__))
-        # client_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-        # fm = FollowManager(client_root)
-        # # Temporary until Discovery layer
-        # fm.add_follow(
-        #     handle = args.target_public_key,
-        #     public_key=args.target_public_key,
-        #     repo_url="https://github.com/bgar5324/ELEC4712_Decentralised_Blog.git"
-        # )
-        # return path, obj

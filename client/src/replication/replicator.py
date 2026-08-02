@@ -7,11 +7,9 @@ from src.utils.identity_loader import load_identity
 # scans /social/actions for JSON files,
 # verifies signatures and insert valid actions into feed.json
 class Replicator:
-    def __init__(self, client_root, social_root):
+    def __init__(self, client_root):
         # client_root = client/ directory 
         self.client_root = client_root
-        # social_root = social/ directory (where actions live)
-        self.social_root = social_root 
 
         identity = load_identity()
         identity_name = identity["activeIdentity"]
@@ -20,16 +18,6 @@ class Replicator:
 
     def load_following(self):
         # load the list of accounts the user follows.
-        # Currently each entry only contains:
-        #     - handle (TEMPORARY: actually publicKey)
-        #     - publicKey
-        #     - repoURL (TEMPORARY: always your own repo)
-        #     - added timestamp
-
-        # Later, when Discovery is added, this will contain:
-        #     - handle (alice.social)
-        #     - publicKey
-        #     - repoURL (actual remote repo)
         with open(self.follow_file, "r") as file:
             return json.load(file)["following"]
 
@@ -81,31 +69,42 @@ class Replicator:
         # 4. For each action: check if author is followed, verify signature, insert into feed.json
         following = self.load_following()
         feed = self.load_feed()
-        # Build a set of publicKeys we follow
-        # Later this may be replaced with handles which are resolved via Discovery
+        # project root (ELEC4712_Decentralised_Blog/)
+        project_root = os.path.dirname(
+            os.path.dirname(
+                os.path.dirname(__file__)
+            )
+        )
         followed_keys = {f["publicKey"] for f in following}
-        # Iterate through all action files
-        for path in self.list_action_files():
-            with open(path, "r") as file:
-                action = json.load(file)
-            # Only replicate actions from authors we follow 
-            if action["author"] not in followed_keys:
-                continue
-            # Avoid duplicates in feed.json
-            if any(a["id"] == action["id"] for a in feed["feed"]):
-                continue
-            # Verify signature
-            if not self.verify_action(action):
-                print("Invalid signature:", action["id"])
-                continue
-            # Insert into feed 
-            feed["feed"].append(action)
-        # Save updated feed 
+
+        for entry in following:
+            repo_url = entry["repoURL"]
+
+            # repoURL is relative to project root 
+            repo_social_path = os.path.join(project_root, repo_url, "social")
+            actions_dir = os.path.join(repo_social_path, "actions")
+
+            # scan actions in this repo 
+            for name in os.listdir(actions_dir):
+                if not name.endswith(".json"):
+                    continue
+
+                path = os.path.join(actions_dir, name)
+                with open(path, "r") as file:
+                    action = json.load(file)
+
+                # Only replicate actions from authors we follow
+                if action["author"] not in followed_keys:
+                    continue
+                # Avoid duplicates in feed.json
+                if any(a["id"] == action["id"] for a in feed["feed"]):
+                    continue
+                # Verify signature
+                if not self.verify_action(action):
+                    print("Invalid signature:", action["id"])
+                    continue
+                # Insert into feed
+                feed["feed"].append(action)
+
         self.save_feed(feed)
-        print("Replication complete")
-
-    
-
-
-
-
+        print(f"Replication complete. Feed now contains {len(feed['feed'])} actions.")

@@ -113,12 +113,14 @@ def main():
         client_root = os.path.dirname(__file__)
         # path to social/
         #social_root = SOCIAL_PATH
+        
         # TEMP FIX: replicate Bharat's repo
-        social_root = os.path.join(
-            os.path.dirname(__file__),
-            "../bharat-social/social"
-        )
-        r = Replicator(client_root, social_root)
+        # social_root = os.path.join(
+        #     os.path.dirname(__file__),
+        #     "../bharat-social/social"
+        # )
+
+        r = Replicator(client_root)
         r.run()
         return
         
