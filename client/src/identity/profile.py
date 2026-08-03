@@ -4,77 +4,121 @@
 import json
 from datetime import datetime, timezone
 import os
+import subprocess
 from .keypair import KeyPair
 from .signer import Signer
 
 from src.utils.identity_loader import load_identity
 
 class ProfileCreator:
-    def __init__(self, base_path: str):
-        # Path to the user's /social/ directory 
-        self.base_path = base_path
-        # Keystore path for storing the private key
-        self.keystore_path = os.path.join(self.base_path, "keystore")
-        self.private_key_file = os.path.join(self.keystore_path, "private.key")
-    
-    def build_profile_json(self, handle: str, display_name: str, bio: str):
-        # Step 1: Build the profile JSON object.
+    def __init__(self, project_root: str):
+        self.project_root = project_root
+
+    def create_repo_structure(self, repo_name):
+        # Automatically creates the /social/ directory structure for the user
+        # e.g. <repo_name>/social/actions/
+        repo_path = os.path.join(self.project_root, repo_name)
+        social_path = os.path.join(repo_path, "social")
+        # Create all required folders
+        os.makedirs(os.path.join(social_path, "actions"), exist_ok=True)
+        os.makedirs(os.path.join(social_path, "keystore"), exist_ok=True)
+        os.makedirs(os.path.join(social_path, "discovery"), exist_ok=True)
+        os.makedirs(os.path.join(social_path, "media"), exist_ok=True)
+        os.makedirs(os.path.join(social_path, "moderation"), exist_ok=True)
+        # Create empty index.json 
+        with open(os.path.join(social_path, "index.json"), "w") as f:
+            json.dump({}, f, indent=2)
+
+        return repo_path, social_path
+
+    def generate_profile(self, handle: str, display_name: str, bio: str, repo_name: str):
+        # Generate + sign profile.json
         keypair = KeyPair()
         public_key = keypair.public_key()
         private_key = keypair.private_key()
 
-        # Load identity to derive repo path / URL (temporary)
-        identity = load_identity()
-        repo_path = identity["repoPath"]
-        # Temp: for now treat repoURL as local path so Replicator can use it, later: "https://github.com/...git"
-        repo_url = repo_path
-
         profile = {
             "publicKey": public_key,
             "handle": handle,
-            "repoURL": repo_url,
+            "repoURL": repo_name,
             "displayName": display_name,
             "bio": bio,
             "created": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
         }
-        # Return both the profile object and private key for signing
-        return profile, private_key
-    
-    def sign_profile_json(self, profile: dict, private_key: str):
-        # Step 2: Sign the profile JSON using the private key
+        # Sign profile.json using the private key
         signer = Signer(private_key)
-        signature = signer.sign_json(profile)
-        # Add the signature to the profile JSON
-        profile["signature"] = signature
-        return profile
-    
-    def save_profile_json(self, profile: dict):
-        # Step 3: Save profile.json to the user's /social/ directory
-        profile_path = f"{self.base_path}/profile.json"
+        profile["signature"] = signer.sign_json(profile)
+
+        return profile, private_key
+       
+    def save_profile_json(self, social_path: str, profile: dict):
+        # Save profile.json inside: <repo>/social/profile.json
+        profile_path = os.path.join(social_path, "profile.json")
         with open(profile_path, "w") as f:
             json.dump(profile, f, indent=2)
         return profile_path
-    
-    def save_private_key(self, private_key: str):
-        # Save private key to /social/keystore/private.key
-        os.makedirs(self.keystore_path, exist_ok=True)
-        with open(self.private_key_file, "w") as file:
+
+    def save_private_key(self, social_path: str, private_key: str):
+        # Save private key inside: <repo>/social/keystore/private.key
+        keystore_path = os.path.join(social_path, "keystore")
+        private_key_file = os.path.join(keystore_path, "private.key")
+        with open(private_key_file, "w") as file:
             file.write(private_key)
+
+    def update_directory(self, client_root, handle, repo_name):
+        # Automatically update the directory.json file in the client root to include the new handle to repo mapping
+        directory_path = os.path.join(client_root, "directory.json")
+        # Create directory.json if it doesn't exist
+        if not os.path.exists(directory_path):
+            with open(directory_path, "w") as f:
+                json.dump({}, f, indent=2)
+
+        # Load the existing directory data
+        with open(directory_path, "r") as f:
+            directory_data = json.load(f)
+
+        # Ensure directory_data is a dict 
+        if not isinstance(directory_data, dict):
+            directory_data = {}
+
+        # Update the directory data with the new handle to repo mapping
+        directory_data[handle] = repo_name
+
+        # Save the updated directory data
+        with open(directory_path, "w") as f:
+            json.dump(directory_data, f, indent=2)
+
+    def git_init(self, repo_path):
+        # Automatically runs:
+        # git init 
+        # git add .
+        # git commit -m "Initial account creation"
+        # This replaces manual git init 
+        subprocess.run(["git", "init"], cwd=repo_path)
+        subprocess.run(["git", "add", "."], cwd=repo_path)
+        subprocess.run(["git", "commit", "-m", "Initial account creation"], cwd=repo_path)
     
     def create_profile(self, handle: str, display_name: str, bio: str):
-        # High-level method that calls the three steps to create and save a signed profile.json
-        # Step 1: Build JSON 
-        profile, private_key = self.build_profile_json(handle, display_name, bio)
-        # Step 2: Sign the profile JSON
-        signed_profile = self.sign_profile_json(profile, private_key)
-        # Step 3: Save the signed profile JSON
-        profile_path = self.save_profile_json(signed_profile)
-        # Step 4: Save private key to keystore
-        self.save_private_key(private_key)
-        # Add debug output
-        print("Account created.")
-        print("Public key:", signed_profile["publicKey"])
-        print("Private key (store securely):", private_key)
+        # Convert handle to repo name (e.g. alice.social -> alice-social)
+        repo_name = f"{handle.split('.')[0]}-social"
+        # 1. Auto-create repo structure
+        repo_path, social_path = self.create_repo_structure(repo_name)
+        # 2. Build + sign profile.json 
+        profile, private_key = self.generate_profile(handle, display_name, bio, repo_name)
+        # 3. Save profile.json + private key
+        profile_path = self.save_profile_json(social_path, profile)
+        self.save_private_key(social_path, private_key)
+        # 4. Update directory.json in client root
+        client_root = os.path.join(self.project_root, "client")
+        self.update_directory(client_root, handle, repo_name)
+        # 5. Initialize git repo
+        self.git_init(repo_path)
+        # Debug output
+        print("Account created:", handle)
+        print("Repo:", repo_name)
+        print("Public key:", profile["publicKey"])
+        print("Private key:", private_key)
+
         return profile_path
 
     

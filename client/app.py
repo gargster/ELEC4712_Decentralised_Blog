@@ -43,8 +43,8 @@ def print_allowed_commands():
     print("like <target_id>")
     print("    Example: python app.py like post-001")
     print()
-    print("follow <target_public_key>")
-    print("    Example: python app.py follow ed25519:abc123...")
+    print("follow <target_handle>")
+    print("    Example: python app.py follow alice.social")
     print()
     print("replicate")
     print("    Example: python app.py replicate")
@@ -102,7 +102,8 @@ def main():
         return
 
     if args.command == "profile":
-        creator = ProfileCreator(SOCIAL_PATH)
+        project_root = os.path.dirname(os.path.dirname(__file__))
+        creator = ProfileCreator(project_root)
         creator.create_profile(args.handle, args.name, args.bio)
         print("Profile created for:", args.handle)    
         return
@@ -111,15 +112,6 @@ def main():
     elif args.command == "replicate":
         # path to client/
         client_root = os.path.dirname(__file__)
-        # path to social/
-        #social_root = SOCIAL_PATH
-        
-        # TEMP FIX: replicate Bharat's repo
-        # social_root = os.path.join(
-        #     os.path.dirname(__file__),
-        #     "../bharat-social/social"
-        # )
-
         r = Replicator(client_root)
         r.run()
         return

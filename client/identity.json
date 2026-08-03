@@ -1,6 +1,6 @@
 {
-  "activeIdentity": "bharat",
-  "repoPath": "../bharat-social",
-  "publicKey": "ed25519:BharatPublicKey",
-  "privateKey": "BharatPrivateKey"
+  "activeIdentity": "charlie",
+  "repoPath": "../charlie-social",
+  "publicKey": "ed25519:CharliePublicKey",
+  "privateKey": "CharliePrivateKey"
 }
