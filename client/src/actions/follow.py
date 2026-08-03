@@ -34,17 +34,11 @@ class FollowAction(ActionBase):
                 )
             )
         )
-
         client_root = os.path.dirname(
             os.path.dirname(
                 os.path.dirname(__file__)
             )
         )
-
-
-
-
-
         # 1. Resolve handle to repoURL 
         dl = DirectoryLoader(client_root)
         repo_path = dl.resolve(handle)

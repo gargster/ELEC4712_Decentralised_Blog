@@ -111,7 +111,23 @@ class ProfileCreator:
         # 4. Update directory.json in client root
         client_root = os.path.join(self.project_root, "client")
         self.update_directory(client_root, handle, repo_name)
-        # 5. Initialize git repo
+        # 5. Create state folder + required files
+        identity_name = handle.split('.')[0]  # e.g. "alice" from "alice.social"
+        state_path = os.path.join(client_root, "state", identity_name)
+        os.makedirs(state_path, exist_ok=True)
+        # Map filename to schemas
+        state_files = {
+            "following.json": {"following": []},
+            "feed.json": {"feed": []}
+        }
+        # Create state files with initial content
+        for filename, content in state_files.items():
+            file_path = os.path.join(state_path, filename)
+            if not os.path.exists(file_path):
+                with open(file_path, "w") as f:
+                    json.dump(content, f, indent=2)
+
+        # 6. Initialize git repo
         self.git_init(repo_path)
         # Debug output
         print("Account created:", handle)

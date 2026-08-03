@@ -1,0 +1,10 @@
+{
+  "following": [
+    {
+      "handle": "alice.social",
+      "publicKey": "ed25519:377290b2f495048e2b2a97b74e84bbd52610bb16ce0d2fadede15fe090217f31",
+      "repoURL": "../alice-social",
+      "added": "2026-08-03T08:25:35.104453Z"
+    }
+  ]
+}
