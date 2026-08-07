@@ -37,10 +37,14 @@ class ProfileCreator:
         public_key = keypair.public_key()
         private_key = keypair.private_key()
 
+        # Build path to the bar remote repo  
+        remotes_root = os.path.join(self.project_root, "remotes")
+        bare_remote_path = os.path.join(remotes_root, f"{repo_name}.git")
+
         profile = {
             "publicKey": public_key,
             "handle": handle,
-            "repoURL": repo_name,
+            "repoURL": bare_remote_path,
             "displayName": display_name,
             "bio": bio,
             "created": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
@@ -94,9 +98,25 @@ class ProfileCreator:
         # git add .
         # git commit -m "Initial account creation"
         # This replaces manual git init 
+        # 1. Init working repo
         subprocess.run(["git", "init"], cwd=repo_path)
         subprocess.run(["git", "add", "."], cwd=repo_path)
         subprocess.run(["git", "commit", "-m", "Initial account creation"], cwd=repo_path)
+        # 2. Create local bar remote under /remotes/<repo>.git
+        repo_name = os.path.basename(repo_path)
+        remotes_root= os.path.join(self.project_root, "remotes")
+        os.makedirs(remotes_root, exist_ok=True)
+
+        bare_remote_path = os.path.join(remotes_root, f"{repo_name}.git")
+        subprocess.run(["git", "init", "--bare", bare_remote_path])
+
+        # 3. Add remote origin 
+        subprocess.run(["git", "remote", "add", "origin", bare_remote_path], cwd=repo_path)
+
+        # 4. Push initial commit
+        subprocess.run(["git", "push", "-u", "origin", "master"], cwd=repo_path)
+
+        print(f"Initialized git repo at {repo_path} and pushed to bare remote at {bare_remote_path}")
     
     def create_profile(self, handle: str, display_name: str, bio: str):
         # Convert handle to repo name (e.g. alice.social -> alice-social)

@@ -1,8 +1,0 @@
-{
-  "id": "follow-014",
-  "type": "follow",
-  "author": "ed25519:0cb21e6075876b6939cad9d4a551c8bd87941ed39477ac173d35125e4234fe92",
-  "created": "2026-07-24T10:24:08.590401Z",
-  "target": "ed25519:0cb21e6075876b6939cad9d4a551c8bd87941ed39477ac173d35125e4234fe92",
-  "signature": "mn+bayS/4WxcVIRmJJ2S4t4wCu2l0y54rKcR/HiLSMByMaoG3XYvpkjg+zRWwdSACk5hwbTVkFMl4H0BJsJ8Aw=="
-}

@@ -1425,6 +1425,120 @@ sequenceDiagram
 
   Note over FollowerClient: Threading uses inReplyTo pointers + DAG traversal\nto reconstruct decentralised conversation trees.
 ```
+### Summary Workflows (End-to-end Alice & Bob Scenario example)
+Note:
+This section provides a simplified, high-level walkthrough of how the protocol behaves in practice. Each step corresponds to a full workflow described earlier in the document:
+- Handle lookup → Discovery Workflow
+- Following → Following Workflow
+- Publishing posts/replies → Posting / Reply Action Workflows
+- Fetching commits → Replication Workflow
+- Threading → Threading Workflow
+- Private posts → Confidentiality Workflow
+Feed indexing, moderation, and media handling are ommitted from the diagrams for simplicity, with their complete descriptions in their respective sections
+
+The diagrams only show the simplified summary flow, with full details available in the corresponding workflow sections.
+
+1. Alice discovers and follows Bob
+(Simplified version of Discovery + Following Workflows)
+```mermaid
+sequenceDiagram
+  participant Alice as AliceUser
+  participant AliceClient as AliceClient
+  participant Directory as DiscoveryDirectory
+  participant BobRepo as BobRepo
+
+  Alice ->> AliceClient: Follow "bob.social"
+  AliceClient ->> Directory: Lookup handle (simplified)
+  Directory ->> AliceClient: Return profileURL
+
+  AliceClient ->> BobRepo: GET /social/profile.json
+  BobRepo ->> AliceClient: Return signed profile.json
+
+  AliceClient ->> AliceClient: Verify signature
+  AliceClient ->> AliceClient: Add Bob to following.json
+
+  AliceClient ->> BobRepo: git fetch (intial replication)  
+```
+2. Bob publishes a post
+(Simplified version of Posting Workflow)
+```mermaid
+sequenceDiagram
+  participant Bob as BobUser
+  participant BobClient as BobClient
+  participant BobRepo as BobRepo
+
+  Bob ->> BobClient: Write post ("Hello world")
+  BobClient ->> BobClient: Create + sign post-001.json
+  BobClient ->> BobRepo: git commit & push
+```
+3. Alice fetches Bob's new post
+(Simplified version of Replication Workflow)
+```mermaid
+sequenceDiagram
+  participant AliceClient as AliceClient
+  participant BobRepo as BobRepo
+
+  AliceClient ->> BobRepo: git fetch (incremental)
+  BobRepo ->> AliceClient: Return new commit (post-001.json)
+
+  AliceClient ->> AliceClient: Verify signature
+  AliceClient ->> AliceClient: Insert post into feed
+```
+4. Bob replies to his own post (threading begins)
+(Simplified version of Reply Action + Threading Workflows)
+```mermaid
+sequenceDiagram
+  participant BobClient as BobClient
+  participant BobRepo as BobRepo
+  participant AliceClient as AliceClient
+  
+  BobClient ->> BobClient: Create reply (inReplyTo = post-001)
+  BobClient ->> BobRepo: git commit & push
+
+  AliceClient ->> BobRepo: git fetch
+  BobRepo ->> AliceClient: Return post-005.json
+
+  AliceClient ->> AliceClient: Verify + link reply under post-001
+  AliceClient ->> AliceClient: Build thread (post-001 -> post-005)
+```
+5. Bob publishes a private post (Confidentiality)
+(Simplified version of Confidentiality Workflow)
+```mermaid
+sequenceDiagram
+  participant BobClient as BobClient
+  participant BobRepo as BobRepo
+  participant AliceClient as AliceClient
+  
+  BobClient ->> BobClient: Generate session key 
+  BobClient ->> BobClient: Encrypt post + encrypt session key for Alice
+  BobClient ->> BobRepo: Push session-01.json + post-010.json
+
+  AliceClient ->> BobRepo: git fetch
+  BobRepo ->> AliceClient: Return encrypted files 
+
+  AliceClient ->> AliceClient: Verify signatures
+  AliceClient ->> AliceClient: Decrypt encryptedKey -> session key 
+  AliceClient ->> AliceClient: Decrypt ciphertext -> plaintext
+  AliceClient ->> AliceClient: Insert private post into feed
+```
+Alice's feed now contains:
+- Bob's public posts
+- Bob's replies (threaded)
+- Bob's private posts (only visible to her)
+Addition simplified workflows not included as diagrams:
+Feed Indexing:
+- Each repository mantains a lightweight inde.json listing recent post IDs
+- After replication, followers read this index to quickly identify new posts without scanning all of /social/actions
+- Signatures are still verified on the actual action files. 
+Moderation:
+- Each user mantains two signed moderation lists under /social/moderation/:
+  - blocklist.json: hide posts, replies, likes, and follows from blocked publicKeys
+  - trustlist.json: highlight or prioritise posts from trusted publicKeys
+During feed construction, the client applies these lists to filter or emphasise actions.
+Media Handling 
+- Posts may include media stored under /social/media/
+- Small files are committed directly; large files use Git LFS pointers
+- During feed rendering, the client resolves each media path (normal file or LFS pointer) and dsiplays the media inline.
 
 ### Directory Layout (Summary)
 Purpose:

@@ -9,3 +9,15 @@ venv/
 # OS junk
 .DS_Store
 Thumbs.db
+
+# User repos (each identity's working repo)
+*-social/
+
+# Bare remotes (local GitHub-style repos)
+remotes/
+
+# Client state (feed.json, following.json, identity state)
+client/state/
+
+# Cloned repos of followed users
+client/following_repos/
