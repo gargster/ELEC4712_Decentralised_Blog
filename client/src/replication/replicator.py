@@ -55,7 +55,7 @@ class Replicator:
             repo = Repo(local_path)
             origin = repo.remotes.origin
             origin.fetch()
-            origin.pull()
+            origin.pull("main")
 
         return local_path
 

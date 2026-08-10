@@ -21,14 +21,22 @@ from src.replication.replicator import Replicator
 
 from src.utils.identity_loader import load_identity
 from src.replication.follow_manager import FollowManager
+from src.publishing.publish_manager import PublishManager
 
+# Correct project root (ELEC4712_Decentralised_Blog/)
+project_root = os.path.dirname(os.path.dirname(__file__))
+
+# Load active identity
 identity = load_identity()
 
+# Correct SOCIAL_PATH (points to <project_root>/<repo>/social)
 SOCIAL_PATH = os.path.join(
-    os.path.dirname(__file__),
+    project_root,
     identity["repoPath"],
     "social"
 )
+
+
 def print_allowed_commands():
     print("\n==================== Allowed Commands ====================")
     print("profile create --handle <handle> --name <name> --bio <bio>")
@@ -48,6 +56,9 @@ def print_allowed_commands():
     print()
     print("replicate")
     print("    Example: python app.py replicate")
+    print()
+    print("publish --url <git-remote-url>")
+    print("    Example: python app.py publish --url https://github.com/bharat/bharat-social.git")
     print("===========================================================\n")
 
 
@@ -87,6 +98,10 @@ def main():
     # ---------------- REPLICATE ----------------
     replicate = sub.add_parser("replicate")
 
+    publish = sub.add_parser("publish")
+    publish.add_argument("--url", required=True)
+
+
     # Register Actions
     ActionRegistry.register("post", PostAction)
     ActionRegistry.register("reply", ReplyAction)
@@ -115,6 +130,12 @@ def main():
         r = Replicator(client_root)
         r.run()
         return
+    # ---------------- PUBLISH ----------------
+    elif args.command == "publish":
+        project_root = os.path.dirname(os.path.dirname(__file__))
+        publisher = PublishManager(project_root)
+        publisher.publish(args.url)
+        return
         
     # ---------------- ALL OTHER SOCIAL ACTIONS ----------------
     # Use factory method pattern for all other social actions
@@ -125,12 +146,11 @@ def main():
     print(f"{args.command.capitalize()} object:", obj)
 
     # Git Publishing - repo root is where .git lives
-    repo_root = os.path.join(
-        os.path.dirname(__file__),
-        identity["repoPath"]
-    )
+    project_root = os.path.dirname(os.path.dirname(__file__))
+    repo_root = os.path.join(project_root, identity["repoPath"])
     # Create a GitPublisher bound to the project root repo
     publisher = GitPublisher(repo_root)
+    
     # Commit and push the newly created action file
     # obj['id'] should be like "post-001", "reply-002", etc 
     publisher.publish(path, f"Add {obj['id']}")

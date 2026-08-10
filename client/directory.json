@@ -1,8 +1,18 @@
 {
-  "bharat.social": "bharat-social",
-  "alice.social": "alice-social",
-  "charlie.social": "charlie-social",
-  "Jack.social": "Jack-social",
-  "john.social": "john-social",
-  "harry.social": "harry-social"
+  "bob.social": {
+    "localPath": "bob-social",
+    "repoURL": "https://github.com/gargster/bob-social.git"
+  },
+  "john.social": {
+    "localPath": "john-social",
+    "repoURL": "https://github.com/gargster/john-social.git"
+  },
+  "jerry.social": {
+    "localPath": "jerry-social",
+    "repoURL": "https://github.com/gargster/jerry-social.git"
+  },
+  "eric.social": {
+    "localPath": "eric-social",
+    "repoURL": "https://github.com/gargster/eric-social.git"
+  }
 }

@@ -85,8 +85,11 @@ class ProfileCreator:
         if not isinstance(directory_data, dict):
             directory_data = {}
 
-        # Update the directory data with the new handle to repo mapping
-        directory_data[handle] = repo_name
+        # FIXED: write full object, not just repo_name 
+        directory_data[handle] = {
+            "localPath": repo_name,
+            "repoURL": f"{self.project_root}/remotes/{repo_name}.git"
+        }
 
         # Save the updated directory data
         with open(directory_path, "w") as f:
@@ -113,8 +116,11 @@ class ProfileCreator:
         # 3. Add remote origin 
         subprocess.run(["git", "remote", "add", "origin", bare_remote_path], cwd=repo_path)
 
-        # 4. Push initial commit
-        subprocess.run(["git", "push", "-u", "origin", "master"], cwd=repo_path)
+        # FIXED: use main branch
+        # Rename branch to main (safe even if already main)
+        subprocess.run(["git", "branch", "-M", "main"], cwd=repo_path)
+        # Push main
+        subprocess.run(["git", "push", "-u", "origin", "main"], cwd=repo_path)
 
         print(f"Initialized git repo at {repo_path} and pushed to bare remote at {bare_remote_path}")
     

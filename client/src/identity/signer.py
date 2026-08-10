@@ -13,8 +13,9 @@ class Signer:
         self.signing_key = nacl.signing.SigningKey(private_key_bytes)
     def sign_json(self, obj: dict) -> str:
         # Convert JSON to canonical string (sorted keys)
-        # This ensures consistent signing across clients
-        message = json.dumps(obj, sort_keys=True).encode('utf-8')
+        # Remove signature field before signing
+        obj_to_sign = {k: v for k, v in obj.items() if k != "signature"}
+        message = json.dumps(obj_to_sign, sort_keys=True).encode('utf-8')
         # Sign the message using the Ed25519 private key
         signed = self.signing_key.sign(message)
         # Extract only the signature (not the signed message).

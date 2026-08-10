@@ -1,6 +1,6 @@
 {
-  "activeIdentity": "harry",
-  "repoPath": "../harry-social",
-  "publicKey": "ed25519:c43fba2dd52d0191cc75fc0537dfd845f868e016332a6abc8ff68e93280a2dcd",
-  "privateKey": "531793efcfd27a4389a9c2c442fba4cfdaf965c0f9e89470c7f7135610145268"
+  "activeIdentity": "eric",
+  "repoPath": "eric-social",
+  "publicKey": "...",
+  "privateKey": "..."
 }
