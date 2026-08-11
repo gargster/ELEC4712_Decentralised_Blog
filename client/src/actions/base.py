@@ -40,37 +40,27 @@ class ActionBase:
 
     def _next_id(self, prefix: str) -> str:
         # Generate the next sequential ID for this action type.
-        # Example: 
-        # prefix = "post", existing files = ["post_1.json", "post_2.json"] 
-        # => next ID = "post-003"
-        # 1. List all files inside /social/actions/
-        all_files  = os.listdir(self.actions_path)
-        # 2. Filter only files which match the patter "<prefix>-XXX.json"
-        # e.g. "post-001.json", "post-002.json"
-        existing  = [
-            name for name in all_files
-            if name.startswith(prefix + "-") and name.endswith(".json")
-        ]
-        # This list will store extracted numeric parts of the filenames (e.g. 1,2,10)
+        all_files = os.listdir(self.actions_path)
         numbers = []
-        # 3. Extract the numeric part of each filename
-        # Example: "post-001.json"
-        # prefix = "post"
-        # name[len(prefix)+1 : -len(".jsom")] => name[5, -5] -> "001"
-        for name in existing:
+        for name in all_files:
+            if not name.endswith(".json"):
+                continue
             try:
-                # Extract the number between "post-" and ".json"
-                num_str = name[len(prefix) + 1 : -len(".json")]
+                # Extract numeric part from ANY action file:
+                # post-001.json → 001
+                # follow-020.json → 020
+                # like-003.json → 003
+                num_str = name.split("-")[1].replace(".json", "")
                 num = int(num_str)
                 numbers.append(num)
-            except ValueError:
-                # If the filename is malformed, skip it
+            except Exception:
                 continue
-        # 4. Determine the next number, if no existing files, start at 1
+        # Determine the next number, if no existing files, start at 1
         next_num = (max(numbers) + 1) if numbers else 1
-
-        # 5. Format the ID as "<prefix>-XXX" with zero-padding
+        
+        # Format the ID as "<prefix>-XXX" with zero-padding
         return f"{prefix}-{next_num:03d}" 
+    
     def _timestamp(self) -> str:
         # Return the current UTC timestamp in ISO 8601 format with 'Z' suffix
         return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
