@@ -27,14 +27,23 @@ class ActionBase:
     
     # Template method: shared creation workflow
     def _create(self, action_type: str, **kwargs):
-        public_key, private_key = self._load_identity()
+        public_key, private_key_hex = self._load_identity()
         action_id = self._next_id(action_type)
+        # Author verification: ensure the public key stored in profile.json matches private key
+        # we are using to sign actions. Thus preventing forged actions, corrupted identities and invalid signatures
+        signer = Signer(private_key_hex)
+        derived_pubkey_hex = signer.signing_key.verify_key.encode().hex()
+        derived_public_key = f"ed25519:{derived_pubkey_hex}"
+        if derived_public_key != public_key:
+            raise ValueError(
+                "Author verification failed: publicKey in profile.json does not match private.key"
+            )
         # Base fields
         obj = self._build_base(action_type, public_key, action_id)
         # Child-specific fields
         obj = self._extend(obj, **kwargs)
         # Sign + write
-        self._sign_action(obj, private_key)
+        self._sign_action(obj, private_key_hex)
         path = self._write(obj)
         return path, obj
 
@@ -57,7 +66,7 @@ class ActionBase:
                 continue
         # Determine the next number, if no existing files, start at 1
         next_num = (max(numbers) + 1) if numbers else 1
-        
+
         # Format the ID as "<prefix>-XXX" with zero-padding
         return f"{prefix}-{next_num:03d}" 
     
@@ -74,7 +83,12 @@ class ActionBase:
         # Write the JSON object to /social/actions/<id>.json.
         # Note: The action object already contains and "id" (added earlier by the action creator using_next_id())
         # This simply uses that existing ID to name the file
-        filename = f"{action['id']}.json"
+        raw_id = action["id"]
+        # remove accidental '.json' if it already exists
+        if raw_id.endswith(".json"):
+            raw_id = raw_id[:-5] # strip the last 5 chars ".json"
+
+        filename = f"{raw_id}.json"
         path = os.path.join(self.actions_path, filename)
         # Save the JSON object to disk
         with open(path, "w") as f:
