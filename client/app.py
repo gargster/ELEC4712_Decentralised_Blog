@@ -26,15 +26,15 @@ from src.publishing.publish_manager import PublishManager
 # Correct project root (ELEC4712_Decentralised_Blog/)
 project_root = os.path.dirname(os.path.dirname(__file__))
 
-# Load active identity
-identity = load_identity()
+# # Load active identity
+# identity = load_identity()
 
-# Correct SOCIAL_PATH (points to <project_root>/<repo>/social)
-SOCIAL_PATH = os.path.join(
-    project_root,
-    identity["repoPath"],
-    "social"
-)
+# # Correct SOCIAL_PATH (points to <project_root>/<repo>/social)
+# SOCIAL_PATH = os.path.join(
+#     project_root,
+#     identity["repoPath"],
+#     "social"
+# )
 
 
 def print_allowed_commands():
@@ -115,9 +115,19 @@ def main():
     if args.command is None:
         parser.print_help()
         return
+    
+    project_root = os.path.dirname(os.path.dirname(__file__))
+    # Load active identity
+    identity = load_identity()
+
+    # Correct SOCIAL_PATH (points to <project_root>/<repo>/social)
+    SOCIAL_PATH = os.path.join(
+        project_root,
+        identity["repoPath"],
+        "social"
+    )
 
     if args.command == "profile":
-        project_root = os.path.dirname(os.path.dirname(__file__))
         creator = ProfileCreator(project_root)
         creator.create_profile(args.handle, args.name, args.bio)
         print("Profile created for:", args.handle)    
@@ -132,7 +142,6 @@ def main():
         return
     # ---------------- PUBLISH ----------------
     elif args.command == "publish":
-        project_root = os.path.dirname(os.path.dirname(__file__))
         publisher = PublishManager(project_root)
         publisher.publish(args.url)
         return
@@ -146,7 +155,6 @@ def main():
     print(f"{args.command.capitalize()} object:", obj)
 
     # Git Publishing - repo root is where .git lives
-    project_root = os.path.dirname(os.path.dirname(__file__))
     repo_root = os.path.join(project_root, identity["repoPath"])
     # Create a GitPublisher bound to the project root repo
     publisher = GitPublisher(repo_root)

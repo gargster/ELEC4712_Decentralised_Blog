@@ -102,10 +102,28 @@ class ActionBase:
             profile = json.load(file)
         public_key = profile["publicKey"]
 
-        # Load privateKey from /social/keystore/private.key
-        keystore_path = os.path.join(self.social_path, "keystore", "private.key")
-        with open(keystore_path, "r") as file:
+        # Load identiy.json
+        #project_root = os.path.dirname(os.path.dirname(__file__))  # ELEC4712_Decentralised_Blog/
+        project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
+        identity_json_path = os.path.join(project_root, "client", "identity.json")
+
+        with open(identity_json_path, "r") as f:
+            identity_data = json.load(f)
+        active_identity = identity_data["activeIdentity"]
+
+            # Load private key from client/state/<activeIdentity>/keystore/private.key
+        private_key_path = os.path.join(
+            project_root,
+            "client",
+            "state",
+            active_identity,
+            "keystore",
+            "private.key"
+        )
+
+        with open(private_key_path, "r") as file:
             private_key = file.read().strip()
+
         return public_key, private_key
     
 

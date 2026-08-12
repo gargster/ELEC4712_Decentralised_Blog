@@ -21,7 +21,7 @@ class ProfileCreator:
         social_path = os.path.join(repo_path, "social")
         # Create all required folders
         os.makedirs(os.path.join(social_path, "actions"), exist_ok=True)
-        os.makedirs(os.path.join(social_path, "keystore"), exist_ok=True)
+        # os.makedirs(os.path.join(social_path, "keystore"), exist_ok=True)
         os.makedirs(os.path.join(social_path, "discovery"), exist_ok=True)
         os.makedirs(os.path.join(social_path, "media"), exist_ok=True)
         os.makedirs(os.path.join(social_path, "moderation"), exist_ok=True)
@@ -62,12 +62,12 @@ class ProfileCreator:
             json.dump(profile, f, indent=2)
         return profile_path
 
-    def save_private_key(self, social_path: str, private_key: str):
-        # Save private key inside: <repo>/social/keystore/private.key
-        keystore_path = os.path.join(social_path, "keystore")
-        private_key_file = os.path.join(keystore_path, "private.key")
-        with open(private_key_file, "w") as file:
-            file.write(private_key)
+    # def save_private_key(self, social_path: str, private_key: str):
+    #     # Save private key inside: <repo>/social/keystore/private.key
+    #     keystore_path = os.path.join(social_path, "keystore")
+    #     private_key_file = os.path.join(keystore_path, "private.key")
+    #     with open(private_key_file, "w") as file:
+    #         file.write(private_key)
 
     def update_directory(self, client_root, handle, repo_name):
         # Automatically update the directory.json file in the client root to include the new handle to repo mapping
@@ -127,20 +127,35 @@ class ProfileCreator:
     def create_profile(self, handle: str, display_name: str, bio: str):
         # Convert handle to repo name (e.g. alice.social -> alice-social)
         repo_name = f"{handle.split('.')[0]}-social"
+
         # 1. Auto-create repo structure
         repo_path, social_path = self.create_repo_structure(repo_name)
+
         # 2. Build + sign profile.json 
         profile, private_key = self.generate_profile(handle, display_name, bio, repo_name)
-        # 3. Save profile.json + private key
+
+        # 3. Save profile.json ONLY (no private key in repo)
         profile_path = self.save_profile_json(social_path, profile)
-        self.save_private_key(social_path, private_key)
+        #self.save_private_key(social_path, private_key)
+
         # 4. Update directory.json in client root
         client_root = os.path.join(self.project_root, "client")
         self.update_directory(client_root, handle, repo_name)
+
         # 5. Create state folder + required files
         identity_name = handle.split('.')[0]  # e.g. "alice" from "alice.social"
         state_path = os.path.join(client_root, "state", identity_name)
         os.makedirs(state_path, exist_ok=True)
+
+        # NEW: keystore inside client/state/<identity>/keystore/
+        keystore_path = os.path.join(state_path, "keystore")
+        os.makedirs(keystore_path, exist_ok=True)
+
+        private_key_file = os.path.join(keystore_path, "private.key")
+        with open(private_key_file, "w") as f:
+            f.write(private_key)
+        print(f"[INFO] Saved private key to {private_key_file} (NOT in repo!)")
+
         # Map filename to schemas
         state_files = {
             "following.json": {"following": []},
@@ -159,7 +174,7 @@ class ProfileCreator:
         print("Account created:", handle)
         print("Repo:", repo_name)
         print("Public key:", profile["publicKey"])
-        print("Private key:", private_key)
+        print("Private key stored in:", os.path.join(keystore_path, "private.key"))
 
         return profile_path
 

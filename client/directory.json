@@ -1,10 +1,6 @@
 {
-  "jerry.social": {
-    "localPath": "jerry-social",
-    "repoURL": "https://github.com/gargster/jerry-social.git"
-  },
-  "eric.social": {
-    "localPath": "eric-social",
-    "repoURL": "https://github.com/gargster/eric-social.git"
+  "leo.social": {
+    "localPath": "leo-social",
+    "repoURL": "https://github.com/gargster/leo-social.git"
   }
 }
