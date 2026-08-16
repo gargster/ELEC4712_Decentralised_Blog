@@ -2,16 +2,34 @@ import os
 import json
 from src.identity.profile import ProfileCreator
 
+
 def test_profile_creation(tmp_path):
-    social_path = tmp_path / "social"
-    os.makedirs(social_path)
+    # Create fake project root
+    project_root = tmp_path / "project"
+    os.makedirs(project_root)
 
-    creator = ProfileCreator(str(social_path))
-    path = creator.create_profile("bharat.social", "Bharat", "Student at USYD")
+    # Create client/ folder (ProfileCreator expects this)
+    client_root = project_root / "client"
+    os.makedirs(client_root, exist_ok=True)
 
-    assert os.path.exists(path)
+    # Create identity.json (required for keystore path)
+    identity_json_path = client_root / "identity.json"
+    with open(identity_json_path, "w") as f:
+        json.dump({"activeIdentity": "bharat"}, f)
 
-    with open(path) as f:
+    # Run profile creation
+    creator = ProfileCreator(str(project_root))
+    profile_path = creator.create_profile(
+        "bharat.social",
+        "Bharat",
+        "Student at USYD"
+    )
+
+    # Verify file exists
+    assert os.path.exists(profile_path)
+
+    # Load and verify contents
+    with open(profile_path) as f:
         data = json.load(f)
 
     assert data["handle"] == "bharat.social"

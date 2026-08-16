@@ -62,13 +62,6 @@ class ProfileCreator:
             json.dump(profile, f, indent=2)
         return profile_path
 
-    # def save_private_key(self, social_path: str, private_key: str):
-    #     # Save private key inside: <repo>/social/keystore/private.key
-    #     keystore_path = os.path.join(social_path, "keystore")
-    #     private_key_file = os.path.join(keystore_path, "private.key")
-    #     with open(private_key_file, "w") as file:
-    #         file.write(private_key)
-
     def update_directory(self, client_root, handle, repo_name):
         # Automatically update the directory.json file in the client root to include the new handle to repo mapping
         directory_path = os.path.join(client_root, "directory.json")
