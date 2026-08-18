@@ -1,6 +1,26 @@
 {
   "leo.social": {
     "localPath": "leo-social",
-    "repoURL": "https://github.com/gargster/leo-social.git"
+    "repoURL": "https://github.com/gargster/peter-social.git"
+  },
+  "bob.social": {
+    "localPath": "bob-social",
+    "repoURL": "C:\\Users\\gargb\\OneDrive\\Desktop\\ELEC4712\\Git-Decentralised\\ELEC4712_Decentralised_Blog/remotes/bob-social.git"
+  },
+  "larry.social": {
+    "localPath": "larry-social",
+    "repoURL": "C:\\Users\\gargb\\OneDrive\\Desktop\\ELEC4712\\Git-Decentralised\\ELEC4712_Decentralised_Blog/remotes/larry-social.git"
+  },
+  "zac.social": {
+    "localPath": "zac-social",
+    "repoURL": "https://github.com/gargster/larry-social.git"
+  },
+  "peter.social": {
+    "localPath": "peter-social",
+    "repoURL": "C:\\Users\\gargb\\OneDrive\\Desktop\\ELEC4712\\Git-Decentralised\\ELEC4712_Decentralised_Blog/remotes/peter-social.git"
+  },
+  "bruce.social": {
+    "localPath": "bruce-social",
+    "repoURL": "https://github.com/social-protocol-org/bruce-social.git"
   }
 }

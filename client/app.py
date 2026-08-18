@@ -98,9 +98,12 @@ def main():
     # ---------------- REPLICATE ----------------
     replicate = sub.add_parser("replicate")
 
+
+    # ---------------- PUBLISH ----------------
     publish = sub.add_parser("publish")
     publish.add_argument("--url", required=True)
 
+    publish_org = sub.add_parser("publish-org")
 
     # Register Actions
     ActionRegistry.register("post", PostAction)
@@ -144,6 +147,11 @@ def main():
     elif args.command == "publish":
         publisher = PublishManager(project_root)
         publisher.publish(args.url)
+        return
+
+    elif args.command == "publish-org":
+        publisher = PublishManager(project_root)
+        publisher.publish_to_org()
         return
         
     # ---------------- ALL OTHER SOCIAL ACTIONS ----------------

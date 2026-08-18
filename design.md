@@ -596,7 +596,7 @@ Discovery operates at two levels:
 This workflow is used before the Following workflow and is required for verifying identity and locating the correct Git repository.
 
 How it works
-When a new account is created, the client generates a signed a profile.json containing the user's publicKey, handle, repoURL, and metadata, and publishes it at a well-known URL. The client also appends the handle + profileURL to a shard directory.json hosted on a static site.
+When a new account is created, the client generates a signed a profile.json containing the user's publicKey, handle, repoURL, and metadata, and publishes it at a well-known URL. The client also appends the handle + profileURL to a shared directory.json hosted on a static site.
 
 When another user wants to follow this account, their client resolves the handle by fetching directory.json, locating the profileURL, fetching the signed profile.json, verifying its signature, and extracting the publicKey and repoURL.
 This verified information is then passed to the Following workflow, which updates following.json and begins replication.

@@ -4,6 +4,8 @@ from git import Repo
 from src.identity.signer import Signer
 from src.utils.identity_loader import load_identity
 
+from src.config import ORG_URL
+
 class PublishManager:
     def __init__(self, project_root):
         self.project_root = project_root
@@ -76,6 +78,30 @@ class PublishManager:
             json.dump(directory_data, f, indent=2)
 
         print("Publish complete! Your identity is now hosted.")
+
+    def publish_to_org(self):
+        # Publish the active identity's repo to the shared GitHub org
+        # This doesn not replace normal publish() flow, but simply 
+        # re-publishes the repo to the org
+        identity = load_identity()
+        repo_name = identity["repoPath"] # e.g. "alice-social"
+        remote_url = ORG_URL + repo_name + ".git"
+
+        print(f"[ORG PUBLISH] Publishing to {remote_url}")
+        self.publish(remote_url) 
+
+        repo_root = os.path.join(self.project_root, repo_name)
+        repo = Repo(repo_root)
+
+        if "origin" in repo.remotes:
+            repo.remotes.origin.set_url(remote_url)
+        else:
+            repo.create_remote("origin", remote_url)
+
+        print("[ORG PUBLISH] Org remote set as default. All future actions will push here.")
+
+
+
 
         
 
