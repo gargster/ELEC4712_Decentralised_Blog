@@ -22,5 +22,17 @@
   "bruce.social": {
     "localPath": "bruce-social",
     "repoURL": "https://github.com/social-protocol-org/bruce-social.git"
+  },
+  "raj.social": {
+    "localPath": "raj-social",
+    "repoURL": "C:\\Users\\gargb\\OneDrive\\Desktop\\ELEC4712\\Git-Decentralised\\ELEC4712_Decentralised_Blog/remotes/raj-social.git"
+  },
+  "carl.social": {
+    "localPath": "carl-social",
+    "repoURL": "https://github.com/social-protocol-org/carl-social.git"
+  },
+  "lina.social": {
+    "localPath": "lina-social",
+    "repoURL": "https://github.com/social-protocol-org/lina-social.git"
   }
 }

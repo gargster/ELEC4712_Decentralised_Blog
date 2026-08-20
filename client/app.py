@@ -59,6 +59,9 @@ def print_allowed_commands():
     print()
     print("publish --url <git-remote-url>")
     print("    Example: python app.py publish --url https://github.com/bharat/bharat-social.git")
+    print()
+    print("publish-org")
+
     print("===========================================================\n")
 
 

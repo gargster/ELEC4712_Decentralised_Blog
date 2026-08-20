@@ -14,7 +14,29 @@ class FollowAction(ActionBase):
     
     def create_follow(self, target_public_key: str):
         return self._create("follow", target=target_public_key)
-    
+
+
+    # NEW: follow = clone from ORG
+    def clone_from_org(self, handle, repo_url, client_root):
+        """
+        Clone/pull the target user's repo from the GitHub ORG.
+        This is Rahul's model: follow = clone.
+        """
+        following_root = os.path.join(client_root, "following_repos")
+        os.makedirs(following_root, exist_ok=True)
+
+        repo_name = handle.replace(".social", "") + "-social"
+        local_repo_path = os.path.join(following_root, repo_name)
+
+        if not os.path.exists(local_repo_path):
+            print(f"[FOLLOW] Cloning {handle} from ORG...")
+            git.Repo.clone_from(repo_url, local_repo_path)
+        else:
+            print(f"[FOLLOW] Pulling updates for {handle} from ORG...")
+            repo = git.Repo(local_repo_path)
+            repo.remotes.origin.pull()
+
+        return local_repo_path
     def run(self, args):
         # Discovery-aware follow:
         # - args.handle is a human-readable handle (e.g. 'bharat.social')
@@ -46,6 +68,12 @@ class FollowAction(ActionBase):
 
         info = dl.resolve(handle)
         # info = { "localPath": "...", "repoURL": "..." }
+        # NEW MODEL: FOLLOW: clone from ORG
+        self.clone_from_org(handle, info["repoURL"], client_root)
+
+
+
+
         # 2. AUTO-CLONE / AUTO-PULL: If the repo is not present locally, clone it. If it is present, pull the latest changes.
         local_repo_path = os.path.join(project_root, info["localPath"])
         if not os.path.exists(local_repo_path):

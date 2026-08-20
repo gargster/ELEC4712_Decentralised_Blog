@@ -1,5 +1,7 @@
 import os
 import json
+
+import git
 from src.identity.verifier import Verifier
 from src.utils.identity_loader import load_identity
 from git import Repo
@@ -99,6 +101,21 @@ class Replicator:
         # Verify message + signature 
         return verifier.verify_json(action_json, signature_b64)
 
+    # NEW model replication: git pull cloned repos
+    def sync_following_repos(self):
+        following_root = os.path.join(self.client_root, "following_repos")
+        if not os.path.exists(following_root):
+            return
+
+        for name in os.listdir(following_root):
+            repo_path = os.path.join(following_root, name)
+            if not os.path.isdir(repo_path):
+                continue
+
+            print(f"[REPLICATE] Pulling updates for {name}...")
+            repo = git.Repo(repo_path)
+            repo.remotes.origin.pull()
+
     def run(self):
         # core replication workflow:
         # 1. Load following.json
@@ -108,6 +125,9 @@ class Replicator:
         # - Parse /social/actions/*.json from the cloned repo
         # - Verify signature of each action
         # - Insert valid actions into feed.json
+
+        # NEW: Pull updates from ORG clones
+        self.sync_following_repos()
 
         following = self.load_following()
         feed = self.load_feed()
