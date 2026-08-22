@@ -173,6 +173,6 @@ def main():
     # Commit and push the newly created action file
     # obj['id'] should be like "post-001", "reply-002", etc 
     publisher.publish(path, f"Add {obj['id']}")
-
+    publisher.publishAll("Follow")
 if __name__ == "__main__":
     main()

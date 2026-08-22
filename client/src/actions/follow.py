@@ -22,7 +22,9 @@ class FollowAction(ActionBase):
         Clone/pull the target user's repo from the GitHub ORG.
         This is Rahul's model: follow = clone.
         """
-        following_root = os.path.join(client_root, "following_repos")
+        # new: e.g. following_repos folder in lina-social/social
+        following_root = os.path.join(self.social_path, "following_repos")
+
         os.makedirs(following_root, exist_ok=True)
 
         repo_name = handle.replace(".social", "") + "-social"

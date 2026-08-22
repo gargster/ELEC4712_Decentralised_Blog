@@ -18,7 +18,18 @@ class GitPublisher:
             return Repo.init(self.repo_path)
         # Load existing repo
         return Repo(self.repo_path)
-    
+
+    def publishAll(self, message: str):
+        self.repo.git.add("-A", "--", ".")
+        # Commit the change
+        self.repo.index.commit(message)
+        # Push to remote 'origin' (if configured)
+        try:
+            origin = self.repo.remote(name="origin")
+            origin.push()
+        except Exception as e:
+            print("Warning: git push failed", e)
+        
     def publish(self, file_path: str, message: str):
         # Publish a single JSON action file:
         # file_path: absolute path to the JSON file (e.g. /social/actions/post-001.json)
