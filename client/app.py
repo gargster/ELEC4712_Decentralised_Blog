@@ -143,7 +143,8 @@ def main():
     elif args.command == "replicate":
         # path to client/
         client_root = os.path.dirname(__file__)
-        r = Replicator(client_root)
+        r = Replicator(client_root, SOCIAL_PATH)
+        #r = Replicator(client_root)
         r.run()
         return
     # ---------------- PUBLISH ----------------

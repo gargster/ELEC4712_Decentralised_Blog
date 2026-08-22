@@ -9,9 +9,10 @@ from git import Repo
 # scans /social/actions for JSON files,
 # verifies signatures and insert valid actions into feed.json
 class Replicator:
-    def __init__(self, client_root):
+    def __init__(self, client_root, social_root):
         # client_root = client/ directory 
         self.client_root = client_root
+        self.social_root = social_root
 
         identity = load_identity()
         identity_name = identity["activeIdentity"]
@@ -43,7 +44,8 @@ class Replicator:
         # client/following_repos<handle>-social/
         # If already cloned, run:
         # git fetch origin, git pull 
-        clone_root = os.path.join(self.client_root, "following_repos")
+        clone_root = os.path.join(self.social_root, "following_repos")
+        #clone_root = os.path.join(self.client_root, "following_repos")
         os.makedirs(clone_root, exist_ok=True)
         # local clone path for this followed user 
         local_path = os.path.join(clone_root, f"{handle.split('.')[0]}-social")
@@ -103,7 +105,8 @@ class Replicator:
 
     # NEW model replication: git pull cloned repos
     def sync_following_repos(self):
-        following_root = os.path.join(self.client_root, "following_repos")
+        #following_root = os.path.join(self.client_root, "following_repos")
+        following_root = os.path.join(self.social_root, "following_repos")
         if not os.path.exists(following_root):
             return
 
