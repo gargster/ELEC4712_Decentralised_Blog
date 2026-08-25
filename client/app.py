@@ -91,7 +91,9 @@ def main():
 
     # ---------------- LIKE ----------------
     like = sub.add_parser("like")
-    like.add_argument("target_id")
+    # like.add_argument("target_id")
+    like.add_argument("target_handle")
+    like.add_argument("target_action")
 
     # ---------------- FOLLOW ----------------
     follow = sub.add_parser("follow")
@@ -111,7 +113,7 @@ def main():
     # Register Actions
     ActionRegistry.register("post", PostAction)
     ActionRegistry.register("reply", ReplyAction)
-    ActionRegistry.register("like", LikeAction)
+    #ActionRegistry.register("like", LikeAction)
     ActionRegistry.register("follow", FollowAction)
 
     # Parse user input
@@ -156,6 +158,15 @@ def main():
     elif args.command == "publish-org":
         publisher = PublishManager(project_root)
         publisher.publish_to_org()
+        return
+
+    # ---------------- LIKE (SPECIAL CASE) ----------------
+    elif args.command == "like":
+        action = LikeAction(SOCIAL_PATH)
+        path, obj = action.run(args)
+
+        print("Like created at:", path)
+        print("Like object:", obj)
         return
         
     # ---------------- ALL OTHER SOCIAL ACTIONS ----------------
