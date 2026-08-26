@@ -48,8 +48,8 @@ def print_allowed_commands():
     print("reply <parent_id> <content>")
     print("    Example: python app.py reply post-001 \"Nice post!\"")
     print()
-    print("like <target_id>")
-    print("    Example: python app.py like post-001")
+    print("like <target_handle> <target_id>")
+    print("    Example: python app.py like carl.social post-001")
     print()
     print("follow <target_handle>")
     print("    Example: python app.py follow alice.social")
@@ -113,7 +113,7 @@ def main():
     # Register Actions
     ActionRegistry.register("post", PostAction)
     ActionRegistry.register("reply", ReplyAction)
-    #ActionRegistry.register("like", LikeAction)
+    ActionRegistry.register("like", LikeAction)
     ActionRegistry.register("follow", FollowAction)
 
     # Parse user input
@@ -161,13 +161,13 @@ def main():
         return
 
     # ---------------- LIKE (SPECIAL CASE) ----------------
-    elif args.command == "like":
-        action = LikeAction(SOCIAL_PATH)
-        path, obj = action.run(args)
+    # elif args.command == "like":
+    #     action = LikeAction(SOCIAL_PATH)
+    #     path, obj = action.run(args)
 
-        print("Like created at:", path)
-        print("Like object:", obj)
-        return
+    #     print("Like created at:", path)
+    #     print("Like object:", obj)
+    #     return
         
     # ---------------- ALL OTHER SOCIAL ACTIONS ----------------
     # Use factory method pattern for all other social actions
@@ -176,6 +176,10 @@ def main():
 
     print(f"{args.command.capitalize()} created at:", path)
     print(f"{args.command.capitalize()} object:", obj)
+
+    # LikeAction already commits and pushes the target repository.
+    if args.command == "like":
+        return
 
     # Git Publishing - repo root is where .git lives
     repo_root = os.path.join(project_root, identity["repoPath"])
