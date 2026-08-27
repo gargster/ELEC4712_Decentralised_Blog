@@ -26,16 +26,6 @@ from src.publishing.publish_manager import PublishManager
 # Correct project root (ELEC4712_Decentralised_Blog/)
 project_root = os.path.dirname(os.path.dirname(__file__))
 
-# # Load active identity
-# identity = load_identity()
-
-# # Correct SOCIAL_PATH (points to <project_root>/<repo>/social)
-# SOCIAL_PATH = os.path.join(
-#     project_root,
-#     identity["repoPath"],
-#     "social"
-# )
-
 
 def print_allowed_commands():
     print("\n==================== Allowed Commands ====================")
@@ -45,8 +35,8 @@ def print_allowed_commands():
     print("post <content>")
     print("    Example: python app.py post \"Hello world\"")
     print()
-    print("reply <parent_id> <content>")
-    print("    Example: python app.py reply post-001 \"Nice post!\"")
+    print("reply <target_handle> <target_id> <content>")
+    print("    Example: python app.py reply carl.social post-003 \"I'm ok.\"")
     print()
     print("like <target_handle> <target_id>")
     print("    Example: python app.py like carl.social post-001")
@@ -86,12 +76,12 @@ def main():
 
     # ---------------- REPLY ----------------
     reply = sub.add_parser("reply")
-    reply.add_argument("parent_id")
+    reply.add_argument("target_handle")
+    reply.add_argument("target_action")
     reply.add_argument("content")
 
     # ---------------- LIKE ----------------
     like = sub.add_parser("like")
-    # like.add_argument("target_id")
     like.add_argument("target_handle")
     like.add_argument("target_action")
 
@@ -146,7 +136,6 @@ def main():
         # path to client/
         client_root = os.path.dirname(__file__)
         r = Replicator(client_root, SOCIAL_PATH)
-        #r = Replicator(client_root)
         r.run()
         return
     # ---------------- PUBLISH ----------------
@@ -160,15 +149,6 @@ def main():
         publisher.publish_to_org()
         return
 
-    # ---------------- LIKE (SPECIAL CASE) ----------------
-    # elif args.command == "like":
-    #     action = LikeAction(SOCIAL_PATH)
-    #     path, obj = action.run(args)
-
-    #     print("Like created at:", path)
-    #     print("Like object:", obj)
-    #     return
-        
     # ---------------- ALL OTHER SOCIAL ACTIONS ----------------
     # Use factory method pattern for all other social actions
     action = ActionFactory.create(args.command, SOCIAL_PATH)
@@ -177,17 +157,17 @@ def main():
     print(f"{args.command.capitalize()} created at:", path)
     print(f"{args.command.capitalize()} object:", obj)
 
-    # LikeAction already commits and pushes the target repository.
-    if args.command == "like":
+    # LikeAction/ReplyAction already commits and pushes the target repository.
+    if not action.publish_locally:
         return
-
+    
     # Git Publishing - repo root is where .git lives
     repo_root = os.path.join(project_root, identity["repoPath"])
     # Create a GitPublisher bound to the project root repo
     publisher = GitPublisher(repo_root)
     
     # Commit and push the newly created action file
-    # obj['id'] should be like "post-001", "reply-002", etc 
+    # obj['id'] should be like "post-001"
     publisher.publish(path, f"Add {obj['id']}")
     publisher.publishAll("Follow")
 if __name__ == "__main__":

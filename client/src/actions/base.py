@@ -8,6 +8,7 @@ from src.identity.signer import Signer
 from src.identity.keypair import KeyPair
 
 class ActionBase:
+    publish_locally = True
     def __init__(self, social_path: str):
         self.social_path = social_path
         self.actions_path = os.path.join(social_path, "actions")
