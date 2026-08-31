@@ -48,6 +48,9 @@ def print_allowed_commands():
     print("replicate")
     print("    Example: python app.py replicate")
     print()
+    print("feed")
+    print("    Example: python app.py feed")
+    print()
     print("publish --url <git-remote-url>")
     print("    Example: python app.py publish --url https://github.com/bharat/bharat-social.git")
     print()
@@ -102,7 +105,6 @@ def main():
     publish_org = sub.add_parser("publish-org")
 
     show = sub.add_parser("feed")
-    show.add_argument("target_handle")
 
     # Register Actions
     ActionRegistry.register("post", PostAction)
@@ -160,6 +162,10 @@ def main():
     # Use factory method pattern for all other social actions
     action = ActionFactory.create(args.command, SOCIAL_PATH)
     path, obj = action.run(args)
+
+    if isinstance(action, ShowFeedAction):
+        return
+
 
     print(f"{args.command.capitalize()} created at:", path)
     print(f"{args.command.capitalize()} object:", obj)
