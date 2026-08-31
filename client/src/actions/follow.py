@@ -50,9 +50,6 @@ class FollowAction(ActionBase):
         handle = args.target_handle
 
         # project root (ELEC4712_Decentralised_Blog/)
-        # project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-        # # client root (ELEC4712_Decentralised_Blog/client/)
-        # client_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
         project_root = os.path.dirname(
             os.path.dirname(
                 os.path.dirname(

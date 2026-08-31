@@ -6,6 +6,7 @@ import os
 import json
 
 # Import identity modules
+from src.actions.feed import ShowFeedAction
 from src.identity.keypair import KeyPair
 from src.identity.signer import Signer
 from src.identity.profile import ProfileCreator
@@ -100,11 +101,16 @@ def main():
 
     publish_org = sub.add_parser("publish-org")
 
+    show = sub.add_parser("feed")
+    show.add_argument("target_handle")
+
     # Register Actions
     ActionRegistry.register("post", PostAction)
     ActionRegistry.register("reply", ReplyAction)
     ActionRegistry.register("like", LikeAction)
     ActionRegistry.register("follow", FollowAction)
+
+    ActionRegistry.register("feed", ShowFeedAction)
 
     # Parse user input
     args = parser.parse_args()
@@ -148,6 +154,7 @@ def main():
         publisher = PublishManager(project_root)
         publisher.publish_to_org()
         return
+
 
     # ---------------- ALL OTHER SOCIAL ACTIONS ----------------
     # Use factory method pattern for all other social actions
