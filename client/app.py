@@ -138,14 +138,7 @@ def main():
         creator.create_profile(args.handle, args.name, args.bio)
         print("Profile created for:", args.handle)    
         return
-    
-    # ---------------- REPLICATE (NEW) ----------------
-    elif args.command == "replicate":
-        # path to client/
-        client_root = os.path.dirname(__file__)
-        r = Replicator(client_root, SOCIAL_PATH)
-        r.run()
-        return
+
     # ---------------- PUBLISH ----------------
     elif args.command == "publish":
         publisher = PublishManager(project_root)
@@ -156,6 +149,15 @@ def main():
         publisher = PublishManager(project_root)
         publisher.publish_to_org()
         return
+    
+    # ---------------- REPLICATE (NEW) ----------------
+    elif args.command == "replicate":
+        # path to client/
+        client_root = os.path.dirname(__file__)
+        r = Replicator(client_root, SOCIAL_PATH)
+        r.run()
+        return
+
 
 
     # ---------------- ALL OTHER SOCIAL ACTIONS ----------------

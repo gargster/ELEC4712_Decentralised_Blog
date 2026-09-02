@@ -1,10 +1,39 @@
 # ELEC4712_Decentralised_Blog
+
+This repository contains the implementation of a decentralised, Git‑native social protocol developed for ELEC4712.  
+Users host their own signed social actions (posts, likes, replies, follows) inside their personal Git repos.  
+The client replicates followed users’ repos and renders a local feed.
+
+---
+
+## Running the Client
+
+1. Clone the repo  
+2. `cd client`  
+3. `python app.py`
+
+This will display the available commands:
+
+- post  
+- like  
+- reply  
+- follow  
+- feed  
+
+Example usage:
+
+python app.py post "hello"
+python app.py follow carl.social
+python app.py feed ,
+
 ## Alternative Protocols
 
 For comparison with existing decentralised social protocols (ActivityPub, Nostr, social4git, sAT, Octotown), see:
 
 👉 [Alternative Protocol Diagrams](./alternatives.md)
 
+
+## Archived: Old Protocol Sketch (Outdated)
 ## Intended Workflow
 This project describes a decentralised blogging protocol where users host their own signed content objects on static servers (such as  GitHub Pages) instead of relying on a centralised or administrator controlled backend. Each interaction - posts, comments, likes, forwards and follow requests is created locally, signed with the user’s private key and uploaded to their static server. Other users then fetch and verify these objects using public keys. Overall, the aim is to define a minimal interaction workflow that operates through static hosting and client-side verification. 
 
