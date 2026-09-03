@@ -34,5 +34,9 @@
   "lina.social": {
     "localPath": "lina-social",
     "repoURL": "https://github.com/social-protocol-org/lina-social.git"
+  },
+  "jack.social": {
+    "localPath": "jack-social",
+    "repoURL": "C:\\Users\\gargb\\OneDrive\\Desktop\\ELEC4712\\Git-Decentralised\\ELEC4712_Decentralised_Blog/remotes/jack-social.git"
   }
 }
