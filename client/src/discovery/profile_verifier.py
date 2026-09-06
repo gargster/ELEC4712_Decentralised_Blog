@@ -1,31 +1,30 @@
 import json
-import os
 from src.identity.verifier import Verifier
-# Verifies /social/profile.json by:
-# loading profile.json, using publicKey to verify signature 
-# and then returning (handle, publicKey, repoURL) if valid
-class ProfileVerifier:
-    def __init__(self, profile_path: str):
-        self.profile_path = profile_path 
 
-    def load_profile(self):
-        with open(self.profile_path, "r") as file:
-            return json.load(file)
+class ProfileVerifier:
+    def __init__(self, profile_dict: dict):
+        """
+        Accepts an already-loaded profile.json dictionary.
+        """
+        self.profile = profile_dict
 
     def verify(self):
-        profile = self.load_profile()
+        profile = self.profile
+
         public_key = profile["publicKey"]
         signature = profile["signature"]
-        verifier = Verifier(public_key)
-        # Verify the profile JSON
-        if not verifier.verify_json(profile, signature):
-            raise ValueError("Invalid profile.json signature")
-        handle = profile["handle"]
-        repo_url = profile["repoURL"]
-        return {
-            "handle": handle,
-            "publicKey": public_key,
-            "repoURL": repo_url
-        }
 
-    
+        # Remove signature before verifying
+        unsigned_profile = profile.copy()
+        unsigned_profile.pop("signature")
+
+        verifier = Verifier(public_key)
+
+        if not verifier.verify_json(unsigned_profile, signature):
+            raise ValueError("Invalid profile.json signature")
+
+        return {
+            "handle": profile["handle"],
+            "publicKey": public_key,
+            "repoURL": profile["repoURL"]
+        }

@@ -92,6 +92,7 @@ def main():
     # ---------------- FOLLOW ----------------
     follow = sub.add_parser("follow")
     follow.add_argument("target_handle")
+    follow.add_argument("target_repo_url")
     # follow.add_argument("target_public_key")
 
     # ---------------- REPLICATE ----------------

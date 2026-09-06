@@ -1,100 +1,92 @@
 import os
-
 import git
-from src.discovery.directory_loader import DirectoryLoader
-from src.discovery.profile_verifier import ProfileVerifier
+import json
 from src.actions.base import ActionBase
+from src.discovery.profile_verifier import ProfileVerifier
 from src.replication.follow_manager import FollowManager
-import shutil, time
+
 
 class FollowAction(ActionBase):
-    # Add fields unique to a "follow" action
+
     def _extend(self, obj, target):
         obj["target"] = target
-        return obj 
-    
-    def create_follow(self, target_public_key: str):
-        return self._create("follow", target=target_public_key)
+        return obj
 
+    def create_follow(self, target_repo_url):
+        return self._create("follow", target=target_repo_url)
 
-    # NEW: follow = clone from ORG
-    def clone_from_org(self, handle, repo_url, client_root):
+    # -------------------------------------------------------
+    # Git-native profile.json fetch (AFTER remote + fetch)
+    # -------------------------------------------------------
+    def fetch_profile_git(self, repo, handle):
         """
-        Clone/pull the target user's repo from the GitHub ORG.
-        This is Rahul's model: follow = clone.
+        Fetch profile.json using pure Git:
+        1. git fetch <handle> main
+        2. git show <handle>/main:social/profile.json
         """
-        # new: e.g. following_repos folder in lina-social/social
-        following_root = os.path.join(self.social_path, "following_repos")
 
-        os.makedirs(following_root, exist_ok=True)
+        print(f"[FOLLOW] Fetching remote branch: {handle}/main")
+        repo.remotes[handle].fetch("main")
 
-        repo_name = handle.replace(".social", "") + "-social"
-        local_repo_path = os.path.join(following_root, repo_name)
+        git_cmd = git.cmd.Git(repo.working_tree_dir)
 
-        if not os.path.exists(local_repo_path):
-            print(f"[FOLLOW] Cloning {handle} from ORG...")
-            git.Repo.clone_from(repo_url, local_repo_path)
-        else:
-            print(f"[FOLLOW] Pulling updates for {handle} from ORG...")
-            repo = git.Repo(local_repo_path)
-            repo.remotes.origin.pull()
-
-        return local_repo_path
-    def run(self, args):
-        # Discovery-aware follow:
-        # - args.handle is a human-readable handle (e.g. 'bharat.social')
-        # - Resolve handle -> profile.json
-        # - Verify profile.json
-        # - Extract publicKey + repoURL
-        # - Update following.json
-        # - Create follow-XXX.json social action
-        handle = args.target_handle
-
-        # project root (ELEC4712_Decentralised_Blog/)
-        # project_root = os.path.dirname(
-        #     os.path.dirname(
-        #         os.path.dirname(
-        #             os.path.dirname(__file__)
-        #         )
-        #     )
-        # )
-        client_root = os.path.dirname(
-            os.path.dirname(
-                os.path.dirname(__file__)
+        try:
+            raw_json = git_cmd.show(f"{handle}/main:social/profile.json")
+        except Exception as e:
+            raise Exception(
+                f"[FOLLOW] profile.json missing in remote branch {handle}/main\n{e}"
             )
-        )
-        # -------------------------------
-        # REMOVE DIRECTORY.JSON COMPLETELY
-        # -------------------------------
-        repo_name = handle.replace(".social", "") + "-social"
-        repo_url = f"https://github.com/social-protocol-org/{repo_name}"
-        nested_clone_path = self.clone_from_org(handle, repo_url, client_root)
 
-        profile_path = os.path.join(nested_clone_path, "social", "profile.json")
-        pv = ProfileVerifier(profile_path)
-        verified = pv.verify()
-        # Remove .git inside nested clone so it becomes a normal folder
-        git_dir = os.path.join(nested_clone_path, ".git")
-        if os.path.exists(git_dir):
-            try:
-                repo = git.Repo(nested_clone_path)
-                repo.close()
-            except Exception:
-                pass
-            for _ in range(5):
-                try:
-                    shutil.rmtree(git_dir)
-                    break
-                except PermissionError:
-                    time.sleep(0.2)
-        # 5. Create follow action
-        path, obj = self.create_follow(verified["publicKey"])
+        print("[FOLLOW] Successfully fetched profile.json via Git")
+        return json.loads(raw_json)
 
+    # -------------------------------------------------------
+    # Add remote BEFORE fetching profile.json
+    # -------------------------------------------------------
+    def add_remote(self, repo, handle, repo_url):
+        if handle not in [r.name for r in repo.remotes]:
+            print(f"[FOLLOW] Adding remote {handle} → {repo_url}")
+            repo.create_remote(handle, repo_url)
+        else:
+            print(f"[FOLLOW] Remote {handle} already exists")
+
+    # -------------------------------------------------------
+    # Main FOLLOW logic
+    # -------------------------------------------------------
+    def run(self, args):
+        handle = args.target_handle
+        repo_url = args.target_repo_url
+
+        print(f"[FOLLOW] Following {handle}")
+        print(f"[FOLLOW] Repo URL = {repo_url}")
+
+        # Load identity repo
         identity_repo_root = os.path.dirname(self.social_path)
-        identity_repo = git.Repo(identity_repo_root)
-        identity_repo.git.add(A=True)
-        identity_repo.index.commit(f"Follow {handle}")
-        identity_repo.remotes.origin.push()
+        repo = git.Repo(identity_repo_root)
 
+        # Step 1: Add remote FIRST
+        self.add_remote(repo, handle, repo_url)
+
+        # Step 2: Fetch remote + read profile.json
+        profile = self.fetch_profile_git(repo, handle)
+
+        # Step 3: Verify profile.json
+        pv = ProfileVerifier(profile)
+        verified = pv.verify()
+        target_public_key = verified["publicKey"]
+        print(f"[FOLLOW] Verified publicKey = {target_public_key}")
+
+        # Step 4: Create follow action JSON
+        path, obj = self.create_follow(target_public_key)
+        print(f"[FOLLOW] Created follow action at {path}")
+
+        # Step 5: Commit + push
+        repo.git.add(A=True)
+        try:
+            repo.index.commit(f"Follow {handle}")
+        except:
+            print("[FOLLOW] Nothing to commit")
+
+        repo.remotes.origin.push()
+        print("[FOLLOW] Pushed follow action to origin")
         return path, obj
-
