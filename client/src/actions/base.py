@@ -28,8 +28,8 @@ class ActionBase:
     
     # Template method: shared creation workflow
     def _create(self, action_type: str, actions_path=None, **kwargs):
-        public_key, private_key_hex = self._load_identity()
-        action_id = self._next_id(action_type, actions_path)
+        public_key, private_key_hex, handle  = self._load_identity()
+        action_id = self._next_id(action_type, handle, actions_path)
         # Author verification: ensure the public key stored in profile.json matches private key
         # we are using to sign actions. Thus preventing forged actions, corrupted identities and invalid signatures
         signer = Signer(private_key_hex)
@@ -49,7 +49,7 @@ class ActionBase:
 
         return path, obj
 
-    def _next_id(self, prefix: str, actions_path=None) -> str:
+    def _next_id(self, prefix: str, handle: str, actions_path=None) -> str:
         # Use the provided actions_path if given, otherwise fall back to self.actions_path
         actions_path = actions_path or self.actions_path
         # Generate the next sequential ID for this action type.
@@ -58,21 +58,20 @@ class ActionBase:
         for name in all_files:
             if not name.endswith(".json"):
                 continue
+            # filenames now look like: post-bharat.social-001.json
+            # So we extract the LAST part (001) instead of the middle part. 
+            parts = name.split("-")
+            if len(parts) < 3:
+                continue
             try:
-                # Extract numeric part from ANY action file:
-                # post-001.json → 001
-                # follow-020.json → 020
-                # like-003.json → 003
-                num_str = name.split("-")[1].replace(".json", "")
-                num = int(num_str)
+                num = int(parts[-1].replace(".json", ""))
                 numbers.append(num)
             except Exception:
                 continue
         # Determine the next number, if no existing files, start at 1
         next_num = (max(numbers) + 1) if numbers else 1
-
-        # Format the ID as "<prefix>-XXX" with zero-padding
-        return f"{prefix}-{next_num:03d}" 
+        # <actionType>-<handle>-<counter>
+        return f"{prefix}-{handle}-{next_num:03d}" 
     
     def _timestamp(self) -> str:
         # Return the current UTC timestamp in ISO 8601 format with 'Z' suffix
@@ -109,6 +108,7 @@ class ActionBase:
         with open(profile_path, "r") as file:
             profile = json.load(file)
         public_key = profile["publicKey"]
+        handle = profile["handle"]
 
         # Load identiy.json
         #project_root = os.path.dirname(os.path.dirname(__file__))  # ELEC4712_Decentralised_Blog/
@@ -132,7 +132,7 @@ class ActionBase:
         with open(private_key_path, "r") as file:
             private_key = file.read().strip()
 
-        return public_key, private_key
+        return public_key, private_key, handle
     
 
     

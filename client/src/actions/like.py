@@ -1,15 +1,21 @@
-from src.actions.cross_action import CrossRepoActionBase
+from src.actions.base import ActionBase
 
-class LikeAction(CrossRepoActionBase):
-    # Writes likes directly into the TARGET USER'S REAL REPO.
-    # Reads repoURL from the nested clone's .git/config (Rahul model).
-    def _extend(self, obj, target):
+class LikeAction(ActionBase):
+    def _extend(self, obj, target, targetHandle):
         obj["target"] = target
+        obj["targetHandle"] = targetHandle
         return obj
 
-    def perform_action(self, args, actions_dir):
+    def create_like(self, target, targetHandle):
         return self._create(
             "like",
-            actions_path=actions_dir,
-            target=args.target_action
+            target=target,
+            targetHandle=targetHandle
         )
+
+    def run(self, args):
+        return self.create_like(
+            args.target_action,
+            args.target_handle
+        )
+

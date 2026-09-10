@@ -1,17 +1,25 @@
-from src.actions.cross_action import CrossRepoActionBase
+from src.actions.base import ActionBase
 
-class ReplyAction(CrossRepoActionBase):
-    def _extend(self, obj, content, target):
+class ReplyAction(ActionBase):
+    def _extend(self, obj, content, target, targetHandle):
         obj["content"] = content
         obj["inReplyTo"] = target
+        obj["targetHandle"] = targetHandle
         return obj
-    def perform_action(self, args, actions_dir):
+
+    def create_reply(self, content, target, targetHandle):
         return self._create(
             "reply",
-            actions_path=actions_dir,
-            content=args.content,
-            target=args.target_action
+            content=content,
+            target=target,
+            targetHandle=targetHandle
         )
 
+    def run(self, args):
+        return self.create_reply(
+            args.content,
+            args.target_action,
+            args.target_handle
+        )
 
  

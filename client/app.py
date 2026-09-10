@@ -154,8 +154,10 @@ def main():
     # ---------------- REPLICATE (NEW) ----------------
     elif args.command == "replicate":
         # path to client/
-        client_root = os.path.dirname(__file__)
-        r = Replicator(client_root, SOCIAL_PATH)
+        # client_root = os.path.dirname(__file__)
+        # r = Replicator(client_root, SOCIAL_PATH)
+        identity_repo_root = os.path.dirname(SOCIAL_PATH)
+        r = Replicator(identity_repo_root)
         r.run()
         return
 
@@ -172,10 +174,6 @@ def main():
 
     print(f"{args.command.capitalize()} created at:", path)
     print(f"{args.command.capitalize()} object:", obj)
-
-    # LikeAction/ReplyAction already commits and pushes the target repository.
-    if not action.publish_locally:
-        return
     
     # Git Publishing - repo root is where .git lives
     repo_root = os.path.join(project_root, identity["repoPath"])
@@ -185,6 +183,5 @@ def main():
     # Commit and push the newly created action file
     # obj['id'] should be like "post-001"
     publisher.publish(path, f"Add {obj['id']}")
-    # publisher.publishAll("Follow")
 if __name__ == "__main__":
     main()
