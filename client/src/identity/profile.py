@@ -74,6 +74,12 @@ class ProfileCreator:
 
         # Clone canonical automatically
         subprocess.run(["git", "clone", CANONICAL_URL, repo_path])
+        # ADD
+        subprocess.run(
+            ["git", "config", "merge.ours.driver", "true"],
+            cwd=repo_path,
+            check=True
+        )
 
         social_path = os.path.join(repo_path, "social")
 

@@ -11,23 +11,15 @@ class ShowFeedAction(ActionBase):
     def __init__(self, social_path):
         super().__init__(social_path)
 
-        # Prevent infinite recursion
-        self.user_feed_processed = set()
-
-        # Flat list of all actions collected from you + followed users
-        self.collected_actions = []
-
-        # Map: publicKey → handle (needed to show who actually liked/replied)
+        self.actions = []
         self.pubkey_to_handle = {}
 
-        # Indexed actions (posts, likes, replies, follows)
-        self.indexed = None
-
-        # Structured sections
         self.my_posts = []
         self.my_following = set()
-        #self.my_followers = set()
         self.followed_users_posts = []
+        self.all_posts = []
+
+        self.indexed = None
 
     # --------------------------------------------------------
     # MAIN ENTRY POINT
@@ -35,19 +27,22 @@ class ShowFeedAction(ActionBase):
 
     def run(self, args):
         active_handle = self.get_active_handle()
+        followers_only = args.followers_only
 
-        # 1. Recursively collect actions + profile keys
-        self.collect_actions(active_handle, self.social_path)
+        # 1. Load all actions
+        self.load_actions()
 
-        # 2. Build indexes (posts, likes, replies, follows)
-        indexed_actions = self.index_actions(self.collected_actions)
-        self.indexed = indexed_actions
+        # 2. Load profile mapping
+        self.load_profile_mapping()
 
-        # 3. Categorize into sections
-        self.categorize_sections(active_handle, indexed_actions)
+        # 3. Index actions
+        self.indexed = self.index_actions(self.actions)
 
-        # 4. Render structured feed
-        self.render_structured_feed(active_handle)
+        # 4. Categorize feed sections
+        self.categorize_sections(active_handle, followers_only)
+
+        # 5. Render feed
+        self.render_structured_feed(active_handle, followers_only)
 
         return None, None
 
@@ -56,61 +51,43 @@ class ShowFeedAction(ActionBase):
         return repo_name.replace("-social", ".social")
 
     # --------------------------------------------------------
-    # RECURSIVE COLLECTION
+    # LOAD ACTIONS
     # --------------------------------------------------------
 
-    def collect_actions(self, handle, repo_path):
+    def load_actions(self):
+        actions_dir = os.path.join(self.social_path, "actions")
 
-        if handle in self.user_feed_processed:
-            return
+        for filename in os.listdir(actions_dir):
+            if filename.endswith(".json"):
+                path = os.path.join(actions_dir, filename)
+                try:
+                    with open(path, "r", encoding="utf-8") as f:
+                        obj = json.load(f)
+                        self.actions.append(obj)
+                except Exception as e:
+                    print(f"[FEED] Error reading {path}: {e}")
 
-        self.user_feed_processed.add(handle)
+    # --------------------------------------------------------
+    # LOAD PROFILE MAPPING
+    # --------------------------------------------------------
 
-        # Load profile.json to map publicKey → handle
-        profile_path = os.path.join(repo_path, "profile.json")
-        if os.path.isfile(profile_path):
-            try:
-                with open(profile_path, "r", encoding="utf-8") as pf:
-                    profile = json.load(pf)
-                    public_key = profile.get("publicKey")
-                    if public_key:
-                        self.pubkey_to_handle[public_key] = handle
-            except Exception as e:
-                print(f"Error reading profile.json for {handle}: {e}")
+    def load_profile_mapping(self):
+        profile_path = os.path.join(self.social_path, "profile.json")
+        try:
+            with open(profile_path, "r", encoding="utf-8") as pf:
+                profile = json.load(pf)
+                pk = profile.get("publicKey")
+                handle = self.get_active_handle()
+                if pk:
+                    self.pubkey_to_handle[pk] = handle
+        except:
+            print("[FEED] Could not load profile.json")
 
-        # Load actions
-        actions_dir = os.path.join(repo_path, "actions")
-
-        if os.path.isdir(actions_dir):
-            for filename in os.listdir(actions_dir):
-                if filename.endswith(".json"):
-                    file_path = os.path.join(actions_dir, filename)
-                    try:
-                        with open(file_path, "r", encoding="utf-8") as f:
-                            action_data = json.load(f)
-
-                            # Track which repo this action came from
-                            action_data["owner_handle"] = handle
-
-                            self.collected_actions.append(action_data)
-
-                    except Exception as e:
-                        print(f"Error reading {file_path}: {e}")
-
-        # Traverse following_repos
-        following_dir = os.path.join(repo_path, "following_repos")
-        if not os.path.isdir(following_dir):
-            return
-
-        for repo_name in os.listdir(following_dir):
-            followed_repo_path = os.path.join(following_dir, repo_name)
-            if not os.path.isdir(followed_repo_path):
-                continue
-
-            followed_handle = repo_name.replace("-social", ".social")
-            followed_social_path = os.path.join(followed_repo_path, "social")
-
-            self.collect_actions(followed_handle, followed_social_path)
+        # Map authors from actions
+        for action in self.actions:
+            author_pk = action.get("author")
+            if author_pk and author_pk not in self.pubkey_to_handle:
+                self.pubkey_to_handle[author_pk] = author_pk
 
     # --------------------------------------------------------
     # INDEXING
@@ -124,18 +101,18 @@ class ShowFeedAction(ActionBase):
         follows = []
 
         for action in actions_list:
-            action_type = action["type"]
+            t = action["type"]
 
-            if action_type == "post":
+            if t == "post":
                 posts_by_id[action["id"]] = action
 
-            elif action_type == "like":
+            elif t == "like":
                 likes_by_target[action["target"]].append(action)
 
-            elif action_type == "reply":
+            elif t == "reply":
                 replies_by_target[action["inReplyTo"]].append(action)
 
-            elif action_type == "follow":
+            elif t == "follow":
                 follows.append(action)
 
         return {
@@ -149,126 +126,107 @@ class ShowFeedAction(ActionBase):
     # CATEGORIZE SECTIONS
     # --------------------------------------------------------
 
-    def categorize_sections(self, active_handle, indexed):
+    def categorize_sections(self, active_handle, followers_only):
 
-        posts = indexed["posts"]
-        follows = indexed["follows"]
+        posts = self.indexed["posts"]
+        follows = self.indexed["follows"]
 
-        # --- My posts ---
-        for post in posts.values():
-            if post["owner_handle"] == active_handle:
-                self.my_posts.append(post)
+        self.my_following = set()
+        self.my_posts = []
+        self.followed_users_posts = []
+        self.all_posts = []
 
-        # --- Who I follow ---
-        for follow_action in follows:
-            if follow_action["owner_handle"] == active_handle:
-                target_pk = follow_action["target"]
+        # Who I follow
+        for f in follows:
+            if self.pubkey_to_handle.get(f["author"]) == active_handle:
+                target_pk = f["target"]
                 target_handle = self.pubkey_to_handle.get(target_pk, target_pk)
                 self.my_following.add(target_handle)
 
-        # --- Who follows me ---
-        # for follow_action in follows:
-        #     target_pk = follow_action["target"]
-        #     target_handle = self.pubkey_to_handle.get(target_pk, target_pk)
-        #     if target_handle == active_handle:
-        #         follower_pk = follow_action["author"]
-        #         follower_handle = self.pubkey_to_handle.get(follower_pk, follower_pk)
-        #         self.my_followers.add(follower_handle)
-
-        # --- Posts from people I follow ---
+        # Categorize posts
         for post in posts.values():
-            if post["owner_handle"] in self.my_following:
+            author_pk = post["author"]
+            author_handle = self.pubkey_to_handle.get(author_pk, author_pk)
+
+            # My posts
+            if author_handle == active_handle:
+                self.my_posts.append(post)
+
+            # Posts from people I follow
+            if author_handle in self.my_following:
                 self.followed_users_posts.append(post)
 
-        # Sort posts chronologically
+            # All posts (multi-hop)
+            self.all_posts.append(post)
+
+        # Sorting
         self.my_posts.sort(key=lambda p: p["created"])
         self.followed_users_posts.sort(key=lambda p: p["created"])
+        self.all_posts.sort(key=lambda p: p["created"])
+
+        # Apply mode
+        if followers_only:
+            self.all_posts = []  # hide multi-hop
+        else:
+            self.my_posts = []
+            self.followed_users_posts = []  # hide follow-only
 
     # --------------------------------------------------------
-    # RENDER STRUCTURED FEED
+    # RENDER FEED
     # --------------------------------------------------------
 
-    def render_structured_feed(self, active_handle):
+    def render_structured_feed(self, active_handle, followers_only):
 
         print("\n===========================================================\n")
 
-        # -------------------------
-        # MY POSTS
-        # -------------------------
-        print("===== MY POSTS =====\n")
-        if not self.my_posts:
-            print("(no posts)\n")
-        else:
-            for post in self.my_posts:
-                print(f"{active_handle} — {post['created']}")
-                print(f"POST: {post.get('content','')}\n")
-                print("----------------------------------------\n")
+        # MODE: FOLLOW-ONLY
+        if followers_only:
+            print("===== FEED (FOLLOW-ONLY MODE) =====\n")
 
-        # -------------------------
-        # PEOPLE I FOLLOW
-        # -------------------------
-        print("===== PEOPLE I FOLLOW =====\n")
-        if not self.my_following:
-            print("(you follow no one)\n")
-        else:
-            for handle in sorted(self.my_following):
-                print(f"- {handle}")
-            print("\n----------------------------------------\n")
+            if not self.my_following:
+                print("(no feed available — you are not following anyone)\n")
+                return
 
-        # -------------------------
-        # MY FOLLOWERS
-        # -------------------------
-        # print("===== MY FOLLOWERS =====\n")
-        # if not self.my_followers:
-        #     print("(no followers)\n")
-        # else:
-        #     for handle in sorted(self.my_followers):
-        #         print(f"- {handle}")
-        #     print("\n----------------------------------------\n")
+            for post in self.followed_users_posts:
+                self.render_post(post)
+            return
 
-        # -------------------------
-        # FEED FROM PEOPLE I FOLLOW
-        # -------------------------
-        print("===== FEED FROM PEOPLE I FOLLOW =====\n")
-        if not self.my_following:
-            print("(no feed available — you are not following anyone)\n")
-            return  # stop rendering feed section entirely
+        # MODE: MULTI-HOP
+        print("===== FEED (MULTI-HOP MODE) =====\n")
 
-        for post in self.followed_users_posts:
-            owner = post["owner_handle"]
-            post_id = post["id"]
-            content = post.get("content", "")
-            created = post["created"]
+        for post in self.all_posts:
+            self.render_post(post)
 
-            print(f"{owner} — {created}")
-            print(f"POST: {content}")
+    # --------------------------------------------------------
+    # RENDER SINGLE POST
+    # --------------------------------------------------------
 
-            # Likes
-            # like_actions = self.indexed["likes"].get(post_id, [])
-            # If same author of like likes the same post more than once, should display only once
-            raw_likes = self.indexed["likes"].get(post_id, [])
-            unique_likes = {}
-            for like_action in raw_likes:
-                liker_pk = like_action["author"]
-                unique_likes[liker_pk] = like_action
+    def render_post(self, post):
+        author_pk = post["author"]
+        author_handle = self.pubkey_to_handle.get(author_pk, author_pk)
+        post_id = post["id"]
+        content = post.get("content", "")
+        created = post["created"]
 
-            like_actions = list(unique_likes.values())
+        print(f"{author_handle} — {created}")
+        print(f"POST: {content}")
 
+        # Likes (dedupe)
+        raw_likes = self.indexed["likes"].get(post_id, [])
+        unique_likes = {l["author"]: l for l in raw_likes}
 
-            if like_actions:
-                print(f"  ❤️ {len(like_actions)} likes")
-                for like_action in like_actions:
-                    liker_pk = like_action["author"]
-                    liker_handle = self.pubkey_to_handle.get(liker_pk, liker_pk)
-                    print(f"    - {liker_handle} liked this")
+        if unique_likes:
+            print(f"  ❤️ {len(unique_likes)} likes")
+            for like in unique_likes.values():
+                liker_handle = self.pubkey_to_handle.get(like["author"], like["author"])
+                print(f"    - {liker_handle} liked this")
 
-            # Replies
-            reply_actions = self.indexed["replies"].get(post_id, [])
-            if reply_actions:
-                print(f"  💬 {len(reply_actions)} replies")
-                for reply_action in reply_actions:
-                    replier_pk = reply_action["author"]
-                    replier_handle = self.pubkey_to_handle.get(replier_pk, replier_pk)
-                    print(f"    - {replier_handle}: {reply_action['content']}")
+        # Replies
+        replies = self.indexed["replies"].get(post_id, [])
+        if replies:
+            print(f"  💬 {len(replies)} replies")
+            for r in replies:
+                replier_handle = self.pubkey_to_handle.get(r["author"], r["author"])
+                print(f"    - {replier_handle}: {r['content']}")
 
-            print("\n----------------------------------------\n")
+        print("\n----------------------------------------\n")

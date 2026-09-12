@@ -106,6 +106,12 @@ def main():
     publish_org = sub.add_parser("publish-org")
 
     show = sub.add_parser("feed")
+    # show.add_argument("include_only_followers")
+    show.add_argument(
+        "--followers-only",
+        action="store_true",
+        help="Show only posts from users you explicitly follow"
+    )
 
     # Register Actions
     ActionRegistry.register("post", PostAction)
