@@ -1,6 +1,6 @@
 {
-  "activeIdentity": "ash",
-  "repoPath": "ash-social",
+  "activeIdentity": "canonical",
+  "repoPath": "canonical-social",
   "publicKey": "...",
   "privateKey": "..."
 }

@@ -5,6 +5,7 @@ from src.identity.signer import Signer
 from src.utils.identity_loader import load_identity
 
 CANONICAL_URL = "https://github.com/gargster/canonical-social.git"
+DIRECTORY_REPO_URL = "https://github.com/gargster/social-directory.git"
 
 class PublishManager:
     def __init__(self, project_root):
@@ -15,6 +16,13 @@ class PublishManager:
             self.project_root,
             "social-directory"
         )
+         # Clone directory repo if it does not exist locally
+        if not os.path.exists(directory_root):
+            print("[DIRECTORY] Cloning social-directory...")
+            Repo.clone_from(
+                DIRECTORY_REPO_URL,
+                directory_root
+            )
 
         directory_path = os.path.join(
             directory_root,

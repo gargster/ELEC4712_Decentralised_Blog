@@ -1,12 +1,15 @@
 import os
 import json
+import git
 from collections import defaultdict
 from src.actions.base import ActionBase
 
+import urllib.request
 
 class ShowFeedAction(ActionBase):
 
     publish_locally = False
+    DIRECTORY_URL = "https://gargster.github.io/social-directory/directory.json"
 
     def __init__(self, social_path):
         super().__init__(social_path)
@@ -67,25 +70,134 @@ class ShowFeedAction(ActionBase):
                 except Exception as e:
                     print(f"[FEED] Error reading {path}: {e}")
 
+    def load_profiles_from_remotes(self):
+        """
+        Load profiles from existing Git remotes.
+        These remotes already exist because the user follows those users.
+        No new remotes or clones are created.
+        """
+        try:
+            repo_root = os.path.dirname(self.social_path)
+            repo = git.Repo(repo_root)
+            git_cmd = git.cmd.Git(repo.working_tree_dir)
+
+            for remote in repo.remotes:
+                if remote.name == "origin":
+                    continue
+
+                try:
+                    raw_json = git_cmd.show(
+                        f"{remote.name}/main:social/profile.json"
+                    )
+
+                    profile = json.loads(raw_json)
+
+                    pk = profile.get("publicKey")
+                    handle = profile.get("handle")
+
+                    if pk and handle:
+                        self.pubkey_to_handle[pk] = handle
+
+                except Exception as e:
+                    print(
+                        f"[FEED] Could not load profile from "
+                        f"remote {remote.name}: {e}"
+                    )
+
+        except Exception as e:
+            print(f"[FEED] Could not load profiles from remotes: {e}")
+
     # --------------------------------------------------------
     # LOAD PROFILE MAPPING
     # --------------------------------------------------------
-
     def load_profile_mapping(self):
+        # --------------------------------------------------------
+        # 1. Load my own profile
+        # --------------------------------------------------------
         profile_path = os.path.join(self.social_path, "profile.json")
+
         try:
             with open(profile_path, "r", encoding="utf-8") as pf:
                 profile = json.load(pf)
-                pk = profile.get("publicKey")
-                handle = self.get_active_handle()
-                if pk:
-                    self.pubkey_to_handle[pk] = handle
-        except:
-            print("[FEED] Could not load profile.json")
 
-        # Map authors from actions
+            pk = profile.get("publicKey")
+            handle = profile.get("handle", self.get_active_handle())
+
+            if pk:
+                self.pubkey_to_handle[pk] = handle
+
+        except Exception as e:
+            print(f"[FEED] Could not load profile.json: {e}")
+
+        # --------------------------------------------------------
+        # 2. Load profiles from existing followed-user remotes
+        # --------------------------------------------------------
+        self.load_profiles_from_remotes()
+
+        # --------------------------------------------------------
+        # 3. Load public discovery directory
+        # --------------------------------------------------------
+        try:
+            with urllib.request.urlopen(self.DIRECTORY_URL, timeout=5) as response:
+                directory = json.load(response)
+
+        except Exception as e:
+            print(f"[FEED] Could not load discovery directory: {e}")
+            directory = {}
+
+        # --------------------------------------------------------
+        # 4. Discover profiles from repository URLs
+        # --------------------------------------------------------
+        for handle, user_info in directory.items():
+
+            repo_url = user_info.get("repoURL")
+
+            if not repo_url:
+                continue
+
+            # Convert:
+            # https://github.com/gargster/ash-social.git
+            #
+            # into:
+            # https://raw.githubusercontent.com/gargster/ash-social/main/social/profile.json
+            #
+            if repo_url.endswith(".git"):
+                repo_url = repo_url[:-4]
+
+            if repo_url.startswith("https://github.com/"):
+                profile_url = (
+                    repo_url.replace(
+                        "https://github.com/",
+                        "https://raw.githubusercontent.com/"
+                    )
+                    + "/main/social/profile.json"
+                )
+            else:
+                continue
+
+            try:
+                with urllib.request.urlopen(profile_url, timeout=5) as response:
+                    discovered_profile = json.load(response)
+
+                discovered_pk = discovered_profile.get("publicKey")
+                discovered_handle = discovered_profile.get("handle", handle)
+
+                if discovered_pk and discovered_handle:
+                    self.pubkey_to_handle.setdefault(discovered_pk, discovered_handle)
+                    #self.pubkey_to_handle[discovered_pk] = discovered_handle
+
+            except Exception as e:
+                print(
+                    f"[FEED] Could not load profile for "
+                    f"{handle}: {e}"
+                )
+
+        # --------------------------------------------------------
+        # 5. Unknown public keys remain public keys
+        # --------------------------------------------------------
         for action in self.actions:
             author_pk = action.get("author")
+
             if author_pk and author_pk not in self.pubkey_to_handle:
                 self.pubkey_to_handle[author_pk] = author_pk
 
