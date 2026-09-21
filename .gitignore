@@ -24,3 +24,5 @@ client/state/
 
 # Cloned repos of followed users
 client/following_repos/
+
+social-directory/

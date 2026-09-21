@@ -10,6 +10,55 @@ class PublishManager:
     def __init__(self, project_root):
         self.project_root = project_root
 
+    def update_directory(self, handle, remote_url):
+        directory_root = os.path.join(
+            self.project_root,
+            "social-directory"
+        )
+
+        directory_path = os.path.join(
+            directory_root,
+            "directory.json"
+        )
+
+        # Load existing directory
+        if os.path.exists(directory_path):
+            with open(directory_path, "r") as f:
+                directory = json.load(f)
+        else:
+            directory = {}
+
+        # Register/update user
+        directory[handle] = {
+            "repoURL": remote_url
+        }
+
+        print(f"[DIRECTORY] Registering {handle} -> {remote_url}")
+
+        # Save directory.json
+        with open(directory_path, "w") as f:
+            json.dump(directory, f, indent=2)
+
+        # Commit and push directory repo
+        directory_repo = Repo(directory_root)
+
+        directory_repo.git.add("directory.json")
+
+        try:
+            directory_repo.index.commit(
+                f"Register {handle}"
+            )
+        except Exception:
+            print("[DIRECTORY] No directory changes to commit")
+
+        try:
+            directory_repo.remotes.origin.push()
+            print("[DIRECTORY] Push complete")
+        except Exception as e:
+            print(f"[DIRECTORY] Push failed: {e}")   
+
+            
+
     def publish(self, remote_url):
         """
         Publish the current user's repo to their GitHub remote.
@@ -46,6 +95,8 @@ class PublishManager:
         # ------------------------------------------------------------
         with open(profile_path, "r") as f:
             profile = json.load(f)
+
+        handle = profile["handle"]
 
         profile["repoURL"] = remote_url
 
@@ -84,5 +135,8 @@ class PublishManager:
         if "canonical" not in [r.name for r in repo.remotes]:
             print("[PUBLISH] Adding canonical remote...")
             repo.create_remote("canonical", CANONICAL_URL)
+
+        # update directory
+        self.update_directory(handle, remote_url)
 
         print("[PUBLISH] Complete.")

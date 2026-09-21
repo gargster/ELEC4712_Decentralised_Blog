@@ -30,34 +30,47 @@ project_root = os.path.dirname(os.path.dirname(__file__))
 
 def print_allowed_commands():
     print("\n==================== Allowed Commands ====================")
+
     print("profile create --handle <handle> --name <name> --bio <bio>")
-    print("    Example: python app.py profile create --handle bharat.social --name Bharat --bio \"Student at USYD\"")
-    print() 
+    print('    Example: python app.py profile create --handle bharat.social --name Bharat --bio "Student at USYD"')
+    print()
+
     print("post <content>")
-    print("    Example: python app.py post \"Hello world\"")
+    print('    Example: python app.py post "Hello world"')
     print()
-    print("reply <target_handle> <target_id> <content>")
-    print("    Example: python app.py reply carl.social post-003 \"I'm ok.\"")
+
+    print("reply <target_handle> <target_action_id> <content>")
+    print('    Example: python app.py reply carl.social post-carl.social-003 "I agree"')
     print()
-    print("like <target_handle> <target_id>")
-    print("    Example: python app.py like carl.social post-001")
+
+    print("like <target_handle> <target_action_id>")
+    print("    Example: python app.py like carl.social post-carl.social-001")
     print()
-    print("follow <target_handle>")
-    print("    Example: python app.py follow alice.social")
+
+    print("follow <target_handle> <target_repo_url>")
+    print("    Example: python app.py follow alice.social https://github.com/alice/alice-social.git")
     print()
+
     print("replicate")
     print("    Example: python app.py replicate")
     print()
+
     print("feed")
     print("    Example: python app.py feed")
     print()
+
+    print("feed --followers-only")
+    print("    Example: python app.py feed --followers-only")
+    print()
+
     print("publish --url <git-remote-url>")
     print("    Example: python app.py publish --url https://github.com/bharat/bharat-social.git")
     print()
+
     print("publish-org")
+    print("    Example: python app.py publish-org")
 
     print("===========================================================\n")
-
 
 def main():
     # print custom help menu each time program starts
