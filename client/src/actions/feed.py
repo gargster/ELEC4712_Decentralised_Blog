@@ -3,6 +3,7 @@ import json
 import git
 from collections import defaultdict
 from src.actions.base import ActionBase
+from src.actions.action_verifier import ActionVerifier
 
 import urllib.request
 
@@ -66,7 +67,10 @@ class ShowFeedAction(ActionBase):
                 try:
                     with open(path, "r", encoding="utf-8") as f:
                         obj = json.load(f)
+                    if ActionVerifier.verify(obj):
                         self.actions.append(obj)
+                    else:
+                        print(f"[FEED] Rejected invalid action: {path}")
                 except Exception as e:
                     print(f"[FEED] Error reading {path}: {e}")
 
