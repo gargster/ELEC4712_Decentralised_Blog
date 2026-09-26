@@ -20,7 +20,7 @@ sequenceDiagram
     Note over Repo: Repository now contains a signed post action
     Note over Repo,Follower: Later, during replication
 
-    Follower->>Repo: Fetch remote repository
+    Follower->>Repo: git fetch remote main
     Repo-->>Follower: Return updated remote branch
 
     Follower->>Follower: Read candidate action from remote branch
@@ -61,8 +61,8 @@ sequenceDiagram
     Follower->>Follower: Accept valid action
     Follower->>Follower: Write valid action to local social/actions/
 
-    Follower->>Follower: Resolve target against local actions
-    Follower->>Follower: Associate like with the referenced post
+    Follower->>Follower: Resolve target against accepted local actions
+    Follower->>Follower: Associate like with the referenced action
 ```
 
 ## Reply
@@ -96,7 +96,7 @@ sequenceDiagram
     Follower->>Follower: Accept valid action
     Follower->>Follower: Write valid action to local social/actions/
 
-    Follower->>Follower: Resolve inReplyTo against local actions
+    Follower->>Follower: Resolve inReplyTo reference against accepted local actions
     Follower->>Follower: Group reply under the referenced post
 ```
 
@@ -111,9 +111,9 @@ sequenceDiagram
 
     User->>Client: follow alice.social repositoryURL
 
-    Client->>Repo: Add Alice's repository as a Git remote
+    Client->>Repo: git remote add alice.social repositoryURL
 
-    Client->>Alice: Fetch Alice's repository
+    Client->>Alice: git fetch alice.social main
     Alice-->>Client: Return Alice's remote branch
 
     Client->>Client: Read social/profile.json from fetched branch
@@ -176,10 +176,9 @@ sequenceDiagram
 
 ## Multi-hop Propagation
 
-Actions are verified using the public key in each action's `author` field.
-They are not required to match the profile key of the repository currently
-relaying them. This allows valid signed actions to propagate through multiple
-repositories.
+Each action is verified using the public key specified by its `author` field,
+independently of the repository currently relaying it. This allows valid
+signed actions to propagate through multiple repositories.
 
 ```mermaid
 sequenceDiagram
