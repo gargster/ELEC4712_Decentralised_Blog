@@ -1,6 +1,4 @@
 from src.identity.verifier import Verifier
-
-
 class ActionVerifier:
     @staticmethod
     def verify(action: dict) -> bool:

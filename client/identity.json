@@ -1,6 +1,6 @@
 {
-  "activeIdentity": "canonical",
-  "repoPath": "canonical-social",
+  "activeIdentity": "brok",
+  "repoPath": "brok-social",
   "publicKey": "...",
   "privateKey": "..."
 }
