@@ -1,6 +1,7 @@
 import os
 import json
-from git import Repo
+from git import GitCommandError, Repo
+from git.remote import PushInfo
 from src.identity.signer import Signer
 from src.utils.identity_loader import load_identity
 
@@ -10,6 +11,63 @@ DIRECTORY_REPO_URL = "https://github.com/gargster/social-directory.git"
 class PublishManager:
     def __init__(self, project_root):
         self.project_root = project_root
+
+    @staticmethod
+    def _merge_directory_json(directory_repo):
+        conflicted_files = set(directory_repo.index.unmerged_blobs())
+        if conflicted_files != {"directory.json"}:
+            directory_repo.git.merge("--abort")
+            raise RuntimeError(
+                "Cannot automatically merge social-directory conflicts: "
+                + ", ".join(sorted(conflicted_files))
+            )
+
+        local_directory = json.loads(directory_repo.git.show(":2:directory.json"))
+        remote_directory = json.loads(directory_repo.git.show(":3:directory.json"))
+
+        merged_directory = dict(remote_directory)
+        merged_directory.update(local_directory)
+
+        directory_path = os.path.join(
+            directory_repo.working_tree_dir,
+            "directory.json"
+        )
+        with open(directory_path, "w", encoding="utf-8") as directory_file:
+            json.dump(merged_directory, directory_file, indent=2)
+            directory_file.write("\n")
+
+        directory_repo.git.add("directory.json")
+        directory_repo.git.commit("--no-edit")
+
+    @staticmethod
+    def _push_directory(directory_repo):
+        push_results = directory_repo.remotes.origin.push("main")
+        failed_pushes = [
+            result for result in push_results
+            if result.flags & (PushInfo.ERROR | PushInfo.REJECTED)
+        ]
+        if failed_pushes:
+            details = "; ".join(result.summary for result in failed_pushes)
+            raise RuntimeError(f"[DIRECTORY] Push failed: {details}")
+
+        print("[DIRECTORY] Push complete")
+
+    @staticmethod
+    def _sync_directory_repo(directory_repo):
+        if directory_repo.is_dirty(untracked_files=True):
+            raise RuntimeError(
+                "The local social-directory repository has uncommitted changes; "
+                "commit or resolve them before publishing."
+            )
+
+        origin = directory_repo.remotes.origin
+        origin.fetch("main")
+        try:
+            directory_repo.git.merge("origin/main", "--no-edit")
+        except GitCommandError:
+            if not directory_repo.index.unmerged_blobs():
+                raise
+            PublishManager._merge_directory_json(directory_repo)
 
     def update_directory(self, handle, remote_url):
         directory_root = os.path.join(
@@ -29,12 +87,11 @@ class PublishManager:
             "directory.json"
         )
 
-        # Load existing directory
-        if os.path.exists(directory_path):
-            with open(directory_path, "r") as f:
-                directory = json.load(f)
-        else:
-            directory = {}
+        directory_repo = Repo(directory_root)
+        self._sync_directory_repo(directory_repo)
+
+        with open(directory_path, "r", encoding="utf-8") as directory_file:
+            directory = json.load(directory_file)
 
         # Register/update user
         directory[handle] = {
@@ -44,28 +101,16 @@ class PublishManager:
         print(f"[DIRECTORY] Registering {handle} -> {remote_url}")
 
         # Save directory.json
-        with open(directory_path, "w") as f:
+        with open(directory_path, "w", encoding="utf-8") as f:
             json.dump(directory, f, indent=2)
 
         # Commit and push directory repo
-        directory_repo = Repo(directory_root)
-
         directory_repo.git.add("directory.json")
 
-        try:
-            directory_repo.index.commit(
-                f"Register {handle}"
-            )
-        except Exception:
-            print("[DIRECTORY] No directory changes to commit")
+        if directory_repo.is_dirty(index=True, working_tree=True):
+            directory_repo.index.commit(f"Register {handle}")
 
-        try:
-            directory_repo.remotes.origin.push()
-            print("[DIRECTORY] Push complete")
-        except Exception as e:
-            print(f"[DIRECTORY] Push failed: {e}")   
-
-            
+        self._push_directory(directory_repo)
 
     def publish(self, remote_url):
         """
