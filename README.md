@@ -1,140 +1,103 @@
-# ELEC4712_Decentralised_Blog
+# Git-Native Decentralised Social Protocol
 
-This repository contains the implementation of a decentralised, Git‑native social protocol developed for ELEC4712.  
-Users host their own signed social actions (posts, likes, replies, follows) inside their personal Git repos.  
-The client replicates followed users’ repos and renders a local feed.
+This repository contains a Python command-line prototype of a Git-native
+decentralised social protocol. Users publish signed social actions in their
+own Git repositories. Clients follow repositories, replicate actions, verify
+action signatures before accepting them locally, and construct a feed from
+accepted actions.
 
----
+The prototype supports profiles, posts, replies, likes, follows, publishing,
+replication, and feed display. Git is used for repository storage and
+distribution; the client handles protocol operations.
 
-## Running the Client
+## Project documentation
 
-1. Clone the repo  
-2. `cd client`  
-3. `python app.py`
+- [Latest design](./latest_design.md) describes the current protocol model and
+  workflows.
+- [Alternative protocols](./alternatives.md) compares related decentralised
+  social systems.
+- [Archived design notes](./docs/archive/) contains earlier design,
+  principles, and requirements documents retained for reference. These files
+  are historical and may not describe the current prototype.
 
-This will display the available commands:
+## Prerequisites
 
-- post  
-- like  
-- reply  
-- follow  
-- feed  
+- Python 3
+- Git, available on `PATH`
+- Access to the configured canonical and social-directory Git repositories
+  for account creation and publishing
 
-Example usage:
+The client uses GitPython and PyNaCl. From the repository root, install them
+with:
 
-python app.py post "hello"
-python app.py follow carl.social
-python app.py feed ,
-
-## Alternative Protocols
-
-For comparison with existing decentralised social protocols (ActivityPub, Nostr, social4git, sAT, Octotown), see:
-
-👉 [Alternative Protocol Diagrams](./alternatives.md)
-
-
-## Archived: Old Protocol Sketch (Outdated)
-## Intended Workflow
-This project describes a decentralised blogging protocol where users host their own signed content objects on static servers (such as  GitHub Pages) instead of relying on a centralised or administrator controlled backend. Each interaction - posts, comments, likes, forwards and follow requests is created locally, signed with the user’s private key and uploaded to their static server. Other users then fetch and verify these objects using public keys. Overall, the aim is to define a minimal interaction workflow that operates through static hosting and client-side verification. 
-
-## Follow Request
-```mermaid
-sequenceDiagram
-    participant Alice
-    participant Bob
-    participant BobFollowerList as Bob Follower List
-
-    Alice->>Alice: Hash(profileURL || publicKey || timestamp)
-    Alice->>Alice: Sign hash with AlicePrivateKey
-
-    Alice->>Bob: Email Follow Request\n(AliceProfileURL, AlicePublicKey, timestamp, signature)
-
-    Bob->>Bob: Hash(profileURL || publicKey || timestamp)
-    Bob->>Bob: Verify signature using AlicePublicKey
-
-    Bob->>BobFollowerList: Store follower entry\n{AliceProfileURL, AlicePublicKey, timestamp}
-```
-## Post Article
-```mermaid
-sequenceDiagram
-    participant Bob
-    participant BobServer as Bob's Static Server
-    participant Alice
-
-    Bob->>Bob: Create article object
-    Bob->>Bob: Hash(article content)
-    Bob->>Bob: Sign hash with BobPrivateKey
-
-    Bob->>BobServer: Upload post-123.json\n{content, author, timestamp, BobPublicKey, signature}
-
-    Alice->>BobServer: GET post-123.json
-    BobServer->>Alice: Return post-123.json
-
-    Alice->>Alice: Hash(article content)
-    Alice->>Alice: Verify signature using BobPublicKey
-```
-## Comment on Post
-```mermaid
-sequenceDiagram
-    participant Alice
-    participant AliceServer as Alice's Static Server
-    participant Bob
-
-    Alice->>Alice: Create comment object
-    Alice->>Alice: Hash(comment content)
-    Alice->>Alice: Sign hash with AlicePrivateKey
-
-    Alice->>AliceServer: Upload comment-123.json\n{content, author, timestamp, AlicePublicKey, signature}
-
-    Bob->>AliceServer: GET comment-123.json
-    AliceServer->>Bob: Return comment-123.json
-
-    Bob->>Bob: Hash(comment content)
-    Bob->>Bob: Verify signature using AlicePublicKey
-```
-## Like Post
-```mermaid
-sequenceDiagram
-    participant Alice
-    participant AliceServer as Alice's Static Server
-    participant PublicUsers as Public Users
-
-    Alice->>Alice: Create Like Object
-    Alice->>Alice: hash = Hash(Like Object)
-    Alice->>Alice: Sign hash with AlicePrivateKey
-
-    Alice->>AliceServer: Upload like-123.json\n{postID, by, timestamp, AlicePublicKey, signature}
-
-    PublicUsers->>AliceServer: GET like-123.json
-    AliceServer->>PublicUsers: Return like-123.json
-
-    PublicUsers->>PublicUsers: Hash(Like Object)
-    PublicUsers->>PublicUsers: Verify signature using AlicePublicKey
-```
-## Forward Post
-```mermaid
-sequenceDiagram
-    participant Alice
-    participant AliceServer as Alice's Static Server
-    participant Carol
-    participant BobServer as Bob's Static Server
-
-    Alice->>Alice: Create Forward Object referencing post-123.json
-    Alice->>Alice: hash = Hash(Forward Object)
-    Alice->>Alice: Sign hash with AlicePrivateKey
-
-    Alice->>AliceServer: Upload forward-321.json\n{postID, by, timestamp, AlicePublicKey, signature}
-
-    Carol->>AliceServer: GET forward-321.json
-    AliceServer->>Carol: Return forward-321.json
-
-    Carol->>Carol: Hash(Forward Object)
-    Carol->>Carol: Verify signature using AlicePublicKey
-
-    Carol->>BobServer: GET post-123.json
-    BobServer->>Carol: Return post-123.json
-
-    Carol->>Carol: Verify signature using BobPublicKey
+```powershell
+python -m pip install GitPython PyNaCl
 ```
 
+## Run the client
 
+From the repository root:
+
+```powershell
+cd client
+python app.py
+```
+
+The command prints available operations. Example commands:
+
+```powershell
+python app.py profile create --handle alice.social --name Alice --bio "Hello"
+python app.py post "Hello, social network"
+python app.py follow bob.social https://github.com/bob/bob-social.git
+python app.py replicate
+python app.py feed
+python app.py feed --followers-only
+python app.py publish --url https://github.com/alice/alice-social.git
+```
+
+Replies and likes require a target handle and action ID:
+
+```powershell
+python app.py reply bob.social post-bob.social-001 "I agree"
+python app.py like bob.social post-bob.social-001
+```
+
+Creating a regular account clones the configured canonical repository
+template. Account creation generates key material and a user repository, but
+the client selects its active account through `client/identity.json`. To use a
+new account, set `activeIdentity` to the handle's local identity name and
+`repoPath` to its repository directory. For example, for `alice.social`:
+
+```json
+{
+  "activeIdentity": "alice",
+  "repoPath": "alice-social"
+}
+```
+
+Keep the private key in the client state directory; never publish it or
+include it in a user repository. Publishing pushes the selected user's
+repository and registers its handle in the configured social directory.
+Account creation and publishing depend on access to those repositories.
+
+## Repository layout
+
+```text
+client/                 Python command-line client and local identity state
+*-social/               User repositories created while running the client
+latest_design.md        Current protocol design and workflows
+alternatives.md         Comparison of related protocols
+docs/archive/           Earlier design notes retained for reference
+```
+
+User repositories, local state, and cloned discovery data are runtime data;
+they are not part of the source documentation.
+
+## Tests
+
+From the repository root:
+
+```powershell
+cd client
+python -m pytest
+```
