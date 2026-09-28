@@ -136,7 +136,7 @@ class ShowFeedAction(ActionBase):
         # --------------------------------------------------------
         # 2. Load profiles from existing followed-user remotes
         # --------------------------------------------------------
-        self.load_profiles_from_remotes()
+        #self.load_profiles_from_remotes()
 
         # --------------------------------------------------------
         # 3. Load public discovery directory
