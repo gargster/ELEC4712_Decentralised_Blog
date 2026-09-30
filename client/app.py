@@ -23,6 +23,7 @@ from src.replication.replicator import Replicator
 from src.utils.identity_loader import load_identity
 from src.replication.follow_manager import FollowManager
 from src.publishing.publish_manager import PublishManager
+from src.publishing.site_publisher import SitePublisher
 
 # Correct project root (ELEC4712_Decentralised_Blog/)
 project_root = os.path.dirname(os.path.dirname(__file__))
@@ -69,6 +70,10 @@ def print_allowed_commands():
 
     print("publish-org")
     print("    Example: python app.py publish-org")
+
+    print("publish-site")
+    print("    Example: python app.py publish-site")
+    print()
 
     print("===========================================================\n")
 
@@ -117,6 +122,8 @@ def main():
     publish.add_argument("--url", required=True)
 
     publish_org = sub.add_parser("publish-org")
+
+    publish_site = sub.add_parser("publish-site")
 
     show = sub.add_parser("feed")
     # show.add_argument("include_only_followers")
@@ -168,6 +175,11 @@ def main():
     elif args.command == "publish-org":
         publisher = PublishManager(project_root)
         publisher.publish_to_org()
+        return
+
+    elif args.command == "publish-site":
+        identity_repo_root = os.path.dirname(SOCIAL_PATH)
+        SitePublisher(project_root, identity_repo_root).publish()
         return
     
     # ---------------- REPLICATE (NEW) ----------------

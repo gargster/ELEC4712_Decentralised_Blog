@@ -53,6 +53,7 @@ python app.py replicate
 python app.py feed
 python app.py feed --followers-only
 python app.py publish --url https://github.com/alice/alice-social.git
+python app.py publish-site
 ```
 
 Replies and likes require a target handle and action ID:
@@ -79,6 +80,10 @@ Keep the private key in the client state directory; never publish it or
 include it in a user repository. Publishing pushes the selected user's
 repository and registers its handle in the configured social directory.
 Account creation and publishing depend on access to those repositories.
+`publish-site` creates or updates the repository's `gh-pages` branch with the
+site template and a feed generated from locally verified actions. Enable
+GitHub Pages once in the user repository settings and select `gh-pages` as
+the publishing source.
 
 ## Repository layout
 
