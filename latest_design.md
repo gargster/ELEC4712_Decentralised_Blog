@@ -141,37 +141,33 @@ actions, indexing their relationships, and rendering the result.
 
 ```mermaid
 sequenceDiagram
-    participant Client as Follower Client
-    participant Remote as Followed Repository
-    participant Local as Local Repository
-    participant Feed as Feed Layer
+    participant User
+    participant Client as Local Client
+    participant Remote as Remote Repository
+    participant Repo as Local Repository
 
-    Client->>Remote: git fetch remote main
-    Remote-->>Client: Return updated remote branch
+    User->>Client: replicate
 
-    Client->>Client: Read remote social/profile.json
-    Client->>Client: Verify remote profile signature
+    Note over Client,Remote: Repeat for each configured Git remote
 
-    loop For each action in remote social/actions/
-        Client->>Client: Read candidate action
-        Client->>Client: Verify action signature using action.author
+    loop For each configured remote repository
+        Client->>Remote: git fetch remote main
+        Remote-->>Client: Return updated remote branch
 
-        alt Signature is valid
-            Client->>Local: Write action to local social/actions/
-            Client->>Local: Commit verified action
-        else Signature is invalid or action is malformed
-            Client->>Client: Reject action
-            Note over Client: Do not write action locally
+        loop For each action in remote social/actions/
+            Client->>Client: Read candidate action
+            Client->>Client: Verify action signature
+
+            alt Signature is valid
+                Client->>Repo: Write action to local social/actions/
+            else Signature is invalid or action is malformed
+                Client->>Client: Reject action
+            end
         end
     end
 
-    Client->>Local: Push replicated verified actions to origin
-
-    Feed->>Local: Read local social/actions/
-    Local-->>Feed: Return accepted actions
-    Feed->>Feed: Index posts, likes, replies, and follows
-    Feed->>Feed: Resolve local action references
-    Feed-->>Client: Render feed
+    Client->>Repo: Commit accepted actions
+    Client->>Repo: Push updated local repository
 ```
 
 ## Multi-hop Propagation
