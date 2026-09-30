@@ -68,9 +68,6 @@ def print_allowed_commands():
     print("    Example: python app.py publish --url https://github.com/bharat/bharat-social.git")
     print()
 
-    print("publish-org")
-    print("    Example: python app.py publish-org")
-
     print("publish-site")
     print("    Example: python app.py publish-site")
     print()
@@ -121,8 +118,6 @@ def main():
     publish = sub.add_parser("publish")
     publish.add_argument("--url", required=True)
 
-    publish_org = sub.add_parser("publish-org")
-
     publish_site = sub.add_parser("publish-site")
 
     show = sub.add_parser("feed")
@@ -172,11 +167,6 @@ def main():
         publisher.publish(args.url)
         return
 
-    elif args.command == "publish-org":
-        publisher = PublishManager(project_root)
-        publisher.publish_to_org()
-        return
-
     elif args.command == "publish-site":
         identity_repo_root = os.path.dirname(SOCIAL_PATH)
         SitePublisher(project_root, identity_repo_root).publish()
@@ -184,9 +174,6 @@ def main():
     
     # ---------------- REPLICATE (NEW) ----------------
     elif args.command == "replicate":
-        # path to client/
-        # client_root = os.path.dirname(__file__)
-        # r = Replicator(client_root, SOCIAL_PATH)
         identity_repo_root = os.path.dirname(SOCIAL_PATH)
         r = Replicator(identity_repo_root)
         r.run()

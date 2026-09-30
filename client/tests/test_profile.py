@@ -1,5 +1,6 @@
 import os
 import json
+from src.identity import profile
 from src.identity.profile import ProfileCreator
 
 
@@ -19,7 +20,7 @@ def test_profile_creation(tmp_path):
 
     # Run profile creation
     creator = ProfileCreator(str(project_root))
-    profile_path = creator.create_profile(
+    repo_path, profile_path = creator.create_profile(
         "bharat.social",
         "Bharat",
         "Student at USYD"
@@ -36,3 +37,22 @@ def test_profile_creation(tmp_path):
     assert data["displayName"] == "Bharat"
     assert data["bio"] == "Student at USYD"
     assert data["publicKey"].startswith("ed25519:")
+    assert os.path.isdir(os.path.join(repo_path, "social", "actions"))
+
+
+def test_canonical_creation_does_not_create_unused_index(tmp_path, monkeypatch):
+    project_root = tmp_path / "project"
+    project_root.mkdir()
+    monkeypatch.setattr(profile.subprocess, "run", lambda *args, **kwargs: None)
+
+    repo_path, profile_path = ProfileCreator(str(project_root)).create_profile(
+        "canonical.social",
+        "Canonical",
+        "Genesis",
+    )
+
+    assert os.path.isfile(profile_path)
+    assert os.path.isdir(os.path.join(repo_path, "social", "actions"))
+    assert not os.path.exists(
+        os.path.join(repo_path, "social", "index.json")
+    )

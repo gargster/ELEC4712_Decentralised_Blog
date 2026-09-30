@@ -23,9 +23,6 @@ class ProfileCreator:
         # Create folder structure
         os.makedirs(os.path.join(social_path, "actions"), exist_ok=True)
 
-        with open(os.path.join(social_path, "index.json"), "w") as f:
-            json.dump({}, f, indent=2)
-
         # Generate canonical keypair
         keypair = KeyPair()
         public_key = keypair.public_key()
@@ -82,6 +79,7 @@ class ProfileCreator:
         )
 
         social_path = os.path.join(repo_path, "social")
+        os.makedirs(os.path.join(social_path, "actions"), exist_ok=True)
 
         # Generate new keypair
         keypair = KeyPair()
