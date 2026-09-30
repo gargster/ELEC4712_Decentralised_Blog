@@ -83,7 +83,10 @@ Account creation and publishing depend on access to those repositories.
 `publish-site` creates or updates the repository's `gh-pages` branch with the
 site template and a feed generated from locally verified actions. Enable
 GitHub Pages once in the user repository settings and select `gh-pages` as
-the publishing source.
+the publishing source. The site resolves action authors using profiles
+discovered through the public social directory, and verifies each profile
+before including its display name. Authors without an available verified
+directory profile remain identified by their public key.
 
 ## Repository layout
 

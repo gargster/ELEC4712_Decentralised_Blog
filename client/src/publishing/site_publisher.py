@@ -1,8 +1,10 @@
 import json
 import os
 import shutil
+import urllib.parse
+import urllib.request
 
-from git import GitCommandError, Repo
+from git import Repo
 from git.remote import PushInfo
 
 from src.actions.action_verifier import ActionVerifier
@@ -10,6 +12,8 @@ from src.discovery.profile_verifier import ProfileVerifier
 
 
 class SitePublisher:
+    DIRECTORY_URL = "https://gargster.github.io/social-directory/directory.json"
+
     def __init__(self, project_root: str, identity_repo_root: str):
         self.project_root = project_root
         self.identity_repo_root = identity_repo_root
@@ -57,33 +61,77 @@ class SitePublisher:
                 own_profile.get("displayName") or own_profile["handle"]
         }
 
-        for remote in self.repo.remotes:
-            if remote.name == "origin":
+        try:
+            with urllib.request.urlopen(self.DIRECTORY_URL, timeout=5) as response:
+                directory = json.load(response)
+            if not isinstance(directory, dict):
+                raise ValueError("Directory data must be a JSON object")
+        except (OSError, json.JSONDecodeError, TypeError, ValueError) as error:
+            print(f"[SITE] Could not load discovery directory: {error}")
+            return profiles
+
+        for handle, user_info in directory.items():
+            if not isinstance(user_info, dict):
+                print(f"[SITE] Skipping invalid directory entry for {handle}")
+                continue
+
+            repo_url = user_info.get("repoURL")
+            profile_url = (
+                self._profile_url(repo_url)
+                if isinstance(repo_url, str)
+                else None
+            )
+            if profile_url is None:
+                print(f"[SITE] Could not locate a GitHub profile for {handle}")
                 continue
 
             try:
-                raw_profile = self.repo.git.show(
-                    f"{remote.name}/main:social/profile.json"
-                )
-                remote_profile_data = json.loads(raw_profile)
+                with urllib.request.urlopen(profile_url, timeout=5) as response:
+                    remote_profile_data = json.load(response)
                 remote_profile = ProfileVerifier(remote_profile_data).verify()
-                profiles[remote_profile["publicKey"]] = (
+                if remote_profile["handle"] != handle:
+                    raise ValueError(
+                        f"Directory handle {handle} does not match signed "
+                        f"profile handle {remote_profile['handle']}"
+                    )
+                profiles.setdefault(
+                    remote_profile["publicKey"],
                     remote_profile_data.get("displayName")
-                    or remote_profile["handle"]
+                    or remote_profile["handle"],
                 )
             except (
-                GitCommandError,
+                OSError,
                 json.JSONDecodeError,
                 KeyError,
                 TypeError,
                 ValueError,
             ) as error:
                 print(
-                    f"[SITE] Could not load verified profile from "
-                    f"{remote.name}: {error}"
+                    f"[SITE] Could not load verified profile for "
+                    f"{handle}: {error}"
                 )
 
         return profiles
+
+    @staticmethod
+    def _profile_url(repo_url: str | None) -> str | None:
+        if not repo_url:
+            return None
+
+        try:
+            parsed_url = urllib.parse.urlsplit(repo_url)
+        except ValueError:
+            return None
+        if parsed_url.scheme != "https" or parsed_url.netloc != "github.com":
+            return None
+
+        path = parsed_url.path.strip("/")
+        if path.endswith(".git"):
+            path = path[:-4]
+        if len(path.split("/")) != 2 or parsed_url.query or parsed_url.fragment:
+            return None
+
+        return f"https://raw.githubusercontent.com/{path}/main/social/profile.json"
 
     def _build_feed(self) -> dict:
         profile_path = os.path.join(self.social_path, "profile.json")
