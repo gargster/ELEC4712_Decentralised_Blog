@@ -290,7 +290,9 @@ sequenceDiagram
     Client->>Local: Copy site template and feed.json
     Client->>Local: Commit site files
     Client->>GitHub: Push gh-pages
+    Note over Local,GitHub: gh-pages is separate from main and holds the published site, not protocol actions
     GitHub-->>Browser: Serve the static site
+    Note over GitHub,Browser: GitHub Pages serves these files as a website so visitors can browse the feed
     Browser->>GitHub: Request feed.json
     GitHub-->>Browser: Return published feed data
     Browser->>Browser: Group posts, attach likes and replies, apply Follow filter

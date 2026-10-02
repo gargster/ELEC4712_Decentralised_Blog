@@ -25,7 +25,7 @@ Figure~\ref{fig:architecture_overview} summarises the overall architecture of th
     \centering \includegraphics[width=\textwidth]{figures/architecture_overview.png} \caption{Proposed Protocol Architecture} \label{fig:architecture_overview}
 \end{figure} 
 
-The architecture is composed of five logical components: \begin{enumerate} \item Identity \item Social Actions \item Replication \item Discovery \item Feed Construction \end{enumerate} Identity is responsible for user-owned cryptographic identities and profile management. Social Actions define the representation of posts, replies, likes and follows. Replication synchronises repositories using Git's native mechanisms. Discovery enables users to locate repositories through human-readable handles. Feed Construction combines replicated actions into a user-readable social feed. 
+The architecture is composed of five logical components: \begin{enumerate} \item Identity \item Social Actions \item Replication \item Discovery \item Feed Construction \end{enumerate} Identity is responsible for user-owned cryptographic identities and profile management. Social Actions define the representation of posts, replies, likes and follows. Replication synchronises repositories using Git's native mechanisms. Discovery enables users to locate repositories through human-readable handles. Feed Construction combines the active user's profile and locally available actions into a user-readable social feed.
 
 The following sections cover these components in greater detail.
 
@@ -161,9 +161,43 @@ This action model separates content creation from relationships and references. 
 \subsubsection*{Multi-Hop Replication Example} Replication allows verified social actions to propagate beyond the repository in which they were originally created. Consider a scenario in which Bob has previously followed Alice and Carol has previously followed Bob. When Bob performs replication, Alice's signed actions are fetched, verified and accepted into Bob's local repository. At a later time, Carol may replicate Bob's repository and obtain the same actions through Bob rather than directly from Alice. This behaviour enables social activity to spread through the network using Git's native replication mechanisms. Importantly, authenticity is preserved throughout the process. Although Carol receives Alice's action from Bob's repository, the action is still verified using the public key specified by the action's \texttt{author} field. Trust therefore remains rooted in the original author's cryptographic identity rather than the repository currently relaying the action. Figure~\ref{fig:multihop_replication} illustrates this process.
 \begin{figure}[h] \centering \includegraphics[width=\textwidth]{figures/multihop_replication.png} \caption{Multi-Hop Replication of Verified Actions} \label{fig:multihop_replication} \end{figure}
 
-\subsection{Feed Construction Model} explanation  
+\subsection{Feed Construction Model}
+Feed construction is a presentation layer over the protocol data stored in
+each user's repository; it does not replace action creation or replication.
+The client can prepare a \texttt{feed.json} from the user's profile and the
+actions currently available in \texttt{social/actions/}. In the prototype,
+this file and the shared static-site files are published to a separate
+\texttt{gh-pages} branch, keeping the presentation separate from the
+protocol data on \texttt{main}. GitHub Pages can serve this branch as a
+readable website for the user's feed. This is a presentation mechanism for
+accessing protocol activity, not a requirement of the protocol itself.
 
+\subsubsection*{Feed Construction Workflow}
+Figure~\ref{fig:feed_construction_workflow} shows how the client prepares and
+publishes the feed. When the user requests a site update, the client reads
+the active profile and the actions in the local repository. It verifies the
+profile and checks the signatures of the current action files, including
+actions created by the user and actions received through replication. Only
+valid actions are included in the generated \texttt{feed.json}.
 
-\subsubsection*{Feed Construction Workflow} 
+The client also looks up profiles through the public social directory so
+authors can be shown by name. Retrieved profiles are verified before their
+names are added to the feed; if a profile cannot be found or verified, the
+author's public key is used instead. The site then uses action references to
+show likes and replies with their related posts, and Follow actions to
+filter posts by followed authors.
 
-figure \subsection{Discovery Model} explanation \subsubsection*{Discovery Workflow} figure
+Finally, the client publishes \texttt{feed.json} with the site files on the
+separate \texttt{gh-pages} branch. The browser reads this data to display the
+user's feed. Site publication does not perform replication, so actions
+created or received after publication appear on the site after the feed is
+updated and published again.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\textwidth]{figures/feed_construction_workflow.png}
+    \caption{Feed Construction and Publication to a Static \texttt{gh-pages} Site}
+    \label{fig:feed_construction_workflow}
+\end{figure}
+
+\subsection{Discovery Model} explanation \subsubsection*{Discovery Workflow} figure
