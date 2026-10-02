@@ -56,6 +56,16 @@ python app.py publish --url https://github.com/alice/alice-social.git
 python app.py publish-site
 ```
 
+Canonical setup is a separate, one-time operation for bootstrapping the
+canonical repository. It creates a new keypair and private key, and refuses
+to run if the configured canonical repository directory already exists, to
+protect an existing canonical identity. Do not run this command for the
+already-established canonical repository:
+
+```powershell
+python app.py profile create-canonical --handle canonical.social --name Canonical --bio "Genesis"
+```
+
 Replies and likes require a target handle and action ID:
 
 ```powershell
@@ -80,13 +90,50 @@ Keep the private key in the client state directory; never publish it or
 include it in a user repository. Publishing pushes the selected user's
 repository and registers its handle in the configured social directory.
 Account creation and publishing depend on access to those repositories.
-`publish-site` creates or updates the repository's `gh-pages` branch with the
-site template and a feed generated from locally verified actions. Enable
-GitHub Pages once in the user repository settings and select `gh-pages` as
-the publishing source. The site resolves action authors using profiles
-discovered through the public social directory, and verifies each profile
-before including its display name. Authors without an available verified
-directory profile remain identified by their public key.
+
+## Publish a GitHub Pages site
+
+The protocol data and the website are published to separate branches of the
+user's GitHub repository:
+
+- `main` contains the signed profile and social actions.
+- `gh-pages` contains the static site files and generated `feed.json`.
+
+After creating and publishing the user repository, enable GitHub Pages once:
+
+1. Open the user repository's **Settings → Pages**.
+2. Under the build and deployment source, choose **Deploy from a branch**.
+3. Select branch **`gh-pages`** and folder **`/ (root)`**, then save.
+
+To publish or refresh the website, select the intended active identity in
+`client/identity.json`, make sure its repository has no uncommitted changes,
+and run this from the `client` directory:
+
+```powershell
+python app.py publish-site
+```
+
+The command prepares the site as follows:
+
+1. Reads and verifies the selected user's `social/profile.json`.
+2. Reads JSON files in that repository's local `social/actions/` directory
+   and includes only actions with valid signatures. This includes actions
+   already replicated into the repository; the command does not run
+   replication itself.
+3. Builds `feed.json` with the verified profile, accepted actions, and a
+   public-key-to-display-name map. For author names, it reads the public
+   social directory and verifies profiles fetched from listed GitHub
+   repositories. If a profile cannot be found or verified, the site displays
+   the author's public key instead.
+4. Fetches the user's GitHub repository, creates `gh-pages` if needed (or
+   updates it from the remote branch), copies the site template and generated
+   `feed.json` to that branch, commits the result, and pushes `gh-pages`.
+5. GitHub Pages serves the contents of `gh-pages` at the repository's Pages
+   URL.
+
+Publishing an action to `main` does **not** update the website automatically.
+After creating new actions or replicating actions from other users, run
+`publish-site` again to regenerate `feed.json` and push the updated site.
 
 ## Repository layout
 

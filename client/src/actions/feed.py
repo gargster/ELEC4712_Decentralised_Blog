@@ -4,13 +4,13 @@ import git
 from collections import defaultdict
 from src.actions.base import ActionBase
 from src.actions.action_verifier import ActionVerifier
+from src.config import DIRECTORY_JSON_URL
 
 import urllib.request
 
 class ShowFeedAction(ActionBase):
 
     publish_locally = False
-    DIRECTORY_URL = "https://gargster.github.io/social-directory/directory.json"
 
     def __init__(self, social_path):
         super().__init__(social_path)
@@ -142,7 +142,7 @@ class ShowFeedAction(ActionBase):
         # 3. Load public discovery directory
         # --------------------------------------------------------
         try:
-            with urllib.request.urlopen(self.DIRECTORY_URL, timeout=5) as response:
+            with urllib.request.urlopen(DIRECTORY_JSON_URL, timeout=5) as response:
                 directory = json.load(response)
 
         except Exception as e:

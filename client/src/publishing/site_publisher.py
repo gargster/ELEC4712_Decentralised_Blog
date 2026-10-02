@@ -8,12 +8,11 @@ from git import Repo
 from git.remote import PushInfo
 
 from src.actions.action_verifier import ActionVerifier
+from src.config import CANONICAL_REPO_NAME, DIRECTORY_JSON_URL
 from src.discovery.profile_verifier import ProfileVerifier
 
 
 class SitePublisher:
-    DIRECTORY_URL = "https://gargster.github.io/social-directory/directory.json"
-
     def __init__(self, project_root: str, identity_repo_root: str):
         self.project_root = project_root
         self.identity_repo_root = identity_repo_root
@@ -21,7 +20,7 @@ class SitePublisher:
         self.social_path = os.path.join(identity_repo_root, "social")
         self.template_path = os.path.join(
             project_root,
-            "canonical-social",
+            CANONICAL_REPO_NAME,
             "site-template"
         )
 
@@ -62,7 +61,7 @@ class SitePublisher:
         }
 
         try:
-            with urllib.request.urlopen(self.DIRECTORY_URL, timeout=5) as response:
+            with urllib.request.urlopen(DIRECTORY_JSON_URL, timeout=5) as response:
                 directory = json.load(response)
             if not isinstance(directory, dict):
                 raise ValueError("Directory data must be a JSON object")

@@ -3,6 +3,7 @@ import json
 
 from git import Repo
 
+from src.config import CANONICAL_REPO_NAME, DIRECTORY_JSON_URL
 from src.identity.keypair import KeyPair
 from src.identity.signer import Signer
 from src.publishing import site_publisher
@@ -23,7 +24,7 @@ def sign_object(data, private_key):
 def test_publish_site_creates_branch_with_verified_feed(tmp_path, monkeypatch):
     project_root = tmp_path / "project"
     user_repo_path = project_root / "alice-social"
-    template_path = project_root / "canonical-social" / "site-template"
+    template_path = project_root / CANONICAL_REPO_NAME / "site-template"
     bare_origin_path = tmp_path / "alice-origin.git"
     template_path.mkdir(parents=True)
     user_repo_path.mkdir(parents=True)
@@ -175,7 +176,7 @@ def test_profile_names_are_discovered_from_verified_directory_profiles(
         requested_urls.append(url)
         payload = (
             directory
-            if url == SitePublisher.DIRECTORY_URL
+            if url == DIRECTORY_JSON_URL
             else canonical_profile
         )
         return io.BytesIO(json.dumps(payload).encode("utf-8"))
@@ -188,7 +189,7 @@ def test_profile_names_are_discovered_from_verified_directory_profiles(
     assert profiles[own_profile["publicKey"]] == "Alice"
     assert profiles[canonical_profile["publicKey"]] == "Canonical"
     assert requested_urls == [
-        SitePublisher.DIRECTORY_URL,
+        DIRECTORY_JSON_URL,
         "https://raw.githubusercontent.com/example/canonical-social/main/"
         "social/profile.json",
     ]

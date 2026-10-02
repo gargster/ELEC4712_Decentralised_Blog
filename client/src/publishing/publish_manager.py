@@ -2,11 +2,9 @@ import os
 import json
 from git import GitCommandError, Repo
 from git.remote import PushInfo
+from src.config import CANONICAL_REPO_URL, DIRECTORY_REPO_URL
 from src.identity.signer import Signer
 from src.utils.identity_loader import load_identity
-
-CANONICAL_URL = "https://github.com/gargster/canonical-social.git"
-DIRECTORY_REPO_URL = "https://github.com/gargster/social-directory.git"
 
 class PublishManager:
     def __init__(self, project_root):
@@ -187,7 +185,7 @@ class PublishManager:
         # ------------------------------------------------------------
         if "canonical" not in [r.name for r in repo.remotes]:
             print("[PUBLISH] Adding canonical remote...")
-            repo.create_remote("canonical", CANONICAL_URL)
+            repo.create_remote("canonical", CANONICAL_REPO_URL)
 
         # update directory
         self.update_directory(handle, remote_url)

@@ -3,10 +3,9 @@ import json
 import subprocess
 from datetime import datetime, timezone
 
+from src.config import CANONICAL_REPO_NAME, CANONICAL_REPO_URL
 from src.identity.keypair import KeyPair
 from src.identity.signer import Signer
-
-CANONICAL_URL = "https://github.com/gargster/canonical-social.git"
 
 class ProfileCreator:
     def __init__(self, project_root: str):
@@ -16,8 +15,15 @@ class ProfileCreator:
     # 1. CANONICAL CREATION (ONE TIME ONLY)
     # ------------------------------------------------------------
     def create_canonical(self, handle, display_name, bio):
-        repo_name = "canonical-social"
+        repo_name = CANONICAL_REPO_NAME
         repo_path = os.path.join(self.project_root, repo_name)
+        if os.path.exists(repo_path):
+            raise FileExistsError(
+                f"Refusing to create canonical repository: {repo_path} "
+                "already exists. This is a one-time setup command and would "
+                "replace its profile and private key."
+            )
+
         social_path = os.path.join(repo_path, "social")
 
         # Create folder structure
@@ -58,7 +64,7 @@ class ProfileCreator:
         subprocess.run(["git", "add", "."], cwd=repo_path)
         subprocess.run(["git", "commit", "-m", "Initial canonical creation"], cwd=repo_path)
 
-        print("[CANONICAL] canonical-social created.")
+        print(f"[CANONICAL] {CANONICAL_REPO_NAME} created.")
         return repo_path, profile_path
 
     # ------------------------------------------------------------
@@ -70,7 +76,7 @@ class ProfileCreator:
         repo_path = os.path.join(self.project_root, repo_name)
 
         # Clone canonical automatically
-        subprocess.run(["git", "clone", CANONICAL_URL, repo_path])
+        subprocess.run(["git", "clone", CANONICAL_REPO_URL, repo_path])
         # ADD
         subprocess.run(
             ["git", "config", "merge.ours.driver", "true"],
@@ -124,6 +130,8 @@ class ProfileCreator:
     # ------------------------------------------------------------
     def create_profile(self, handle, display_name, bio):
         if handle == "canonical.social":
-            return self.create_canonical(handle, display_name, bio)
-        else:
-            return self.create_user(handle, display_name, bio)
+            raise ValueError(
+                "Canonical setup is explicit; use "
+                "'profile create-canonical' instead."
+            )
+        return self.create_user(handle, display_name, bio)
