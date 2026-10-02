@@ -3,7 +3,6 @@ import git
 import json
 from src.actions.base import ActionBase
 from src.discovery.profile_verifier import ProfileVerifier
-from src.replication.follow_manager import FollowManager
 
 
 class FollowAction(ActionBase):
@@ -12,8 +11,8 @@ class FollowAction(ActionBase):
         obj["target"] = target
         return obj
 
-    def create_follow(self, target_repo_url):
-        return self._create("follow", target=target_repo_url)
+    def create_follow(self, target_public_key):
+        return self._create("follow", target=target_public_key)
 
     # -------------------------------------------------------
     # Git-native profile.json fetch (AFTER remote + fetch)
@@ -80,13 +79,4 @@ class FollowAction(ActionBase):
         path, obj = self.create_follow(target_public_key)
         print(f"[FOLLOW] Created follow action at {path}")
 
-        # Step 5: Commit + push
-        repo.git.add(A=True)
-        try:
-            repo.index.commit(f"Follow {handle}")
-        except:
-            print("[FOLLOW] Nothing to commit")
-
-        repo.remotes.origin.push()
-        print("[FOLLOW] Pushed follow action to origin")
         return path, obj
