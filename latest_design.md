@@ -206,9 +206,20 @@ sequenceDiagram
 Feed construction operates on the profile and actions available in the active
 user's local repository after action creation and replication. These actions
 may have originated from the active user or arrived through one or more
-repositories. Replication verifies actions before accepting them locally; site
-publication verifies the local action files again before including them in
-the published feed.
+repositories.
+
+Replication and site publication verify actions at different stages.
+Replication verifies remote actions when importing them into the local
+repository. Site publication then checks every action file currently in the
+local `social/actions/` directory, whether it was authored locally or
+replicated. This publication check ensures that only currently valid files
+enter `feed.json`, including if a local file was changed after it was created
+or replicated.
+
+The publisher also verifies the active user's local profile before including
+it in `feed.json`. This establishes that the profile used to identify the
+published site is valid; profile verification performed while replicating a
+remote repository serves a separate purpose.
 
 The generated `feed.json` contains three logical parts:
 
@@ -250,11 +261,11 @@ sequenceDiagram
 
     User->>Client: publish-site
     Client->>Local: Read local social/profile.json
-    Client->>Client: Verify the user's profile
+    Client->>Client: Verify active profile before using it in the feed
     Client->>Local: Read local social/actions/
 
-    loop For each local action
-        Client->>Client: Verify the action signature
+    loop For each action in local social/actions/ (locally authored or replicated)
+        Client->>Client: Re-verify current action file before publication
         alt Signature is valid
             Client->>Client: Include action in feed data
         else Signature is invalid or action is unreadable

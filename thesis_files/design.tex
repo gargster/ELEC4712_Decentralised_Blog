@@ -1,0 +1,169 @@
+\section{System Design} This chapter presents the design of the proposed Git-native serverless social protocol. The architecture was derived directly from the functional requirements identified in Chapter 3 and refined through the implementation of the prototype. The protocol uses Git repositories as the primary storage and distribution mechanism, while cryptographic identities and structured JSON actions provide the social data model.
+
+The design aims to satisfy the requirements for portable identity, structured social interactions, efficient pull-based replication and serverless discovery while remaining lightweight, interoperable and independent of any specific hosting provider. 
+\subsection{Architecture Overview} The proposed protocol adopts a repository-centric architecture in which each user operates an independent Git repository containing their social identity and social activity. Git provides the underlying storage, version control and distribution mechanisms, while the protocol defines how social data is structured and exchanged between repositories. 
+
+To ensure a consistent repository structure, new users initialise their repository by cloning a canonical repository template. The canonical repository provides the standard protocol layout required by the system, including the directories used to store identity information and social actions. During account creation, the client generates a new cryptographic identity and updates the repository with the user's profile information. Once initialised, the repository becomes an independent participant in the network and may be published to any Git-supported hosting provider. 
+
+All protocol data is stored within a dedicated \texttt{social/} directory. This separation ensures that social data remains isolated from unrelated repository content and provides a predictable structure that can be understood by different protocol implementations. The repository structure is shown below: 
+\begin{verbatim} 
+<user-repository>/ 
+└── social/ 
+    ├── profile.json 
+    └── actions/ 
+        ├── post-*.json 
+        ├── reply-*.json 
+        ├── like-*.json 
+        └── follow-*.json 
+\end{verbatim} 
+
+The \texttt{profile.json} file stores the user's identity information, while the \texttt{actions/} directory stores social activity in the form of structured JSON objects. This dedicated structure provides a consistent location for protocol data and allows repositories to be processed uniformly by different clients. 
+
+Figure~\ref{fig:architecture_overview} summarises the overall architecture of the proposed protocol. New users initialise a repository by cloning the canonical repository template, which provides the standard protocol structure. Once initialised, the repository becomes an independent participant in the network. Identity information is stored in \texttt{profile.json}, social activity is stored as structured JSON actions, discovery enables repository lookup through human-readable handles, and replication distributes social activity through Git repositories. 
+
+\begin{figure}[h] 
+    \centering \includegraphics[width=\textwidth]{figures/architecture_overview.png} \caption{Proposed Protocol Architecture} \label{fig:architecture_overview}
+\end{figure} 
+
+The architecture is composed of five logical components: \begin{enumerate} \item Identity \item Social Actions \item Replication \item Discovery \item Feed Construction \end{enumerate} Identity is responsible for user-owned cryptographic identities and profile management. Social Actions define the representation of posts, replies, likes and follows. Replication synchronises repositories using Git's native mechanisms. Discovery enables users to locate repositories through human-readable handles. Feed Construction combines replicated actions into a user-readable social feed. 
+
+The following sections cover these components in greater detail.
+
+\subsection{Identity Model} 
+The protocol separates human-readable identity from cryptographic identity. A user is identified cryptographically through an Ed25519 public key, while a human-readable handle provides a convenient representation for users and clients. This design satisfies the requirement that identity remain independent of any Git hosting provider. 
+
+When a new identity is created, the client generates an Ed25519 public/private key pair. The private key remains under the control of the client and is not included within the user's public repository. The corresponding public key is published as part of the user's \texttt{profile.json} together with profile metadata.
+
+A profile therefore provides the binding between a human-readable handle and the cryptographic identity controlling the account. An example profile structure is shown below. 
+
+\begin{verbatim} 
+{ 
+    "publicKey": "ed25519:abc123...", 
+    "handle": alice.social", 
+    "displayName": "Alice", 
+    "bio": "Student at USYD", 
+    "created": "2026-06-28T19:57:00Z", "signature": "base64sig..." 
+} 
+\end{verbatim} 
+
+The public key is the authoritative identity within the protocol. The handle is provided only as a human-readable alias and is not used as the cryptographic identifier. 
+
+This distinction is important when repositories are moved between hosting providers. Because a user's identity is derived from their cryptographic key rather than a repository URL, the repository can be relocated without requiring the creation of a new identity. The repository URL therefore represents a storage location rather than the identity itself. 
+
+The private key is also used to authenticate and protect the integrity of social actions. Whenever a user creates a post, reply, like or follow action, the client signs the corresponding JSON object using the active identity's private key. Other participants can subsequently verify both the authenticity of the action, confirming that it was created by the holder of the corresponding private key, and its integrity, ensuring that it has not been modified after being signed. 
+
+The profile itself is signed before publication. This allows clients to verify that the public key, handle and associated metadata were created by the holder of the corresponding private key and have not been altered since publication. Profile verification is performed prior to establishing trust relationships or processing social actions from another repository. Consequently, trust within the protocol is rooted in cryptographic verification rather than trust in a hosting provider or repository location. 
+
+Overall, the identity model provides four properties required by the protocol: 
+
+\begin{itemize} \item persistent cryptographic authorship through public keys; \item human-readable identification through handles; \item host-independent identity that remains valid regardless of the repository's storage location; and \item authenticity and integrity through digital signatures. \end{itemize} 
+
+\subsubsection*{Identity Workflow} Figure~\ref{fig:identity_workflow} illustrates the lifecycle of an identity within the protocol, from account creation through to verification by another participant. The workflow focuses on how \texttt{profile.json} is generated, published and subsequently verified before any future social actions are trusted. When a new account is created, the client clones the canonical repository template, generates an Ed25519 key pair and creates a signed \texttt{profile.json}. Another participant can later retrieve this profile, verify its signature and use the verified public key when authenticating future posts, replies, likes and follow actions.
+\begin{figure}[h] 
+    \centering \includegraphics[width=\textwidth]{figures/identity_workflow.png} \caption{Identity Creation and Verification Workflow} \label{fig:identity_workflow}
+\end{figure}
+
+\subsection{Social Action Model} The protocol represents social interactions as typed JSON actions stored within the \texttt{social/actions/} directory of the author's repository. Rather than embedding social activity within Git commit messages, each interaction is represented as an independent structured JSON object. This provides a consistent representation that can be processed uniformly by different clients while allowing each action to carry its own author, timestamp and cryptographic signature. All social actions share a common structure consisting of a unique identifier, an action type, the author's public key, a creation timestamp and a digital signature. Additional fields are included depending on the action being performed. A generic action structure is shown below. 
+\begin{samepage}
+\Needspace{10\baselineskip}
+The generic action structure is represented as follows:
+\begin{lstlisting}[caption={Generic action structure}]
+{
+  "id": "action-001",
+  "type": "...",
+  "author": "ed25519:abc123...",
+  "created": "2026-06-28T20:05:00Z",
+  "signature": "base64sig..."
+}
+\end{lstlisting}
+\end{samepage}
+
+The implemented social vocabulary consists of four action types: \textit{post}, \textit{reply}, \textit{like} and \textit{follow}. A \textbf{post} represents new social content authored by a user. It extends the common action structure with a \texttt{content} field containing the published text. 
+
+\begin{samepage}
+\Needspace{10\baselineskip}
+The post action is represented as follows:
+\begin{lstlisting}[caption={Example post action},label={lst:post_action}]
+{ 
+  "id": "post-bharat.social-001", 
+  "type": "post", 
+  "author": "ed25519:abc123...", 
+  "created": "2026-06-28T20:05:00Z", "content": "Hello world!",
+  "signature": "base64sig..." 
+} 
+\end{lstlisting}
+\end{samepage}
+
+
+A \textbf{reply} represents a response to an existing action. It extends the common action structure with an \texttt{inReplyTo} field referencing the target action. 
+
+\begin{samepage}
+\Needspace{10\baselineskip}
+The reply action is represented as follows:
+\begin{lstlisting}[caption={Example reply action},label={lst:reply_action}]
+{ 
+  "id": "reply-bharat.social-001", 
+  "type": "reply", 
+  "author": "ed25519:abc123...", 
+  "created": "2026-06-28T20:06:00Z", "content": "I agree.", 
+  "inReplyTo": "post-alice.social-001", "targetHandle": "alice.social", "signature": "base64sig..." 
+}
+\end{lstlisting}
+\end{samepage}
+
+A \textbf{like} represents an endorsement of an existing action. It contains a reference to the target action being liked without modifying the original content. 
+
+\begin{samepage}
+\Needspace{10\baselineskip}
+The like action is represented as follows:
+\begin{lstlisting}[caption={Example like action},label={lst:like_action}]
+{ 
+  "id": "like-bharat.social-001", 
+  "type": "like", 
+  "author": "ed25519:abc123...", 
+  "created": "2026-06-28T20:07:00Z", "target": "post-alice.social-001", "targetHandle": "alice.social", "signature": "base64sig..."
+}
+\end{lstlisting}
+\end{samepage}
+
+
+A \textbf{follow} represents a user's decision to subscribe to another account. Unlike replies and likes, which reference content, a follow action references another user's cryptographic identity through their public key. 
+
+\begin{samepage}
+\Needspace{10\baselineskip}
+The follow action is represented as follows:
+\begin{lstlisting}[caption={Example follow action},label={lst:follow_action}]
+{ 
+  "id": "follow-bharat.social-001", 
+  "type": "follow", 
+  "author": "ed25519:abc123...", 
+  "created": "2026-06-28T20:08:00Z", "target": "ed25519:def456...", "signature": "base64sig..."
+}
+\end{lstlisting}
+\end{samepage}
+
+This action model separates content creation from relationships and references. Posts introduce new content, replies establish conversation relationships, likes reference existing actions, and follows reference another user's identity. Because these relationships are represented explicitly within the action objects, clients can reconstruct social interactions directly from replicated protocol data without relying on provider-specific functionality. The action model is also extensible. New social operations can be added through additional action types without changing the representation of existing actions. However, the current implementation is limited to the four action types described above.
+
+\subsubsection*{Post Workflow} The post workflow describes how new content is created, published and later accepted by other participants in the protocol. Unlike traditional social systems where content is stored in a central database, posts are represented as signed JSON objects committed to the author's Git repository. When a user creates a post, the client constructs a post action, populates the required metadata, signs the action using the author's private key and stores it within the \texttt{social/actions/} directory. The action is then committed and pushed to the author's repository. At a later time, other participants may replicate the repository using Git fetch operations. During replication, candidate actions are validated using the public key specified by the action's \texttt{author} field. Valid actions are accepted into the local action store and subsequently become available for feed construction. Figure~\ref{fig:post_workflow} illustrates this process. \begin{figure}[h] \centering \includegraphics[width=\textwidth]{figures/post_workflow.png} \caption{Post Creation, Publication and Acceptance Workflow} \label{fig:post_workflow} \end{figure}
+
+
+\subsubsection*{Reply Workflow} The reply workflow extends the post workflow by introducing an explicit relationship between actions. In addition to content, a reply contains an \texttt{inReplyTo} reference identifying the action being responded to. When a reply is created, the client records both the target action identifier and the associated target handle before signing and publishing the action. These references allow the relationship to be preserved as the action propagates through repository replication. Following validation and acceptance, clients resolve the \texttt{inReplyTo} reference against the accepted local action set. This enables conversation relationships to be reconstructed from the replicated actions without relying on any external service or central database. Figure~\ref{fig:reply_workflow} illustrates the lifecycle of a reply action. \begin{figure}[h] \centering \includegraphics[width=\textwidth]{figures/reply_workflow.png} \caption{Reply Creation, Publication and Acceptance Workflow} \label{fig:reply_workflow} \end{figure}
+
+\subsubsection*{Like Workflow} The like workflow represents endorsement rather than content creation. Instead of introducing new content, a like action records a reference to an existing action through the \texttt{target} field. The client stores both the target action identifier and the associated target handle before signing and publishing the action. As with all social actions, likes are committed to the author's repository and subsequently distributed through Git-based replication. After acceptance into the local action store, clients resolve the stored target reference against accepted local actions and associate the like with the referenced action. Engagement metadata can therefore be reconstructed from replicated actions alone. Figure~\ref{fig:like_workflow} illustrates the lifecycle of a like action. \begin{figure}[h] \centering \includegraphics[width=\textwidth]{figures/like_workflow.png} \caption{Like Creation, Publication and Acceptance Workflow} \label{fig:like_workflow} \end{figure}
+
+\subsubsection*{Follow Workflow} The follow workflow establishes a relationship between two users rather than between pieces of content. When a user chooses to follow another account, the client first adds the target repository as a Git remote and fetches the target repository's latest state. The client then retrieves and verifies the target \texttt{profile.json} before extracting the target user's public key. The verified public key becomes the cryptographic target of the follow relationship. A follow action is subsequently created, signed and published within the follower's repository. Importantly, the follow workflow does not replicate the target user's social actions into the local repository. Instead, it establishes the follow relationship and registers the target repository as a future replication source. Social actions published by the followed user are obtained later through the Replication Workflow. Figure~\ref{fig:follow_workflow} illustrates this process. \begin{figure}[h] \centering \includegraphics[width=\textwidth]{figures/follow_workflow.png} \caption{Follow Creation Workflow} \label{fig:follow_workflow} \end{figure}
+
+\subsection{Replication Model} The replication model is responsible for acquiring social actions from remote repositories and accepting valid actions into the local repository. Replication is pull-based and uses Git's native fetch mechanism. Repositories become replication sources by being configured as Git remotes, either during repository initialisation or through follow actions. When replication is triggered, the client fetches the latest state of each configured remote repository. The client then reads candidate actions from the remote repository's \texttt{social/actions/} directory and verifies each action's digital signature. Only actions that pass verification are accepted into the local repository. Invalid or malformed actions are rejected and are not stored locally. Accepted actions are written into the local repository's \texttt{social/actions/} directory and committed as part of the local repository state. Through repeated replication, repositories accumulate a local collection of verified social actions obtained from their configured remotes. Replication is independent of feed construction. Its responsibility is limited to fetching, verifying and accepting actions. The feed layer operates on the resulting collection of accepted local actions and is responsible for resolving relationships between posts, replies, likes and follows before presenting them to the user.
+
+\subsubsection*{Replication Workflow} Figure~\ref{fig:replication_workflow} illustrates the replication and action acceptance process. When replication is triggered, the client fetches the latest state of each configured remote repository. Candidate actions are read from the remote repository's \texttt{social/actions/} directory and verified using the public key referenced by the action's \texttt{author} field. Actions with valid signatures are accepted and written into the local repository, while invalid or malformed actions are rejected. Accepted actions are then committed and become part of the repository's locally verified action set.
+
+\begin{figure}[h] \centering \includegraphics[width=\textwidth]{figures/replication_workflow.png} \caption{Replication and Action Acceptance Workflow} \label{fig:replication_workflow} \end{figure}
+\subsubsection*{Multi-Hop Replication Example} Replication allows verified social actions to propagate beyond the repository in which they were originally created. Consider a scenario in which Bob has previously followed Alice and Carol has previously followed Bob. When Bob performs replication, Alice's signed actions are fetched, verified and accepted into Bob's local repository. At a later time, Carol may replicate Bob's repository and obtain the same actions through Bob rather than directly from Alice. This behaviour enables social activity to spread through the network using Git's native replication mechanisms. Importantly, authenticity is preserved throughout the process. Although Carol receives Alice's action from Bob's repository, the action is still verified using the public key specified by the action's \texttt{author} field. Trust therefore remains rooted in the original author's cryptographic identity rather than the repository currently relaying the action. Figure~\ref{fig:multihop_replication} illustrates this process.
+\begin{figure}[h] \centering \includegraphics[width=\textwidth]{figures/multihop_replication.png} \caption{Multi-Hop Replication of Verified Actions} \label{fig:multihop_replication} \end{figure}
+
+\subsection{Feed Construction Model} explanation  
+
+
+\subsubsection*{Feed Construction Workflow} 
+
+figure \subsection{Discovery Model} explanation \subsubsection*{Discovery Workflow} figure
