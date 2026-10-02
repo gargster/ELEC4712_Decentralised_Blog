@@ -201,6 +201,97 @@ sequenceDiagram
     Note over Alice,Carol: Valid signed actions can propagate through multiple repositories
 ```
 
+## Feed Construction Model
+
+Feed construction operates on the profile and actions available in the active
+user's local repository after action creation and replication. These actions
+may have originated from the active user or arrived through one or more
+repositories. Replication verifies actions before accepting them locally; site
+publication verifies the local action files again before including them in
+the published feed.
+
+The generated `feed.json` contains three logical parts:
+
+- **Profile:** the active user's verified profile, used to identify and
+  describe the owner of the site.
+- **Actions:** the locally available actions that pass signature
+  verification. They remain a collection of actions rather than being
+  converted into separate post, like, and reply collections.
+- **Profiles:** a mapping from public keys to display names, built from the
+  active user's profile and profiles discovered through the public social
+  directory. A discovered profile is included only after its signature is
+  verified and its handle agrees with the directory entry. If a profile is
+  unavailable or cannot be verified, the public key remains the display
+  fallback.
+
+The static site reads `feed.json` and constructs the presentation view from
+those actions. It indexes posts by action ID, associates likes with their
+target action and replies with their `inReplyTo` action, and uses Follow
+actions to support the followed-authors filter. The feed file therefore
+preserves the signed action records, while the site derives groupings for
+display.
+
+## Feed Construction and Site Publication Workflow
+
+The sequence diagram below shows how the client prepares the feed and
+publishes it separately from the protocol data. Publishing the site does not
+run replication: newly replicated actions are included after the user runs
+`publish-site` again.
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Client as User Client
+    participant Local as User's Local Repository
+    participant Directory as Public Social Directory
+    participant Profiles as Listed User Repositories
+    participant GitHub as User's GitHub Repository
+    participant Browser as Site Visitor Browser
+
+    User->>Client: publish-site
+    Client->>Local: Read local social/profile.json
+    Client->>Client: Verify the user's profile
+    Client->>Local: Read local social/actions/
+
+    loop For each local action
+        Client->>Client: Verify the action signature
+        alt Signature is valid
+            Client->>Client: Include action in feed data
+        else Signature is invalid or action is unreadable
+            Client->>Client: Exclude action from feed data
+        end
+    end
+
+    Client->>Directory: Retrieve directory entries
+    Directory-->>Client: Return handles and repository URLs
+
+    loop For each usable directory entry
+        Client->>Profiles: Retrieve social/profile.json
+        Profiles-->>Client: Return profile data
+        Client->>Client: Verify profile and match its handle to the directory entry
+        Client->>Client: Add verified public-key-to-name mapping
+    end
+
+    Client->>Client: Build feed.json from profile, verified actions, and profile mappings
+    Client->>GitHub: Fetch current gh-pages branch, if present
+    GitHub-->>Client: Return published branch, if present
+    Client->>Local: Create or update local gh-pages branch
+    Client->>Local: Copy site template and feed.json
+    Client->>Local: Commit site files
+    Client->>GitHub: Push gh-pages
+    GitHub-->>Browser: Serve the static site
+    Browser->>GitHub: Request feed.json
+    GitHub-->>Browser: Return published feed data
+    Browser->>Browser: Group posts, attach likes and replies, apply Follow filter
+```
+
+As shown in the feed construction and site publication workflow, the client
+prepares `feed.json` from the active repository's local data and publishes
+that file with the shared static-site template to the separate `gh-pages`
+branch. GitHub Pages serves the branch; the browser then groups the actions
+for presentation. A push of new actions to `main` alone does not refresh the
+published feed.
+
 ## Protocol Validation Summary
 
 Each social action is signed by its author before being committed to the
