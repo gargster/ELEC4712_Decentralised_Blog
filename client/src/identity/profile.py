@@ -3,7 +3,7 @@ import json
 import subprocess
 from datetime import datetime, timezone
 
-from src.config import CANONICAL_REPO_NAME, CANONICAL_REPO_URL
+from src.config import CANONICAL_REPO_URL
 from src.identity.keypair import KeyPair
 from src.identity.signer import Signer
 
@@ -11,65 +11,7 @@ class ProfileCreator:
     def __init__(self, project_root: str):
         self.project_root = project_root
 
-    # ------------------------------------------------------------
-    # 1. CANONICAL CREATION (ONE TIME ONLY)
-    # ------------------------------------------------------------
-    def create_canonical(self, handle, display_name, bio):
-        repo_name = CANONICAL_REPO_NAME
-        repo_path = os.path.join(self.project_root, repo_name)
-        if os.path.exists(repo_path):
-            raise FileExistsError(
-                f"Refusing to create canonical repository: {repo_path} "
-                "already exists. This is a one-time setup command and would "
-                "replace its profile and private key."
-            )
-
-        social_path = os.path.join(repo_path, "social")
-
-        # Create folder structure
-        os.makedirs(os.path.join(social_path, "actions"), exist_ok=True)
-
-        # Generate canonical keypair
-        keypair = KeyPair()
-        public_key = keypair.public_key()
-        private_key = keypair.private_key()
-
-        profile = {
-            "publicKey": public_key,
-            "handle": handle,
-            "repoURL": None,
-            "displayName": display_name,
-            "bio": bio,
-            "created": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-        }
-
-        signer = Signer(private_key)
-        profile["signature"] = signer.sign_json(profile)
-
-        profile_path = os.path.join(social_path, "profile.json")
-        with open(profile_path, "w") as f:
-            json.dump(profile, f, indent=2)
-
-        # Save private key in client/state/canonical
-        state_path = os.path.join(self.project_root, "client", "state", "canonical")
-        os.makedirs(state_path, exist_ok=True)
-        keystore = os.path.join(state_path, "keystore")
-        os.makedirs(keystore, exist_ok=True)
-
-        with open(os.path.join(keystore, "private.key"), "w") as f:
-            f.write(private_key)
-
-        # Initialize git
-        subprocess.run(["git", "init"], cwd=repo_path)
-        subprocess.run(["git", "add", "."], cwd=repo_path)
-        subprocess.run(["git", "commit", "-m", "Initial canonical creation"], cwd=repo_path)
-
-        print(f"[CANONICAL] {CANONICAL_REPO_NAME} created.")
-        return repo_path, profile_path
-
-    # ------------------------------------------------------------
-    # 2. NORMAL USER CREATION (clone canonical + overwrite profile.json)
-    # ------------------------------------------------------------
+    # Create a user repository by cloning the canonical template.
     def create_user(self, handle, display_name, bio):
         identity_name = handle.split(".")[0]
         repo_name = f"{identity_name}-social"
@@ -125,13 +67,10 @@ class ProfileCreator:
         print(f"[USER] {handle} created by cloning canonical.")
         return repo_path, profile_path
 
-    # ------------------------------------------------------------
-    # 3. Unified entry point
-    # ------------------------------------------------------------
     def create_profile(self, handle, display_name, bio):
         if handle == "canonical.social":
             raise ValueError(
-                "Canonical setup is explicit; use "
-                "'profile create-canonical' instead."
+                "canonical.social is reserved for the configured canonical "
+                "repository and cannot be created as a user account."
             )
         return self.create_user(handle, display_name, bio)

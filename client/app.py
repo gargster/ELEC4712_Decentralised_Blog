@@ -36,10 +36,6 @@ def print_allowed_commands():
     print('    Example: python app.py profile create --handle bharat.social --name Bharat --bio "Student at USYD"')
     print()
 
-    print("profile create-canonical --handle <handle> --name <name> --bio <bio>")
-    print('    Example: python app.py profile create-canonical --handle canonical.social --name Canonical --bio "Genesis"')
-    print()
-
     print("post <content>")
     print('    Example: python app.py post "Hello world"')
     print()
@@ -92,7 +88,7 @@ def main():
 
     # ---------------- PROFILE ----------------
     p = sub.add_parser("profile")
-    p.add_argument("action", choices=("create", "create-canonical"))
+    p.add_argument("action", choices=("create",))
     p.add_argument("--handle", required=True)
     p.add_argument("--name", required=True)
     p.add_argument("--bio", required=True)
@@ -161,10 +157,7 @@ def main():
 
     if args.command == "profile":
         creator = ProfileCreator(project_root)
-        if args.action == "create-canonical":
-            creator.create_canonical(args.handle, args.name, args.bio)
-        else:
-            creator.create_profile(args.handle, args.name, args.bio)
+        creator.create_profile(args.handle, args.name, args.bio)
         print("Profile created for:", args.handle)    
         return
 

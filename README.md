@@ -56,16 +56,6 @@ python app.py publish --url https://github.com/alice/alice-social.git
 python app.py publish-site
 ```
 
-Canonical setup is a separate, one-time operation for bootstrapping the
-canonical repository. It creates a new keypair and private key, and refuses
-to run if the configured canonical repository directory already exists, to
-protect an existing canonical identity. Do not run this command for the
-already-established canonical repository:
-
-```powershell
-python app.py profile create-canonical --handle canonical.social --name Canonical --bio "Genesis"
-```
-
 Replies and likes require a target handle and action ID:
 
 ```powershell
@@ -90,6 +80,20 @@ Keep the private key in the client state directory; never publish it or
 include it in a user repository. Publishing pushes the selected user's
 repository and registers its handle in the configured social directory.
 Account creation and publishing depend on access to those repositories.
+
+## Maintaining the canonical template
+
+Normal account creation clones the canonical repository configured in
+`client/src/config.py`. To maintain or customize the shared site template,
+clone that canonical repository, edit the files under `site-template/`, then
+commit and push the changes to its `main` branch. New accounts receive the
+template version in the canonical repository when they are created.
+
+`publish-site` reads the template from the project's local
+`canonical-social/site-template/` checkout. Update that checkout from the
+canonical repository when you want site publishing to use the latest
+template. Existing user repositories do not need to be changed for this
+publisher-side template update.
 
 ## Publish a GitHub Pages site
 
