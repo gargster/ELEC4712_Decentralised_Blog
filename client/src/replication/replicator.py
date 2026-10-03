@@ -48,6 +48,14 @@ class Replicator:
         return ProfileVerifier(profile).verify()["publicKey"]
 
     def run(self):
+        branch = self.repo.git.rev_parse("--abbrev-ref", "HEAD")
+        if branch != "main":
+            print(
+                f"[REPLICATE] Refusing to replicate from branch '{branch}'. "
+                "Switch to 'main' and try again."
+            )
+            return
+
         print("[REPLICATE] Starting replication (fetch + verify: actions only)")
 
         for remote in self.repo.remotes:
