@@ -3,7 +3,6 @@ import git
 import json
 from src.actions.base import ActionBase
 from src.discovery.profile_verifier import ProfileVerifier
-from src.replication.follow_manager import FollowManager
 
 
 class FollowAction(ActionBase):
