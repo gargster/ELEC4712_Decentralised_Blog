@@ -3,7 +3,6 @@
 # Before adding CLI commands, or Git integration
 import argparse
 import os
-import json
 
 # Import identity modules
 from src.actions.feed import ShowFeedAction
