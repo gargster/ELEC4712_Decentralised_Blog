@@ -1,5 +1,6 @@
 import os
 import json
+import urllib.parse
 from git import GitCommandError, Repo
 from git.remote import PushInfo
 from src.config import CANONICAL_REPO_URL, DIRECTORY_REPO_URL
@@ -135,7 +136,9 @@ class PublishManager:
             directory = json.load(directory_file)
 
         self._assert_registered_key(directory, handle, public_key)
+        entry = directory.get(handle, {})
         directory[handle] = {
+            **entry,
             "repoURL": remote_url,
             "publicKey": public_key,
         }
@@ -153,6 +156,71 @@ class PublishManager:
             directory_repo.index.commit(f"Register {handle}")
 
         self._push_directory(directory_repo)
+
+    @staticmethod
+    def github_pages_url(remote_url):
+        try:
+            parsed_url = urllib.parse.urlsplit(remote_url)
+        except ValueError:
+            return None
+
+        if (
+            parsed_url.scheme != "https"
+            or parsed_url.netloc != "github.com"
+            or parsed_url.query
+            or parsed_url.fragment
+        ):
+            return None
+
+        parts = parsed_url.path.strip("/").split("/")
+        if len(parts) != 2 or not all(parts):
+            return None
+
+        owner, repository = parts
+        if repository.lower().endswith(".git"):
+            repository = repository[:-4]
+        if not repository:
+            return None
+
+        pages_host = f"{owner.lower()}.github.io"
+        if repository.lower() == pages_host:
+            return f"https://{pages_host}/"
+        return f"https://{pages_host}/{repository}/"
+
+    def update_site_url(self, handle, remote_url, public_key, site_url):
+        directory_repo = self._directory_repo()
+        directory_path = os.path.join(
+            directory_repo.working_tree_dir,
+            "directory.json"
+        )
+        with open(directory_path, "r", encoding="utf-8") as directory_file:
+            directory = json.load(directory_file)
+
+        entry = directory.get(handle)
+        if not isinstance(entry, dict):
+            raise RuntimeError(
+                f"Cannot register a site for '{handle}': handle is not in "
+                "the social directory."
+            )
+        self._assert_registered_key(directory, handle, public_key)
+        if entry.get("repoURL") != remote_url:
+            raise RuntimeError(
+                f"Cannot register a site for '{handle}': repository URL does "
+                "not match the social directory."
+            )
+
+        if entry.get("siteURL") == site_url:
+            return
+        entry["siteURL"] = site_url
+
+        with open(directory_path, "w", encoding="utf-8") as directory_file:
+            json.dump(directory, directory_file, indent=2)
+            directory_file.write("\n")
+
+        directory_repo.git.add("directory.json")
+        if directory_repo.is_dirty(index=True, working_tree=True):
+            directory_repo.index.commit(f"Publish site for {handle}")
+            self._push_directory(directory_repo)
 
     def publish(self, remote_url):
         """

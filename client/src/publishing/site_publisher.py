@@ -10,6 +10,7 @@ from git.remote import PushInfo
 from src.actions.action_verifier import ActionVerifier
 from src.config import CANONICAL_REPO_NAME, DIRECTORY_JSON_URL
 from src.discovery.profile_verifier import ProfileVerifier
+from src.publishing.publish_manager import PublishManager
 
 
 class SitePublisher:
@@ -248,6 +249,20 @@ class SitePublisher:
             self._prepare_branch()
             self._write_site_files(feed)
             self._commit_and_push()
+            profile = feed["profile"]
+            site_url = PublishManager.github_pages_url(profile.get("repoURL"))
+            if site_url is not None:
+                PublishManager(self.project_root).update_site_url(
+                    profile["handle"],
+                    profile["repoURL"],
+                    profile["publicKey"],
+                    site_url,
+                )
+            else:
+                print(
+                    "[SITE] Could not add a directory link: profile repository "
+                    "is not a supported GitHub repository URL."
+                )
             print("[SITE] Published site to gh-pages")
         finally:
             if self.repo.active_branch.name != original_branch:

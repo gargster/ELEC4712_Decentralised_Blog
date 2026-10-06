@@ -104,6 +104,58 @@ def test_directory_registration_requires_key_for_existing_handle():
         )
 
 
+def test_site_publication_adds_site_url_to_registered_directory_entry(tmp_path):
+    bare_path = tmp_path / "directory-origin.git"
+    Repo.init(bare_path, bare=True)
+
+    source_path = tmp_path / "source"
+    source_repo = Repo.init(source_path)
+    source_repo.git.checkout("-b", "main")
+    with source_repo.config_writer() as config:
+        config.set_value("user", "name", "Test User")
+        config.set_value("user", "email", "test@example.com")
+    _write_directory(
+        source_path,
+        {
+            "alice.social": {
+                "repoURL": "https://github.com/alice/alice-social.git",
+                "publicKey": "ed25519:alice-key",
+            }
+        },
+    )
+    _commit_directory(source_repo, "Initialize directory")
+    source_repo.create_remote("origin", str(bare_path))
+    source_repo.git.push("--set-upstream", "origin", "main")
+    (bare_path / "HEAD").write_text("ref: refs/heads/main\n", encoding="utf-8")
+
+    directory_path = tmp_path / "social-directory"
+    Repo.clone_from(str(bare_path), directory_path)
+    manager = PublishManager(str(tmp_path))
+    manager.update_site_url(
+        "alice.social",
+        "https://github.com/alice/alice-social.git",
+        "ed25519:alice-key",
+        "https://alice.github.io/alice-social/",
+    )
+
+    local_directory = json.loads(
+        (directory_path / "directory.json").read_text(encoding="utf-8")
+    )
+    remote_directory_repo = Repo.clone_from(
+        str(bare_path), tmp_path / "verification"
+    )
+    remote_directory = json.loads(
+        remote_directory_repo.git.show("main:directory.json")
+    )
+    expected_entry = {
+        "repoURL": "https://github.com/alice/alice-social.git",
+        "publicKey": "ed25519:alice-key",
+        "siteURL": "https://alice.github.io/alice-social/",
+    }
+    assert local_directory["alice.social"] == expected_entry
+    assert remote_directory["alice.social"] == expected_entry
+
+
 def test_directory_push_rejection_is_reported_as_failure():
     remote = SimpleNamespace(
         push=lambda branch: [

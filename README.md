@@ -88,7 +88,10 @@ for a handle; legitimate key changes need a separate recovery process. This
 helps detect a repository recreated with a different key, but means users
 trust the directory maintainer for handle-to-key registration. Existing
 entries need a verified key added by the maintainer before they can be followed
-or updated.
+or updated. After `publish-site` publishes a user's site, it adds that site's
+GitHub Pages URL to the directory entry so the handle can link to it. Accounts
+without a published site, such as the canonical template repository, have no
+site link.
 
 ## Maintaining the canonical template
 

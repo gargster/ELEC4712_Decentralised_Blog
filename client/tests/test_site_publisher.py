@@ -7,6 +7,7 @@ from src.config import CANONICAL_REPO_NAME, DIRECTORY_JSON_URL
 from src.identity.keypair import KeyPair
 from src.identity.signer import Signer
 from src.publishing import site_publisher
+from src.publishing.publish_manager import PublishManager
 from src.publishing.site_publisher import SitePublisher
 
 
@@ -94,8 +95,24 @@ def test_publish_site_creates_branch_with_verified_feed(tmp_path, monkeypatch):
         "urlopen",
         lambda url, timeout: io.BytesIO(b"{}"),
     )
+    registered_sites = []
+    monkeypatch.setattr(
+        site_publisher.PublishManager,
+        "update_site_url",
+        lambda self, handle, repo_url, key, site_url: registered_sites.append(
+            (handle, repo_url, key, site_url)
+        ),
+    )
     SitePublisher(str(project_root), str(user_repo_path)).publish()
 
+    assert registered_sites == [
+        (
+            "alice.social",
+            "https://github.com/example/alice-social.git",
+            public_key,
+            "https://example.github.io/alice-social/",
+        )
+    ]
     assert repo.active_branch.name == "main"
     assert repo.git.show("gh-pages:index.html") == (
         '<script src="./app.js" defer></script>'
@@ -137,6 +154,7 @@ def test_publish_site_creates_branch_with_verified_feed(tmp_path, monkeypatch):
         "gh-pages:feed.json"
     )
     assert repo.active_branch.name == "main"
+    assert len(registered_sites) == 2
 
 
 def test_profile_names_are_discovered_from_verified_directory_profiles(
@@ -238,3 +256,15 @@ def test_profile_name_is_not_used_when_directory_key_does_not_match(
     profiles = publisher._load_profile_names(own_profile)
 
     assert profiles == {own_profile["publicKey"]: "Alice"}
+
+
+def test_github_pages_url_for_project_and_user_sites():
+    assert PublishManager.github_pages_url(
+        "https://github.com/alice/alice-social.git"
+    ) == "https://alice.github.io/alice-social/"
+    assert PublishManager.github_pages_url(
+        "https://github.com/alice/alice.github.io"
+    ) == "https://alice.github.io/"
+    assert PublishManager.github_pages_url(
+        "https://gitlab.com/alice/alice-social.git"
+    ) is None
