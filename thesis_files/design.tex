@@ -34,7 +34,9 @@ The protocol separates human-readable identity from cryptographic identity. A us
 
 When a new identity is created, the client generates an Ed25519 public/private key pair. The private key remains under the control of the client and is not included within the user's public repository. The corresponding public key is published as part of the user's \texttt{profile.json} together with profile metadata.
 
-A profile therefore provides the binding between a human-readable handle and the cryptographic identity controlling the account. An example profile structure is shown below. 
+\textbf{A signed profile associates a human-readable handle with a cryptographic identity and proves that its publisher controls the corresponding private key. However, the signature alone does not establish that the key is the established owner of that handle: a different key could produce another valid profile using the same handle. In the prototype, the public social directory records each handle's registered public key, and the follow workflow checks the fetched profile against this record.}
+
+An example profile structure is shown below.
 
 \begin{verbatim} 
 { 
@@ -52,7 +54,7 @@ This distinction is important when repositories are moved between hosting provid
 
 The private key is also used to authenticate and protect the integrity of social actions. Whenever a user creates a post, reply, like or follow action, the client signs the corresponding JSON object using the active identity's private key. Other participants can subsequently verify both the authenticity of the action, confirming that it was created by the holder of the corresponding private key, and its integrity, ensuring that it has not been modified after being signed. 
 
-The profile itself is signed before publication. This allows clients to verify that the public key, handle and associated metadata were created by the holder of the corresponding private key and have not been altered since publication. Profile verification is performed prior to establishing trust relationships or processing social actions from another repository. Consequently, trust within the protocol is rooted in cryptographic verification rather than trust in a hosting provider or repository location. 
+\textbf{The profile itself is signed before publication, allowing clients to verify that its public key, handle and associated metadata were created by the holder of the corresponding private key and have not been altered. In the prototype, following a user also checks the profile's handle and public key against the public social directory's record. This directory-based key pin helps detect a repository recreated with a different key, but makes identity discovery dependent on trusting the directory's handle-to-key mapping. Cryptographic signatures continue to authenticate profiles and actions; the directory adds a separate continuity check for the association between a handle and a key.}
 
 Overall, the identity model provides four properties required by the protocol: 
 
@@ -180,18 +182,23 @@ profile and checks the signatures of the current action files, including
 actions created by the user and actions received through replication. Only
 valid actions are included in the generated \texttt{feed.json}.
 
-The client also looks up profiles through the public social directory so
-authors can be shown by name. Retrieved profiles are verified before their
-names are added to the feed; if a profile cannot be found or verified, the
-author's public key is used instead. The site then uses action references to
-show likes and replies with their related posts, and Follow actions to
-filter posts by followed authors.
+\textbf{The client also looks up profiles through the public social directory so
+authors can be shown by name. Before adding a discovered profile's name to the
+feed, it verifies the profile signature and checks that the profile's handle
+and public key match the directory entry. If a profile cannot be found or
+verified, or does not match the directory record, the author's public key is
+used instead.} The site then uses action references to show likes and replies
+with their related posts, and Follow actions to filter posts by followed
+authors.
 
-Finally, the client publishes \texttt{feed.json} with the site files on the
-separate \texttt{gh-pages} branch. The browser reads this data to display the
-user's feed. Site publication does not perform replication, so actions
-created or received after publication appear on the site after the feed is
-updated and published again.
+\textbf{Finally, after successfully pushing \texttt{feed.json} and the site
+files to the separate \texttt{gh-pages} branch, the client records the
+resulting site URL as optional directory metadata. This allows the directory
+to link the user's handle to the published feed; it does not add the URL to
+\texttt{feed.json} or change the protocol data.} The browser reads the
+published data to display the user's feed. Site publication does not perform
+replication, so actions created or received after publication appear on the
+site after the feed is updated and published again.
 
 \begin{figure}[h]
     \centering

@@ -231,9 +231,9 @@ The generated `feed.json` contains three logical parts:
 - **Profiles:** a mapping from public keys to display names, built from the
   active user's profile and profiles discovered through the public social
   directory. A discovered profile is included only after its signature is
-  verified and its handle agrees with the directory entry. If a profile is
-  unavailable or cannot be verified, the public key remains the display
-  fallback.
+  verified and its handle and public key agree with the directory entry. If a
+  profile is unavailable, cannot be verified, or does not match the directory,
+  the public key remains the display fallback.
 
 The static site reads `feed.json` and constructs the presentation view from
 those actions. It indexes posts by action ID, associates likes with their
@@ -274,13 +274,12 @@ sequenceDiagram
     end
 
     Client->>Directory: Retrieve directory entries
-    Directory-->>Client: Return handles and repository URLs
+    Directory-->>Client: Return handles, repository URLs, and registered public keys
 
     loop For each usable directory entry
         Client->>Profiles: Retrieve social/profile.json
-        Profiles-->>Client: Return profile data
-        Client->>Client: Verify profile and match its handle to the directory entry
-        Client->>Client: Add verified public-key-to-name mapping
+        Profiles-->>Client: Return signed profile
+        Client->>Client: Verify profile and match handle/key to directory, or use public key as fallback
     end
 
     Client->>Client: Build feed.json from profile, verified actions, and profile mappings
@@ -290,6 +289,7 @@ sequenceDiagram
     Client->>Local: Copy site template and feed.json
     Client->>Local: Commit site files
     Client->>GitHub: Push gh-pages
+    Client->>Directory: Record optional siteURL after successful site publication
     Note over Local,GitHub: gh-pages holds the static site.<br/>main holds protocol data.
     GitHub-->>Browser: Serve the static site
     Note over GitHub,Browser: GitHub Pages hosts the site<br/>for visitors to browse the feed.
