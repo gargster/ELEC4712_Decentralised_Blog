@@ -6,6 +6,7 @@ from src.config import CANONICAL_REPO_URL, DIRECTORY_REPO_URL
 from src.identity.signer import Signer
 from src.utils.identity_loader import load_identity
 
+
 class PublishManager:
     def __init__(self, project_root):
         self.project_root = project_root
@@ -22,6 +23,16 @@ class PublishManager:
 
         local_directory = json.loads(directory_repo.git.show(":2:directory.json"))
         remote_directory = json.loads(directory_repo.git.show(":3:directory.json"))
+
+        for handle in local_directory.keys() & remote_directory.keys():
+            local_key = local_directory[handle].get("publicKey")
+            remote_key = remote_directory[handle].get("publicKey")
+            if local_key != remote_key:
+                directory_repo.git.merge("--abort")
+                raise RuntimeError(
+                    f"Conflicting registered public keys for '{handle}'; "
+                    "resolve the identity change manually."
+                )
 
         merged_directory = dict(remote_directory)
         merged_directory.update(local_directory)
@@ -67,7 +78,7 @@ class PublishManager:
                 raise
             PublishManager._merge_directory_json(directory_repo)
 
-    def update_directory(self, handle, remote_url):
+    def _directory_repo(self):
         directory_root = os.path.join(
             self.project_root,
             "social-directory"
@@ -80,20 +91,53 @@ class PublishManager:
                 directory_root
             )
 
-        directory_path = os.path.join(
-            directory_root,
-            "directory.json"
-        )
-
         directory_repo = Repo(directory_root)
         self._sync_directory_repo(directory_repo)
+        return directory_repo
 
+    @staticmethod
+    def _assert_registered_key(directory, handle, public_key):
+        entry = directory.get(handle)
+        if entry is None:
+            return
+        if not isinstance(entry, dict):
+            raise ValueError(f"Invalid social directory entry for '{handle}'")
+
+        registered_key = entry.get("publicKey")
+        if not registered_key:
+            raise RuntimeError(
+                f"Handle '{handle}' has no registered public key. "
+                "Register its verified key before publishing."
+            )
+        if registered_key != public_key:
+            raise RuntimeError(
+                f"Refusing to replace the registered public key for '{handle}'. "
+                "Use the identity recovery process to change keys."
+            )
+
+    def _ensure_registered_key(self, handle, public_key):
+        directory_repo = self._directory_repo()
+        directory_path = os.path.join(
+            directory_repo.working_tree_dir,
+            "directory.json"
+        )
+        with open(directory_path, "r", encoding="utf-8") as directory_file:
+            directory = json.load(directory_file)
+        self._assert_registered_key(directory, handle, public_key)
+
+    def update_directory(self, handle, remote_url, public_key):
+        directory_repo = self._directory_repo()
+        directory_path = os.path.join(
+            directory_repo.working_tree_dir,
+            "directory.json"
+        )
         with open(directory_path, "r", encoding="utf-8") as directory_file:
             directory = json.load(directory_file)
 
-        # Register/update user
+        self._assert_registered_key(directory, handle, public_key)
         directory[handle] = {
-            "repoURL": remote_url
+            "repoURL": remote_url,
+            "publicKey": public_key,
         }
 
         print(f"[DIRECTORY] Registering {handle} -> {remote_url}")
@@ -127,6 +171,33 @@ class PublishManager:
 
         repo = Repo(repo_root)
 
+        with open(profile_path, "r", encoding="utf-8") as profile_file:
+            profile = json.load(profile_file)
+        handle = profile["handle"]
+        public_key = profile["publicKey"]
+
+        private_key_path = os.path.join(
+            self.project_root,
+            "client",
+            "state",
+            identity_name,
+            "keystore",
+            "private.key"
+        )
+        with open(private_key_path, "r", encoding="utf-8") as private_key_file:
+            private_key = private_key_file.read()
+
+        signer = Signer(private_key)
+        derived_public_key = (
+            "ed25519:" + signer.signing_key.verify_key.encode().hex()
+        )
+        if derived_public_key != public_key:
+            raise ValueError(
+                "Profile public key does not match the active identity's private key"
+            )
+
+        self._ensure_registered_key(handle, public_key)
+
         # ------------------------------------------------------------
         # 1. Set origin to user's GitHub repo
         # ------------------------------------------------------------
@@ -144,32 +215,14 @@ class PublishManager:
         # ------------------------------------------------------------
         # 3. Update profile.json with new repoURL
         # ------------------------------------------------------------
-        with open(profile_path, "r") as f:
-            profile = json.load(f)
-
-        handle = profile["handle"]
-
         profile["repoURL"] = remote_url
 
         # ------------------------------------------------------------
         # 4. Re-sign profile.json with user's private key
         # ------------------------------------------------------------
-        private_key_path = os.path.join(
-            self.project_root,
-            "client",
-            "state",
-            identity_name,
-            "keystore",
-            "private.key"
-        )
-
-        with open(private_key_path, "r") as f:
-            private_key = f.read()
-
-        signer = Signer(private_key)
         profile["signature"] = signer.sign_json(profile)
 
-        with open(profile_path, "w") as f:
+        with open(profile_path, "w", encoding="utf-8") as f:
             json.dump(profile, f, indent=2)
 
         # Commit + push updated profile.json
@@ -188,6 +241,6 @@ class PublishManager:
             repo.create_remote("canonical", CANONICAL_REPO_URL)
 
         # update directory
-        self.update_directory(handle, remote_url)
+        self.update_directory(handle, remote_url, public_key)
 
         print("[PUBLISH] Complete.")

@@ -167,7 +167,8 @@ def test_profile_names_are_discovered_from_verified_directory_profiles(
     )
     directory = {
         "canonical.social": {
-            "repoURL": "https://github.com/example/canonical-social.git"
+            "repoURL": "https://github.com/example/canonical-social.git",
+            "publicKey": canonical_profile["publicKey"],
         }
     }
     requested_urls = []
@@ -193,3 +194,47 @@ def test_profile_names_are_discovered_from_verified_directory_profiles(
         "https://raw.githubusercontent.com/example/canonical-social/main/"
         "social/profile.json",
     ]
+
+
+def test_profile_name_is_not_used_when_directory_key_does_not_match(
+    tmp_path, monkeypatch
+):
+    user_repo_path = tmp_path / "alice-social"
+    user_repo_path.mkdir()
+    Repo.init(user_repo_path)
+
+    own_keypair = KeyPair()
+    own_profile = {
+        "publicKey": own_keypair.public_key(),
+        "handle": "alice.social",
+        "displayName": "Alice",
+    }
+    canonical_keypair = KeyPair()
+    canonical_profile = sign_object(
+        {
+            "publicKey": canonical_keypair.public_key(),
+            "handle": "canonical.social",
+            "repoURL": "https://github.com/example/canonical-social.git",
+            "displayName": "Canonical",
+            "bio": "Genesis",
+            "created": "2026-09-30T00:00:00Z",
+        },
+        canonical_keypair.private_key(),
+    )
+    directory = {
+        "canonical.social": {
+            "repoURL": "https://github.com/example/canonical-social.git",
+            "publicKey": "ed25519:registered-different-key",
+        }
+    }
+
+    def open_url(url, timeout):
+        payload = directory if url == DIRECTORY_JSON_URL else canonical_profile
+        return io.BytesIO(json.dumps(payload).encode("utf-8"))
+
+    monkeypatch.setattr(site_publisher.urllib.request, "urlopen", open_url)
+
+    publisher = SitePublisher(str(tmp_path), str(user_repo_path))
+    profiles = publisher._load_profile_names(own_profile)
+
+    assert profiles == {own_profile["publicKey"]: "Alice"}

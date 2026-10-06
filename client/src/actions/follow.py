@@ -1,7 +1,9 @@
 import os
 import git
 import json
+import urllib.request
 from src.actions.base import ActionBase
+from src.config import DIRECTORY_JSON_URL
 from src.discovery.profile_verifier import ProfileVerifier
 
 
@@ -49,6 +51,25 @@ class FollowAction(ActionBase):
         else:
             print(f"[FOLLOW] Remote {handle} already exists")
 
+    def _registered_identity(self, handle):
+        with urllib.request.urlopen(DIRECTORY_JSON_URL, timeout=5) as response:
+            directory = json.load(response)
+        if not isinstance(directory, dict):
+            raise ValueError("Social directory must be a JSON object")
+
+        entry = directory.get(handle)
+        if not isinstance(entry, dict):
+            raise ValueError(
+                f"Handle '{handle}' is not registered in the social directory"
+            )
+
+        registered_key = entry.get("publicKey")
+        if not isinstance(registered_key, str) or not registered_key:
+            raise ValueError(
+                f"Handle '{handle}' has no registered public key in the social directory"
+            )
+        return entry
+
     # -------------------------------------------------------
     # Main FOLLOW logic
     # -------------------------------------------------------
@@ -58,6 +79,12 @@ class FollowAction(ActionBase):
 
         print(f"[FOLLOW] Following {handle}")
         print(f"[FOLLOW] Repo URL = {repo_url}")
+
+        registered_identity = self._registered_identity(handle)
+        if registered_identity.get("repoURL") != repo_url:
+            raise ValueError(
+                f"Repository URL for '{handle}' does not match the social directory"
+            )
 
         # Load identity repo
         identity_repo_root = os.path.dirname(self.social_path)
@@ -72,6 +99,19 @@ class FollowAction(ActionBase):
         # Step 3: Verify profile.json
         pv = ProfileVerifier(profile)
         verified = pv.verify()
+        if verified["handle"] != handle:
+            raise ValueError(
+                f"Requested handle '{handle}' does not match signed profile "
+                f"handle '{verified['handle']}'"
+            )
+        if verified["publicKey"] != registered_identity["publicKey"]:
+            raise ValueError(
+                f"Public key for '{handle}' does not match the social directory"
+            )
+        if profile["repoURL"] != repo_url:
+            raise ValueError(
+                f"Signed repository URL for '{handle}' does not match the supplied URL"
+            )
         target_public_key = verified["publicKey"]
         print(f"[FOLLOW] Verified publicKey = {target_public_key}")
 

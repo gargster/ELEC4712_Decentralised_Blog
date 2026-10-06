@@ -93,6 +93,11 @@ class SitePublisher:
                         f"Directory handle {handle} does not match signed "
                         f"profile handle {remote_profile['handle']}"
                     )
+                if remote_profile["publicKey"] != user_info.get("publicKey"):
+                    raise ValueError(
+                        f"Profile key for {handle} does not match the "
+                        "social directory"
+                    )
                 profiles.setdefault(
                     remote_profile["publicKey"],
                     remote_profile_data.get("displayName")

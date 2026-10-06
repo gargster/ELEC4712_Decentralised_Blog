@@ -81,6 +81,15 @@ include it in a user repository. Publishing pushes the selected user's
 repository and registers its handle in the configured social directory.
 Account creation and publishing depend on access to those repositories.
 
+Each social-directory entry records the handle's repository URL and public
+key. Following a user and resolving display names checks the signed profile
+against both values. Publishing refuses to replace a key already registered
+for a handle; legitimate key changes need a separate recovery process. This
+helps detect a repository recreated with a different key, but means users
+trust the directory maintainer for handle-to-key registration. Existing
+entries need a verified key added by the maintainer before they can be followed
+or updated.
+
 ## Maintaining the canonical template
 
 Normal account creation clones the canonical repository configured in

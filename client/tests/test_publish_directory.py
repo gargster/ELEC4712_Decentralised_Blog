@@ -58,7 +58,7 @@ def test_update_directory_merges_remote_registrations(tmp_path):
     _commit_directory(local_repo, "Register local user")
 
     manager = PublishManager(str(tmp_path))
-    manager.update_directory("new.social", "new-url")
+    manager.update_directory("new.social", "new-url", "new-public-key")
 
     final_directory = json.loads(
         (local_directory_path / "directory.json").read_text(encoding="utf-8")
@@ -72,10 +72,36 @@ def test_update_directory_merges_remote_registrations(tmp_path):
         "existing.social": {"repoURL": "existing-url"},
         "local.social": {"repoURL": "local-url"},
         "remote.social": {"repoURL": "remote-url"},
-        "new.social": {"repoURL": "new-url"},
+        "new.social": {
+            "repoURL": "new-url",
+            "publicKey": "new-public-key",
+        },
     }
     assert final_directory == expected_entries
     assert remote_directory == expected_entries
+
+
+def test_directory_registration_rejects_public_key_replacement():
+    directory = {
+        "alice.social": {
+            "repoURL": "https://github.com/alice/alice-social.git",
+            "publicKey": "ed25519:original-key",
+        }
+    }
+
+    with pytest.raises(RuntimeError, match="Refusing to replace"):
+        PublishManager._assert_registered_key(
+            directory, "alice.social", "ed25519:new-key"
+        )
+
+
+def test_directory_registration_requires_key_for_existing_handle():
+    directory = {"alice.social": {"repoURL": "https://github.com/alice/alice-social.git"}}
+
+    with pytest.raises(RuntimeError, match="has no registered public key"):
+        PublishManager._assert_registered_key(
+            directory, "alice.social", "ed25519:new-key"
+        )
 
 
 def test_directory_push_rejection_is_reported_as_failure():

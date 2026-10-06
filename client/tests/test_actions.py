@@ -1,6 +1,8 @@
+import io
 import os
 import json
 from pathlib import Path
+import pytest
 
 from src.actions.action_verifier import ActionVerifier
 from src.actions.follow import FollowAction
@@ -176,6 +178,20 @@ def test_follow_action_run_uses_verified_profile_and_git_remote(
     )()
     monkeypatch.setattr(follow_module.git, "Repo", lambda path: repo)
     monkeypatch.setattr(
+        follow_module.urllib.request,
+        "urlopen",
+        lambda url, timeout: io.BytesIO(
+            json.dumps(
+                {
+                    "alice.social": {
+                        "repoURL": "https://github.com/alice/alice-social.git",
+                        "publicKey": "ed25519:abc123",
+                    }
+                }
+            ).encode("utf-8")
+        ),
+    )
+    monkeypatch.setattr(
         FollowAction,
         "add_remote",
         lambda self, repo, handle, repo_url: None,
@@ -183,7 +199,10 @@ def test_follow_action_run_uses_verified_profile_and_git_remote(
     monkeypatch.setattr(
         FollowAction,
         "fetch_profile_git",
-        lambda self, repo, handle: {"profile": "unverified"},
+        lambda self, repo, handle: {
+            "handle": "alice.social",
+            "repoURL": "https://github.com/alice/alice-social.git",
+        },
     )
     monkeypatch.setattr(
         follow_module.ProfileVerifier,
@@ -215,3 +234,92 @@ def test_follow_action_run_uses_verified_profile_and_git_remote(
         "target": "ed25519:abc123",
         "id": "follow-001",
     }
+
+
+def test_follow_action_rejects_profile_with_unregistered_key(
+    tmp_path, monkeypatch
+):
+    from src.actions import follow as follow_module
+
+    social_path = tmp_path / "user" / "social"
+    social_path.mkdir(parents=True)
+    repo = type(
+        "Repo",
+        (),
+        {
+            "remotes": type("Remotes", (), {"origin": object()})(),
+            "git": type("Git", (), {"add": lambda self, *args, **kwargs: None})(),
+            "index": type("Index", (), {"commit": lambda self, message: None})(),
+        },
+    )()
+    monkeypatch.setattr(follow_module.git, "Repo", lambda path: repo)
+    monkeypatch.setattr(
+        follow_module.urllib.request,
+        "urlopen",
+        lambda url, timeout: io.BytesIO(
+            json.dumps(
+                {
+                    "alice.social": {
+                        "repoURL": "https://github.com/alice/alice-social.git",
+                        "publicKey": "ed25519:registered-key",
+                    }
+                }
+            ).encode("utf-8")
+        ),
+    )
+    monkeypatch.setattr(FollowAction, "add_remote", lambda *args: None)
+    monkeypatch.setattr(
+        FollowAction,
+        "fetch_profile_git",
+        lambda *args: {
+            "handle": "alice.social",
+            "repoURL": "https://github.com/alice/alice-social.git",
+        },
+    )
+    monkeypatch.setattr(
+        follow_module.ProfileVerifier,
+        "verify",
+        lambda self: {
+            "handle": "alice.social",
+            "publicKey": "ed25519:new-key",
+            "repoURL": "https://github.com/alice/alice-social.git",
+        },
+    )
+    monkeypatch.setattr(
+        FollowAction,
+        "create_follow",
+        lambda *args: pytest.fail("Must reject an unregistered key"),
+    )
+
+    class Args:
+        target_handle = "alice.social"
+        target_repo_url = "https://github.com/alice/alice-social.git"
+
+    with pytest.raises(ValueError, match="does not match the social directory"):
+        FollowAction(str(social_path)).run(Args())
+
+
+def test_follow_action_rejects_handle_missing_from_directory(
+    tmp_path, monkeypatch
+):
+    from src.actions import follow as follow_module
+
+    social_path = tmp_path / "user" / "social"
+    social_path.mkdir(parents=True)
+    monkeypatch.setattr(
+        follow_module.urllib.request,
+        "urlopen",
+        lambda url, timeout: io.BytesIO(b"{}"),
+    )
+    monkeypatch.setattr(
+        follow_module.git,
+        "Repo",
+        lambda path: pytest.fail("Must reject before accessing the user repo"),
+    )
+
+    class Args:
+        target_handle = "alice.social"
+        target_repo_url = "https://github.com/alice/alice-social.git"
+
+    with pytest.raises(ValueError, match="not registered in the social directory"):
+        FollowAction(str(social_path)).run(Args())
