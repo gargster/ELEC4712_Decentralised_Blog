@@ -344,7 +344,7 @@ sequenceDiagram
     Directory-->>Browser: Show handles, repository links, and available feed links
     User->>Browser: Click repository URL
     Browser->>AliceRepo: Open account repository
-    Note over User,Browser: The repository URL can also be used for client actions such as Follow; see Follow workflow
+    Note over User,Browser: Use this repository URL in the client to Follow (see Follow workflow)
     opt User opens published feed
         User->>Browser: Click handle with an available siteURL
         Browser->>Feed: Open published feed
