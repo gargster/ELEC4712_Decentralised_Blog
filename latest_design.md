@@ -107,9 +107,14 @@ sequenceDiagram
     participant User as Follower User
     participant Client as Follower Client
     participant Repo as Follower Repository
+    participant Directory as Public Social Directory
     participant Alice as Alice Repository
 
     User->>Client: follow alice.social repositoryURL
+
+    Client->>Directory: Retrieve registered entry for alice.social
+    Directory-->>Client: Return repository URL and registered public key
+    Client->>Client: Check supplied repository URL against directory entry
 
     Client->>Repo: git remote add alice.social repositoryURL
 
@@ -117,7 +122,7 @@ sequenceDiagram
     Alice-->>Client: Return Alice's remote branch
 
     Client->>Client: Read social/profile.json from fetched branch
-    Client->>Client: Verify Alice's profile signature
+    Client->>Client: Verify profile signature and match handle, key, and repository URL to directory
     Client->>Client: Extract Alice's public key
 
     Client->>Client: Create Follow action
@@ -304,6 +309,47 @@ that file with the shared static-site template to the separate `gh-pages`
 branch. GitHub Pages serves the branch; the browser then groups the actions
 for presentation. A push of new actions to `main` alone does not refresh the
 published feed.
+
+## Discovery Workflow
+
+The public directory maps human-readable handles to repository URLs and
+registered public keys. Its optional `siteURL` points to a user's published
+feed. Visitors can open the repository through its repository link, or open
+the feed by clicking the handle when a site URL is available. Following is a
+separate client action, shown in the Follow workflow above.
+
+```mermaid
+sequenceDiagram
+    participant Owner as Account Owner
+    participant OwnerClient as Owner Client
+    participant AliceRepo as Account Repository
+    participant Directory as Public Directory Website
+    participant User as Directory Visitor
+    participant Browser as Visitor Browser
+    participant Feed as Published Feed Website
+
+    Owner->>OwnerClient: Publish account
+    OwnerClient->>AliceRepo: Publish signed profile and repository
+    OwnerClient->>Directory: Register handle, repository URL, and public key
+    Directory-->>OwnerClient: Publish updated directory entry
+
+    opt Owner publishes a feed website
+        Owner->>OwnerClient: Publish site
+        OwnerClient->>Directory: Add optional siteURL after successful publication
+        Directory-->>OwnerClient: Publish updated directory entry
+    end
+
+    User->>Browser: Open directory
+    Browser->>Directory: Request directory listing
+    Directory-->>Browser: Show handles, repository links, and available feed links
+    opt User opens published feed
+        User->>Browser: Click handle with an available siteURL
+        Browser->>Feed: Open published feed
+    end
+    User->>Browser: Click repository URL
+    Browser->>AliceRepo: Open account repository
+
+```
 
 ## Protocol Validation Summary
 

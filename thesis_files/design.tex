@@ -38,9 +38,6 @@ When a new identity is created, the client generates an Ed25519 public/private k
 \textbf{A profile associates a human-readable handle with a public key. Its signature allows clients to verify that the profile was published by the holder of the corresponding private key and has not been altered.} An example profile structure is shown below. 
 
 
-\textbf{A signed profile associates a human-readable handle with a cryptographic identity and proves that its publisher controls the corresponding private key. However, the signature alone does not establish that the key is the established owner of that handle: a different key could produce another valid profile using the same handle. In the prototype, the public social directory records each handle's registered public key, and the follow workflow checks the fetched profile against this record.}
-
-
 \begin{verbatim} 
 { 
     "publicKey": "ed25519:abc123...", 
@@ -158,7 +155,7 @@ This action model separates content creation from relationships and references. 
 
 \subsubsection*{Like Workflow} The like workflow represents endorsement rather than content creation. Instead of introducing new content, a like action records a reference to an existing action through the \texttt{target} field. The client stores both the target action identifier and the associated target handle before signing and publishing the action. As with all social actions, likes are committed to the author's repository and subsequently distributed through Git-based replication. After acceptance into the local action store, clients resolve the stored target reference against accepted local actions and associate the like with the referenced action. Engagement metadata can therefore be reconstructed from replicated actions alone. Figure~\ref{fig:like_workflow} illustrates the lifecycle of a like action. \begin{figure}[h] \centering \includegraphics[width=\textwidth]{figures/like_workflow.png} \caption{Like Creation, Publication and Acceptance Workflow} \label{fig:like_workflow} \end{figure}
 
-\subsubsection*{Follow Workflow} The follow workflow establishes a relationship between two users rather than between pieces of content. When a user chooses to follow another account, the client first adds the target repository as a Git remote and fetches the target repository's latest state. The client then retrieves and verifies the target \texttt{profile.json} before extracting the target user's public key. The verified public key becomes the cryptographic target of the follow relationship. A follow action is subsequently created, signed and published within the follower's repository. Importantly, the follow workflow does not replicate the target user's social actions into the local repository. Instead, it establishes the follow relationship and registers the target repository as a future replication source. Social actions published by the followed user are obtained later through the Replication Workflow. Figure~\ref{fig:follow_workflow} illustrates this process. \begin{figure}[h] \centering \includegraphics[width=\textwidth]{figures/follow_workflow.png} \caption{Follow Creation Workflow} \label{fig:follow_workflow} \end{figure}
+\subsubsection*{Follow Workflow} The follow workflow establishes a relationship between two users rather than between pieces of content. When a user chooses to follow another account, they provide its handle and repository URL to the client. \textbf{The client checks that the repository URL matches the directory entry, then fetches the repository's profile and verifies its signature, handle, public key and repository URL against the registered values. This check helps detect a recreated repository presenting a different key for the same handle.} The verified public key becomes the cryptographic target of the follow relationship. A follow action is then created, signed and published within the follower's repository. The target repository is also registered as a future replication source; its social actions are not copied during follow and are obtained later through the Replication Workflow. Figure~\ref{fig:follow_workflow} illustrates this process. \begin{figure}[h] \centering \includegraphics[width=\textwidth]{figures/follow_workflow.png} \caption{Follow Creation Workflow} \label{fig:follow_workflow} \end{figure}
 
 \subsection{Replication Model} The replication model is responsible for acquiring social actions from remote repositories and accepting valid actions into the local repository. Replication is pull-based and uses Git's native fetch mechanism. Repositories become replication sources by being configured as Git remotes, either during repository initialisation or through follow actions. When replication is triggered, the client fetches the latest state of each configured remote repository. The client then reads candidate actions from the remote repository's \texttt{social/actions/} directory and verifies each action's digital signature. Only actions that pass verification are accepted into the local repository. Invalid or malformed actions are rejected and are not stored locally. Accepted actions are written into the local repository's \texttt{social/actions/} directory and committed as part of the local repository state. Through repeated replication, repositories accumulate a local collection of verified social actions obtained from their configured remotes. Replication is independent of feed construction. Its responsibility is limited to fetching, verifying and accepting actions. The feed layer operates on the resulting collection of accepted local actions and is responsible for resolving relationships between posts, replies, likes and follows before presenting them to the user.
 
@@ -211,7 +208,42 @@ site after the feed is updated and published again.
     \label{fig:feed_construction_workflow}
 \end{figure}
 
-\subsection{Discovery Model} 
+\subsection{Discovery Model}
+Discovery allows users and clients to find a user's repository from a
+human-readable handle. The prototype uses a public directory stored in a
+Git repository and presented as a static website. Its \texttt{directory.json}
+maps each handle to the user's repository URL and registered public key. The
+repository URL helps clients locate the profile and actions, while the public
+key provides a known identity to compare with the signed profile.
 
+When a user publishes their account, the directory entry is added or updated
+with the handle, repository URL and public key. An existing registered key is
+not silently replaced. This mapping helps detect a repository that has been
+recreated with a different key, but means that users must trust the directory
+to maintain the handle-to-key association. Discovery therefore relies on a
+shared directory, while profiles and social actions remain signed and social
+activity continues to be exchanged between user repositories.
 
-\subsubsection*{Discovery Workflow} figure
+The directory may also contain a \texttt{siteURL} for users who have published
+a feed website. This optional URL is recorded after site publication and lets
+the directory link a handle directly to the feed; it is distinct from the
+repository URL used for protocol interactions. In the directory website, users
+can open the repository through its repository link, or open the feed by
+clicking the handle when a site URL is available. Handles without a published
+site remain listed but are not feed links.
+
+\subsubsection*{Discovery Workflow}
+When an account is published, its client registers the handle, repository URL
+and public key in the directory. \textbf{A visitor can use the repository link
+to open the account repository, or click the handle to open its feed when an
+optional site URL is available. These links provide navigation; following an
+account is a separate action described in the Follow Workflow.}
+Figure~\ref{fig:discovery_workflow} summarises account registration and
+directory navigation.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\textwidth]{figures/discovery_workflow.png}
+    \caption{Account Registration and Directory Navigation}
+    \label{fig:discovery_workflow}
+\end{figure}
