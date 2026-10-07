@@ -25,7 +25,7 @@ Figure~\ref{fig:architecture_overview} summarises the overall architecture of th
     \centering \includegraphics[width=\textwidth]{figures/architecture_overview.png} \caption{Proposed Protocol Architecture} \label{fig:architecture_overview}
 \end{figure} 
 
-The architecture is composed of five logical components: \begin{enumerate} \item Identity \item Social Actions \item Replication \item Discovery \item Feed Construction \end{enumerate} Identity is responsible for user-owned cryptographic identities and profile management. Social Actions define the representation of posts, replies, likes and follows. Replication synchronises repositories using Git's native mechanisms. Discovery enables users to locate repositories through human-readable handles. Feed Construction combines the active user's profile and locally available actions into a user-readable social feed.
+The architecture is composed of five logical components: \begin{enumerate} \item Identity \item Social Actions \item Replication \item Discovery \item Feed Construction \end{enumerate} Identity is responsible for user-owned cryptographic identities and profile management. Social Actions define the representation of posts, replies, likes and follows. Replication synchronises repositories using Git's native mechanisms. Discovery enables users to locate repositories through human-readable handles. Feed Construction combines replicated actions into a user-readable social feed. 
 
 The following sections cover these components in greater detail.
 
@@ -34,9 +34,12 @@ The protocol separates human-readable identity from cryptographic identity. A us
 
 When a new identity is created, the client generates an Ed25519 public/private key pair. The private key remains under the control of the client and is not included within the user's public repository. The corresponding public key is published as part of the user's \texttt{profile.json} together with profile metadata.
 
+
+\textbf{A profile associates a human-readable handle with a public key. Its signature allows clients to verify that the profile was published by the holder of the corresponding private key and has not been altered.} An example profile structure is shown below. 
+
+
 \textbf{A signed profile associates a human-readable handle with a cryptographic identity and proves that its publisher controls the corresponding private key. However, the signature alone does not establish that the key is the established owner of that handle: a different key could produce another valid profile using the same handle. In the prototype, the public social directory records each handle's registered public key, and the follow workflow checks the fetched profile against this record.}
 
-An example profile structure is shown below.
 
 \begin{verbatim} 
 { 
@@ -54,7 +57,9 @@ This distinction is important when repositories are moved between hosting provid
 
 The private key is also used to authenticate and protect the integrity of social actions. Whenever a user creates a post, reply, like or follow action, the client signs the corresponding JSON object using the active identity's private key. Other participants can subsequently verify both the authenticity of the action, confirming that it was created by the holder of the corresponding private key, and its integrity, ensuring that it has not been modified after being signed. 
 
-\textbf{A profile signature proves that its publisher controls the private key for the public key in that profile. When a user follows an account, the client also checks that the signed profile's handle and public key match the pair registered in the social directory. If a repository is recreated with a different key, the keys will not match and the client rejects the profile. This check helps prevent someone from taking over an existing handle, but requires users to trust the directory's handle-to-key records.}
+
+\textbf{Clients verify profile and action signatures cryptographically rather than relying on a hosting provider or repository location. In the prototype, the follow workflow also checks that the profile's handle and public key match the social directory's record, helping detect a recreated repository using a different key. This continuity check depends on trusting the directory's handle-to-key mapping.}
+
 
 Overall, the identity model provides four properties required by the protocol: 
 
@@ -167,8 +172,7 @@ This action model separates content creation from relationships and references. 
 Feed construction is a presentation layer over the protocol data stored in
 each user's repository; it does not replace action creation or replication.
 The client can prepare a \texttt{feed.json} from the user's profile and the
-actions currently available in \texttt{social/actions/}. In the prototype,
-this file and the shared static-site files are published to a separate
+actions currently available in \texttt{social/actions/}. This file and the shared static-site files are published to a separate
 \texttt{gh-pages} branch, keeping the presentation separate from the
 protocol data on \texttt{main}. GitHub Pages can serve this branch as a
 readable website for the user's feed. This is a presentation mechanism for
@@ -203,8 +207,11 @@ site after the feed is updated and published again.
 \begin{figure}[h]
     \centering
     \includegraphics[width=\textwidth]{figures/feed_construction_workflow.png}
-    \caption{Feed Construction and Publication to a Static \texttt{gh-pages} Site}
+    \caption{Feed Construction and Site Publication Workflow}
     \label{fig:feed_construction_workflow}
 \end{figure}
 
-\subsection{Discovery Model} explanation \subsubsection*{Discovery Workflow} figure
+\subsection{Discovery Model} 
+
+
+\subsubsection*{Discovery Workflow} figure
