@@ -216,13 +216,12 @@ maps each handle to the user's repository URL and registered public key. The
 repository URL helps clients locate the profile and actions, while the public
 key provides a known identity to compare with the signed profile.
 
-When a user publishes their account, the directory entry is added or updated
-with the handle, repository URL and public key. An existing registered key is
-not silently replaced. This mapping helps detect a repository that has been
-recreated with a different key, but means that users must trust the directory
-to maintain the handle-to-key association. Discovery therefore relies on a
-shared directory, while profiles and social actions remain signed and social
-activity continues to be exchanged between user repositories.
+\textbf{The directory stores each handle's repository URL and public key. If an
+account's repository is deleted and someone recreates it with the same handle
+but a different key, the client detects the mismatch when another user tries
+to follow it. This check depends on trusting the directory's records; profiles
+and actions are still verified using their signatures, and users exchange
+social activity through their own repositories.}
 
 The directory may also contain a \texttt{siteURL} for users who have published
 a feed website. This optional URL is recorded after site publication and lets
