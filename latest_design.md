@@ -371,3 +371,39 @@ The current prototype re-reads and verifies the available action files from
 each remote on every replication run. This preserves the validation invariant
 but can be optimized in future work by tracking the last processed Git commit
 or action identifiers and processing only newly observed actions.
+
+## Implementation Architecture (Component View)
+
+This is a component-level view of the prototype, intended to show which
+modules perform each responsibility and how information moves between them.
+It is deliberately not a class diagram: the class relationships within social
+action creation can be shown separately if useful.
+
+```mermaid
+flowchart LR
+    User[User] --> CLI[CLI<br/>client/app.py]
+
+    CLI --> Identity[Identity management<br/>key and profile operations]
+    CLI --> Actions[Social action commands<br/>post, reply, like, follow]
+    CLI --> Replication[Replication<br/>Replicator]
+    CLI --> Feed[Local feed display<br/>ShowFeedAction]
+    CLI --> Publishing[Site publication<br/>SitePublisher]
+
+    Actions --> ActionBase[Shared action creation<br/>ActionBase and action classes]
+    ActionBase --> Signing[Signing<br/>Signer]
+    ActionBase --> LocalRepo[(User repository<br/>main: profile and actions)]
+    Actions --> Follow[Follow and discovery checks<br/>FollowAction and ProfileVerifier]
+    Follow --> Directory[(Public directory<br/>handle, repository URL, public key)]
+    Follow --> RemoteRepo[(Followed user repository)]
+
+    Replication --> Verifiers[Validation<br/>ActionVerifier and ProfileVerifier]
+    Replication --> RemoteRepo
+    Replication --> LocalRepo
+
+    Feed --> LocalRepo
+    Publishing --> Verifiers
+    Publishing --> Directory
+    Publishing --> Pages[(User repository<br/>gh-pages: feed.json and site)]
+    Publishing --> PublishManager[Account and directory publishing<br/>PublishManager]
+    PublishManager --> Directory
+```

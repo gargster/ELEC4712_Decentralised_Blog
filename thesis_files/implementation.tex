@@ -1,0 +1,92 @@
+\section{Implementation}
+
+% Explain how the prototype realises the design described in Chapter 4.
+% Focus on implementation choices, component responsibilities, and how
+% components interact. Do not repeat the protocol rationale or report results
+% here; refer to the System Design chapter and present evaluation evidence in
+% the Results chapter.
+
+\subsection{Prototype Overview}
+
+% State the implementation language, client interface, and relevant runtime
+% environment. Describe the main modules and their responsibilities at a
+% component level. Refer to the implementation component diagram below.
+% Contrast the component diagram with a class diagram: this figure shows
+% software responsibilities and data flows, not every class or method.
+
+% Add/export the component diagram from latest_design.md, then uncomment and
+% update this figure block:
+% \begin{figure}[h]
+%     \centering
+%     \includegraphics[width=\textwidth]{figures/implementation_architecture.png}
+%     \caption{Prototype Implementation Components and Data Flows}
+%     \label{fig:implementation_architecture}
+% \end{figure}
+
+\subsection{Identity and Signed Data}
+
+% Describe the implementation of key generation, profile creation, signing,
+% and verification. Explain where the private key is kept and how the profile
+% public key is checked against the signing identity. Refer back to
+% Figure~\ref{fig:identity_workflow} in the System Design chapter rather than
+% repeating its sequence diagram.
+
+\subsection{Social Action Implementation}
+
+% Explain the common action structure, action-specific fields, serialization,
+% signing, and validation. Discuss the shared ActionBase and concrete
+% PostAction, ReplyAction, LikeAction, and FollowAction classes, along with
+% ActionFactory/ActionRegistry where relevant.
+% Refer to the Post, Reply, Like, and Follow workflows in the System Design
+% chapter (Figures~\ref{fig:post_workflow}, \ref{fig:reply_workflow},
+% \ref{fig:like_workflow}, and \ref{fig:follow_workflow}).
+
+% Include a focused class diagram here only if it clarifies the shared action
+% structure and relationships between the base class, concrete action classes,
+% and factory/registry. This is not a substitute for the component overview.
+% Optional figure placeholder:
+% \begin{figure}[h]
+%     \centering
+%     \includegraphics[width=\textwidth]{figures/action_class_diagram.png}
+%     \caption{Social Action Class Structure}
+%     \label{fig:action_class_diagram}
+% \end{figure}
+
+\subsection{Following and Discovery}
+
+% Describe how FollowAction uses the public directory entry and retrieved
+% signed profile to check the handle, repository URL, and registered public
+% key before creating a Follow action. Explain the directory's role as a
+% trusted handle-to-key lookup, without implying that it hosts or controls
+% social actions. Refer to the Discovery and Follow workflows in the System
+% Design chapter (Figures~\ref{fig:discovery_workflow} and
+% \ref{fig:follow_workflow}).
+
+\subsection{Replication}
+
+% Describe how Replicator obtains remote repository data, verifies candidate
+% actions, stores accepted actions locally, and propagates them. Explain the
+% role of ActionVerifier and profile verification where relevant. Refer to
+% Figures~\ref{fig:replication_workflow} and
+% \ref{fig:multihop_replication} in the System Design chapter.
+
+\subsection{Feed Construction and Site Publication}
+
+% Describe how locally available signed actions and verified profile
+% information are assembled for display, and how the static site is published
+% separately from protocol data. Identify the responsibilities of
+% ShowFeedAction, SitePublisher, and PublishManager accurately; distinguish
+% local feed display from generation/publication of feed.json. Refer to
+% Figure~\ref{fig:feed_construction_workflow} in the System Design chapter.
+
+\subsection{Implementation Verification}
+
+% Briefly describe the test strategy, test environment, and how tests map to
+% important components or requirements. Report actual test outcomes, scenario
+% evidence, and requirement assessments in the Results chapter rather than
+% predicting or asserting them here.
+
+\subsection{Implementation Limitations}
+
+% Describe implementation-specific constraints that affect interpretation or
+% reproducibility. Reserve broader implications and future work for Discussion.
