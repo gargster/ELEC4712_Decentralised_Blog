@@ -374,36 +374,119 @@ or action identifiers and processing only newly observed actions.
 
 ## Implementation Architecture (Component View)
 
-This is a component-level view of the prototype, intended to show which
-modules perform each responsibility and how information moves between them.
-It is deliberately not a class diagram: the class relationships within social
-action creation can be shown separately if useful.
+This overview groups the implementation by responsibility. Read from the user
+and CLI at the top, through the client modules, to the repositories and
+directory they use. The Identity and Profiles box names the code that
+implements key and profile management; arrows are labelled with the operation
+they represent. The class view below gives more detail about class
+relationships.
 
 ```mermaid
-flowchart LR
-    User[User] --> CLI[CLI<br/>client/app.py]
+flowchart TB
+    User[User] --> CLI[Command-line client<br/>client/app.py]
 
-    CLI --> Identity[Identity management<br/>key and profile operations]
-    CLI --> Actions[Social action commands<br/>post, reply, like, follow]
-    CLI --> Replication[Replication<br/>Replicator]
-    CLI --> Feed[Local feed display<br/>ShowFeedAction]
-    CLI --> Publishing[Site publication<br/>SitePublisher]
+    subgraph Modules["Client modules"]
+        direction LR
+        Identity["Identity and profiles<br/>ProfileCreator, KeyPair,<br/>Signer, ProfileVerifier,<br/>Verifier"]
+        Actions["Social actions<br/>ActionFactory, ActionBase,<br/>PostAction, ReplyAction,<br/>LikeAction, FollowAction,<br/>ActionVerifier"]
+        Replication["Replication<br/>Replicator"]
+        Feed["Local feed display<br/>ShowFeedAction"]
+        Publishing["Site and account publishing<br/>SitePublisher, PublishManager"]
+    end
 
-    Actions --> ActionBase[Shared action creation<br/>ActionBase and action classes]
-    ActionBase --> Signing[Signing<br/>Signer]
-    ActionBase --> LocalRepo[(User repository<br/>main: profile and actions)]
-    Actions --> Follow[Follow and discovery checks<br/>FollowAction and ProfileVerifier]
-    Follow --> Directory[(Public directory<br/>handle, repository URL, public key)]
-    Follow --> RemoteRepo[(Followed user repository)]
+    CLI --> Identity
+    CLI --> Actions
+    CLI --> Replication
+    CLI --> Feed
+    CLI --> Publishing
 
-    Replication --> Verifiers[Validation<br/>ActionVerifier and ProfileVerifier]
-    Replication --> RemoteRepo
-    Replication --> LocalRepo
+    Identity -->|creates signed profile| MainRepo[(User repository<br/>main branch)]
+    Actions -->|writes signed actions| MainRepo
+    Actions -->|Follow checks registered handle and key| Directory[(Public directory)]
+    Actions -->|Follow fetches profile| RemoteRepo[(Followed user repository)]
+    Actions -.->|uses signing and profile verification| Identity
 
-    Feed --> LocalRepo
-    Publishing --> Verifiers
-    Publishing --> Directory
-    Publishing --> Pages[(User repository<br/>gh-pages: feed.json and site)]
-    Publishing --> PublishManager[Account and directory publishing<br/>PublishManager]
-    PublishManager --> Directory
+    Replication -->|fetches and verifies actions| RemoteRepo
+    Replication -->|stores accepted actions| MainRepo
+    Replication -.->|verifies remote profile| Identity
+
+    Feed -->|reads local actions| MainRepo
+    Publishing -->|reads profile and actions| MainRepo
+    Publishing -->|publishes feed and site| Pages[(User repository<br/>gh-pages branch)]
+    Publishing -->|registers optional site URL| Directory
+```
+
+## Implementation Architecture (Class View)
+
+This complementary view focuses on the main Python classes and their
+relationships. Inheritance arrows show the action subclasses; dashed arrows
+show classes that use or create other classes. It is not a workflow diagram,
+so it does not show the order in which a command runs.
+
+```mermaid
+classDiagram
+    class ClientCLI {
+        <<module>>
+        main()
+    }
+
+    class ProfileCreator
+    class KeyPair
+    class Signer
+    class ProfileVerifier
+    class Verifier
+
+    class ActionBase
+    class PostAction
+    class ReplyAction
+    class LikeAction
+    class FollowAction
+    class ShowFeedAction
+    class ActionFactory
+    class ActionRegistry
+    class ActionVerifier
+
+    class Replicator
+    class SitePublisher
+    class PublishManager
+
+    class SocialDirectory {
+        <<external data>>
+    }
+    class UserRepository {
+        <<Git repository>>
+    }
+
+    ClientCLI ..> ProfileCreator : creates profiles
+    ClientCLI ..> ActionFactory : creates command actions
+    ClientCLI ..> Replicator : runs replication
+    ClientCLI ..> SitePublisher : publishes site
+
+    ProfileCreator ..> KeyPair : generates keys
+    ProfileCreator ..> Signer : signs profile
+    ProfileVerifier ..> Verifier : verifies signature
+
+    ActionBase <|-- PostAction
+    ActionBase <|-- ReplyAction
+    ActionBase <|-- LikeAction
+    ActionBase <|-- FollowAction
+    ActionBase <|-- ShowFeedAction
+    ActionBase ..> Signer : signs actions
+    ActionFactory ..> ActionRegistry : looks up action class
+    ActionFactory ..> ActionBase : creates subclass
+    ActionRegistry ..> ActionBase : stores action classes
+
+    FollowAction ..> ProfileVerifier : verifies target profile
+    FollowAction ..> SocialDirectory : checks handle and key
+    FollowAction ..> UserRepository : fetches target profile
+    Replicator ..> ProfileVerifier : verifies remote profile
+    Replicator ..> ActionVerifier : verifies actions
+    Replicator ..> UserRepository : reads and stores actions
+
+    ShowFeedAction ..> ActionVerifier : validates local actions
+    SitePublisher ..> ProfileVerifier : verifies profiles
+    SitePublisher ..> ActionVerifier : validates feed actions
+    SitePublisher ..> PublishManager : registers published site
+    SitePublisher ..> UserRepository : publishes gh-pages site
+    PublishManager ..> SocialDirectory : updates directory entries
 ```
