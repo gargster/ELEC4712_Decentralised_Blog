@@ -494,3 +494,66 @@ classDiagram
     GitPublisher ..> UserRepository : commits and pushes actions
     PublishManager ..> SocialDirectory : updates directory entries
 ```
+
+## Focused Social Action Class Diagram
+
+This view isolates how social actions share common creation and signing
+behaviour. The factory uses the registry to select the class for a command;
+each selected action class extends `ActionBase` with its own fields.
+
+```mermaid
+classDiagram
+    class ActionBase {
+        +social_path
+        +run(args)
+        #_create(action_type, kwargs)
+        #_extend(obj, kwargs)
+        #_sign_action(action, private_key)
+        #_write(action)
+    }
+
+    class PostAction {
+        +run(args)
+        #_extend(obj, content)
+    }
+
+    class ReplyAction {
+        +run(args)
+        #_extend(obj, target, inReplyTo, content)
+    }
+
+    class LikeAction {
+        +run(args)
+        #_extend(obj, target, targetHandle)
+    }
+
+    class FollowAction {
+        +run(args)
+        +_extend(obj, target)
+    }
+
+    class ActionFactory {
+        +create(command, social_path)
+    }
+
+    class ActionRegistry {
+        +register(name, action_class)
+        +get(name)
+    }
+
+    ActionBase <|-- PostAction
+    ActionBase <|-- ReplyAction
+    ActionBase <|-- LikeAction
+    ActionBase <|-- FollowAction
+
+    ActionFactory ..> ActionRegistry : looks up command
+    ActionFactory ..> ActionBase : creates selected action
+    ActionRegistry ..> PostAction : maps post
+    ActionRegistry ..> ReplyAction : maps reply
+    ActionRegistry ..> LikeAction : maps like
+    ActionRegistry ..> FollowAction : maps follow
+```
+
+`ShowFeedAction` is omitted from this focused view: although it currently
+inherits from `ActionBase` and is registered by the factory, it displays a
+feed rather than creating a social action.
