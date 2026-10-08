@@ -4,7 +4,7 @@ import json
 import urllib.request
 from src.actions.base import ActionBase
 from src.config import DIRECTORY_JSON_URL
-from src.discovery.profile_verifier import ProfileVerifier
+from src.identity.profile_verifier import ProfileVerifier
 
 
 class FollowAction(ActionBase):

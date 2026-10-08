@@ -1,6 +1,6 @@
 import json
 import pytest
-from src.discovery.profile_verifier import ProfileVerifier
+from src.identity.profile_verifier import ProfileVerifier
 from src.identity.keypair import KeyPair
 from src.identity.signer import Signer
 

@@ -36,7 +36,8 @@
 % Explain the common action structure, action-specific fields, serialization,
 % signing, and validation. Discuss the shared ActionBase and concrete
 % PostAction, ReplyAction, LikeAction, and FollowAction classes, along with
-% ActionFactory/ActionRegistry where relevant.
+% ActionFactory/ActionRegistry where relevant. After an action is written
+% locally, GitPublisher commits and pushes it to the user's repository.
 % Refer to the Post, Reply, Like, and Follow workflows in the System Design
 % chapter (Figures~\ref{fig:post_workflow}, \ref{fig:reply_workflow},
 % \ref{fig:like_workflow}, and \ref{fig:follow_workflow}).
@@ -75,8 +76,11 @@
 % Describe how locally available signed actions and verified profile
 % information are assembled for display, and how the static site is published
 % separately from protocol data. Identify the responsibilities of
-% ShowFeedAction, SitePublisher, and PublishManager accurately; distinguish
-% local feed display from generation/publication of feed.json. Refer to
+% ShowFeedAction, GitPublisher, SitePublisher, and PublishManager accurately.
+% GitPublisher publishes new action files to main; SitePublisher publishes
+% feed.json and site files to gh-pages; PublishManager handles account and
+% directory updates. Distinguish local feed display from site publication.
+% Refer to
 % Figure~\ref{fig:feed_construction_workflow} in the System Design chapter.
 
 \subsection{Implementation Verification}

@@ -9,7 +9,7 @@ from src.actions.follow import FollowAction
 from src.actions.reply import ReplyAction
 from src.actions.like import LikeAction
 from src.actions.post import PostAction
-from src.discovery.profile_verifier import ProfileVerifier
+from src.identity.profile_verifier import ProfileVerifier
 from src.identity.profile import ProfileCreator
 import src.actions.base as base
 

@@ -3,7 +3,7 @@ import json
 import os
 
 from src.actions.action_verifier import ActionVerifier
-from src.discovery.profile_verifier import ProfileVerifier
+from src.identity.profile_verifier import ProfileVerifier
 
 
 class Replicator:

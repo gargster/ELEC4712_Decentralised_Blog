@@ -1,4 +1,4 @@
-# Responsible for publishing new social actiosn to the Git Repo
+# Publishes newly created social actions to the user's Git repository.
 import os
 # GitPython
 from git import Repo
@@ -52,7 +52,6 @@ class GitPublisher:
             origin.push()
         except Exception as e:
             print("Warning: git push failed", e)
-
 
 
 

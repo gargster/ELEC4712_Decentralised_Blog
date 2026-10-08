@@ -17,11 +17,11 @@ from src.actions.like import LikeAction
 from src.actions.follow import FollowAction
 
 from src.actions.action_factory import ActionRegistry, ActionFactory
-from src.replication.git_publisher import GitPublisher
 from src.replication.replicator import Replicator
 
 from src.utils.identity_loader import load_identity
 from src.publishing.publish_manager import PublishManager
+from src.publishing.git_publisher import GitPublisher
 from src.publishing.site_publisher import SitePublisher
 
 # Correct project root (ELEC4712_Decentralised_Blog/)

@@ -391,7 +391,7 @@ flowchart TB
         Actions["Social actions<br/>ActionFactory, ActionBase,<br/>PostAction, ReplyAction,<br/>LikeAction, FollowAction,<br/>ActionVerifier"]
         Replication["Replication<br/>Replicator"]
         Feed["Local feed display<br/>ShowFeedAction"]
-        Publishing["Site and account publishing<br/>SitePublisher, PublishManager"]
+        Publishing["Git and site publishing<br/>GitPublisher, SitePublisher,<br/>PublishManager"]
     end
 
     CLI --> Identity
@@ -402,6 +402,7 @@ flowchart TB
 
     Identity -->|creates signed profile| MainRepo[(User repository<br/>main branch)]
     Actions -->|writes signed actions| MainRepo
+    Publishing -->|commits and pushes actions| MainRepo
     Actions -->|Follow checks registered handle and key| Directory[(Public directory)]
     Actions -->|Follow fetches profile| RemoteRepo[(Followed user repository)]
     Actions -.->|uses signing and profile verification| Identity
@@ -447,6 +448,7 @@ classDiagram
     class ActionVerifier
 
     class Replicator
+    class GitPublisher
     class SitePublisher
     class PublishManager
 
@@ -460,6 +462,7 @@ classDiagram
     ClientCLI ..> ProfileCreator : creates profiles
     ClientCLI ..> ActionFactory : creates command actions
     ClientCLI ..> Replicator : runs replication
+    ClientCLI ..> GitPublisher : publishes new actions
     ClientCLI ..> SitePublisher : publishes site
 
     ProfileCreator ..> KeyPair : generates keys
@@ -488,5 +491,6 @@ classDiagram
     SitePublisher ..> ActionVerifier : validates feed actions
     SitePublisher ..> PublishManager : registers published site
     SitePublisher ..> UserRepository : publishes gh-pages site
+    GitPublisher ..> UserRepository : commits and pushes actions
     PublishManager ..> SocialDirectory : updates directory entries
 ```

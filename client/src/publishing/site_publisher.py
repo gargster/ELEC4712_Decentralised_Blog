@@ -9,7 +9,7 @@ from git.remote import PushInfo
 
 from src.actions.action_verifier import ActionVerifier
 from src.config import CANONICAL_REPO_NAME, DIRECTORY_JSON_URL
-from src.discovery.profile_verifier import ProfileVerifier
+from src.identity.profile_verifier import ProfileVerifier
 from src.publishing.publish_manager import PublishManager
 
 
