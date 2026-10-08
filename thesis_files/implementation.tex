@@ -7,7 +7,21 @@
 % the Results chapter.
 
 \subsection{Prototype Overview}
+The prototype is built primary from the following tools:
+1. GitHub is the version control system used to track versions during development of the prototype.
+2. Python programming language was used as the backend code to define classes and actions to perform social actions.
+3. CSS, JavaScript, HTML programming languages for the frontend code to render the feeds of users over gh-pages and the directory json file.
+4. GitHub Pages selected as the static website to render the feed and directory.
+5. Python Unittest & Coverage Libraries to perform unittest and measuring coverage.
 
+The root directory of the github repository has the following files/directories:
+- client: which contains the source code
+- docs/archive: documenetation of previous designs
+- README.md: general instructions how to run code
+- alternatives.md: detailed survery of protocols
+- latest design.md: sequence diagrams of primary workflows.
+
+The entry point of the implementation is through a Python command line interface, by navigating to the client, users can run python app.py to get a list of commands that can be run. 
 % State the implementation language, client interface, and relevant runtime
 % environment. Describe the main modules and their responsibilities at a
 % component level. Refer to the implementation component diagram below.
@@ -30,29 +44,20 @@
 % public key is checked against the signing identity. Refer back to
 % Figure~\ref{fig:identity_workflow} in the System Design chapter rather than
 % repeating its sequence diagram.
+The profile create command is handled by the ProfileCreator which clones the Canonical-social repository, generates an Ed25519 public key pair which is a highly secure digital signature schema. The user profile is then created and signed before saving it in the user repository as "profile.json". The private key is kept separately in the client’s identity state, while the public key and signature are included in the profile. However a separate publish command is required to put the user identity onto git for other users to interact with them. The user provides the url of the git repository where they want to publish their identity which is handled in PublishManager. Before followers can recieve the identity and interact with the user,  ProfileVerifier checks profile signatures using the shared JSON signature-verification logic from the Verifier class. This implementation realises the identity workflow described in Figure~\ref{fig:identity_workflow}. The actual signing takes place in the signer.py class and verifying in the verifier.py class which uses the primary python libarary for the Networking and Cyrptography (PyNaCI). (Note may be good to include short screnshot of the signing/verifying).
 
 \subsection{Social Action Implementation}
+The whole functionality of the prototype is based around social actions which users create (saved as JSON files). The structure is quite similar for all actions as seen by the Generic action structure listing in design. Where all have a unique id, type of action, author public key, created time stamp and signature. Thus instead of duplicating the same class code to represent different actions while only making minimal changes, an abstraction of ActionBase is created. 
 
-% Explain the common action structure, action-specific fields, serialization,
-% signing, and validation. Discuss the shared ActionBase and concrete
-% PostAction, ReplyAction, LikeAction, and FollowAction classes, along with
-% ActionFactory/ActionRegistry where relevant. After an action is written
-% locally, GitPublisher commits and pushes it to the user's repository.
-% Refer to the Post, Reply, Like, and Follow workflows in the System Design
-% chapter (Figures~\ref{fig:post_workflow}, \ref{fig:reply_workflow},
-% \ref{fig:like_workflow}, and \ref{fig:follow_workflow}).
+As shown in the Figure~\ref{fig:action_class_diagram}
+ActionBase is the parent class of all action classes (LikeAction, ReplyAction, FollowAction, PostAction) which encapsulates the shared creation workflow in the create method. Here, the public and private key are loaded from the profile.json, unique action id generated, action is created, signed and written to the actions directory. Importantly, before signing and writing the action, the create method calls a extend method which allows subclasses of ActionBase to define extra behaviour specific to that action. Thus the children classes can directly reuse the identical workflow defined in ActionBase but just hook in the extra behaviour for example LikeAction just adds and extra target and targetHandle field from the extend implementation to provide the LikeAction. The social action hierarchy uses the Template Method design pattern. \texttt{ActionBase} defines the common action creation workflow, including metadata generation and signing, while subclasses such as \texttt{PostAction}, \texttt{ReplyAction}, \texttt{LikeAction} and \texttt{FollowAction} customise the action-specific behaviour \cite{gfg_template_method}. Another aspect of this extensible implementation is shown in Figure~\ref{fig:action_class_diagram}, where the \texttt{ActionFactory} and \texttt{ActionRegistry} classes are presented. Within this design, \texttt{ActionBase} acts as the Product, while \texttt{ActionFactory} implements the Factory Method pattern by creating concrete action instances through its \texttt{create()} method \cite{gfg_factory_method}. This allows the client code (\texttt{app.py}) to simply call \texttt{ActionFactory.create(...)} and obtain the required action type without needing to know the implementation details of the concrete action classes. As a result, object creation is encapsulated and client code remains decoupled from specific action implementations. The design also supports extensibility. New social action types can be introduced without modifying existing action creation logic, which is particularly valuable as additional social interactions may be added in future versions of the protocol. To introduce a new action type, a new class inheriting from \texttt{ActionBase} can be created and registered through the \texttt{ActionRegistry}. Once registered, the new action can be instantiated through \texttt{ActionFactory} in the same manner as existing actions. Consequently, the implementation supports scalability and extensibility while adhering to the Open-Closed Principle of SOLID, whereby software entities should be open for extension but closed for modification.
 
-% Include a focused class diagram here only if it clarifies the shared action
-% structure and relationships between the base class, concrete action classes,
-% and factory/registry. The Mermaid source is in the Focused Social Action
-% Class Diagram section of latest_design.md. Export it as an image before
-% enabling this figure. This is not a substitute for the component overview.
-% \begin{figure}[h]
-%     \centering
-%     \includegraphics[width=\textwidth]{figures/action_class_diagram.png}
-%     \caption{Social Action Class Structure}
-%     \label{fig:action_class_diagram}
-% \end{figure}
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\textwidth]{figures/action_class_diagram.png}
+    \caption{Social Action Class Structure}
+    \label{fig:action_class_diagram}
+\end{figure}
 
 \subsection{Following and Discovery}
 
@@ -77,11 +82,8 @@
 % Describe how locally available signed actions and verified profile
 % information are assembled for display, and how the static site is published
 % separately from protocol data. Identify the responsibilities of
-% ShowFeedAction, GitPublisher, SitePublisher, and PublishManager accurately.
-% GitPublisher publishes new action files to main; SitePublisher publishes
-% feed.json and site files to gh-pages; PublishManager handles account and
-% directory updates. Distinguish local feed display from site publication.
-% Refer to
+% ShowFeedAction, SitePublisher, and PublishManager accurately; distinguish
+% local feed display from generation/publication of feed.json. Refer to
 % Figure~\ref{fig:feed_construction_workflow} in the System Design chapter.
 
 \subsection{Implementation Verification}
