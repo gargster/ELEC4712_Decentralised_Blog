@@ -7,50 +7,111 @@
 % the Results chapter.
 
 \subsection{Prototype Overview}
-The prototype is built primary from the following tools:
-1. GitHub is the version control system used to track versions during development of the prototype.
-2. Python programming language was used as the backend code to define classes and actions to perform social actions.
-3. CSS, JavaScript, HTML programming languages for the frontend code to render the feeds of users over gh-pages and the directory json file.
-4. GitHub Pages selected as the static website to render the feed and directory.
-5. Python Unittest & Coverage Libraries to perform unittest and measuring coverage.
+\textbf{The prototype is built using the following tools and technologies:}
+\begin{itemize}
+    \item \textbf{Git} for version control and repository-based storage and exchange;
+    \item \textbf{Python} for the client-side protocol operations;
+    \item \textbf{HTML, CSS and JavaScript} for the feed and directory websites;
+    \item \textbf{GitHub} for hosting user and directory repositories, with
+    GitHub Pages serving the static websites; and
+    \item \textbf{PyNaCl and GitPython} for cryptographic and Git operations
+    in the Python client.
+\end{itemize}
 
-The root directory of the github repository has the following files/directories:
-- client: which contains the source code
-- docs/archive: documenetation of previous designs
-- README.md: general instructions how to run code
-- alternatives.md: detailed survery of protocols
-- latest design.md: sequence diagrams of primary workflows.
+\textbf{The repository contains the \texttt{client} source code,
+\texttt{thesis\_files} for the thesis, and documentation such as
+\texttt{README.md}, which explains how to run the prototype, and
+\texttt{latest\_design.md}, which contains the workflow diagrams. The
+\texttt{docs/archive} directory retains earlier design documents. The client
+entry point is \texttt{client/app.py}. Running \texttt{python app.py} from the
+\texttt{client} directory displays the available commands, including profile
+creation, social actions, replication, feed display and site publication. The
+automated tests use \texttt{pytest}; their results are reported in the Results
+chapter.}
 
-The entry point of the implementation is through a Python command line interface, by navigating to the client, users can run python app.py to get a list of commands that can be run. 
-% State the implementation language, client interface, and relevant runtime
-% environment. Describe the main modules and their responsibilities at a
-% component level. Refer to the implementation component diagram below.
-% Contrast the component diagram with a class diagram: this figure shows
-% software responsibilities and data flows, not every class or method.
-
-% Add/export the component diagram from latest_design.md, then uncomment and
-% update this figure block:
-% \begin{figure}[h]
-%     \centering
-%     \includegraphics[width=\textwidth]{figures/implementation_architecture.png}
-%     \caption{Prototype Implementation Components and Data Flows}
-%     \label{fig:implementation_architecture}
-% \end{figure}
+% Keep this overview concise: the System Design chapter already explains the
+% protocol architecture and workflows. This chapter describes how the
+% prototype realises them.
 
 \subsection{Identity and Signed Data}
 
-% Describe the implementation of key generation, profile creation, signing,
-% and verification. Explain where the private key is kept and how the profile
-% public key is checked against the signing identity. Refer back to
-% Figure~\ref{fig:identity_workflow} in the System Design chapter rather than
-% repeating its sequence diagram.
-The profile create command is handled by the ProfileCreator which clones the Canonical-social repository, generates an Ed25519 public key pair which is a highly secure digital signature schema. The user profile is then created and signed before saving it in the user repository as "profile.json". The private key is kept separately in the client’s identity state, while the public key and signature are included in the profile. However a separate publish command is required to put the user identity onto git for other users to interact with them. The user provides the url of the git repository where they want to publish their identity which is handled in PublishManager. Before followers can recieve the identity and interact with the user,  ProfileVerifier checks profile signatures using the shared JSON signature-verification logic from the Verifier class. This implementation realises the identity workflow described in Figure~\ref{fig:identity_workflow}. The actual signing takes place in the signer.py class and verifying in the verifier.py class which uses the primary python libarary for the Networking and Cyrptography (PyNaCI). (Note may be good to include short screnshot of the signing/verifying).
+\textbf{The \texttt{profile create} command is handled by
+\texttt{ProfileCreator}, which clones the canonical repository template and
+generates an Ed25519 key pair using PyNaCl. It creates a profile containing
+the user's handle, public key and profile information, then signs and saves
+it as \texttt{social/profile.json}. The private key is stored separately in
+the client's identity state, while the public key and signature are included
+in the profile. The user then runs \texttt{publish} with the URL of the Git
+repository where the identity will be hosted. \texttt{PublishManager}
+publishes the repository, adds the repository URL to the profile, re-signs
+and pushes the updated profile, and registers the account in the social
+directory.}
+
+\textbf{The \texttt{Signer} and \texttt{Verifier} classes provide the shared
+JSON signing and verification operations. Before signing, \texttt{Signer}
+serialises the object with sorted keys and excludes any existing signature.
+It signs these bytes with the Ed25519 private key and stores the resulting
+signature in Base64 form. \texttt{Verifier} decodes the signature and checks
+it against the same sorted JSON representation using the public key. The
+following lines show the core operations (a screenshot of these lines can be
+included here):}
+
+\begin{quote}
+\textbf{\texttt{message = json.dumps(obj\_to\_sign, sort\_keys=True).encode("utf-8")}}\\
+\textbf{\texttt{signed = self.signing\_key.sign(message)}}\\
+\textbf{\texttt{self.verify\_key.verify(message, signature\_bytes)}}
+\end{quote}
+
+\textbf{\texttt{ProfileVerifier} uses \texttt{Verifier} to check a profile's
+signature before returning its verified handle, public key and repository
+URL. This is the implementation of the profile verification step shown in
+Figure~\ref{fig:identity_workflow}.}
 
 \subsection{Social Action Implementation}
-The whole functionality of the prototype is based around social actions which users create (saved as JSON files). The structure is quite similar for all actions as seen by the Generic action structure listing in design. Where all have a unique id, type of action, author public key, created time stamp and signature. Thus instead of duplicating the same class code to represent different actions while only making minimal changes, an abstraction of ActionBase is created. 
+\textbf{Social actions are stored as JSON files in the user's
+\texttt{social/actions/} directory. As described in the System Design
+chapter, they share common fields: an identifier, action type, author public
+key, creation timestamp and signature. Since these fields and the creation
+steps are common across post, reply, like and follow actions, the
+implementation uses \texttt{ActionBase} to avoid duplicating this logic.}
 
-As shown in the Figure~\ref{fig:action_class_diagram}
-ActionBase is the parent class of all action classes (LikeAction, ReplyAction, FollowAction, PostAction) which encapsulates the shared creation workflow in the create method. Here, the public and private key are loaded from the profile.json, unique action id generated, action is created, signed and written to the actions directory. Importantly, before signing and writing the action, the create method calls a extend method which allows subclasses of ActionBase to define extra behaviour specific to that action. Thus the children classes can directly reuse the identical workflow defined in ActionBase but just hook in the extra behaviour for example LikeAction just adds and extra target and targetHandle field from the extend implementation to provide the LikeAction. The social action hierarchy uses the Template Method design pattern. \texttt{ActionBase} defines the common action creation workflow, including metadata generation and signing, while subclasses such as \texttt{PostAction}, \texttt{ReplyAction}, \texttt{LikeAction} and \texttt{FollowAction} customise the action-specific behaviour \cite{gfg_template_method}. Another aspect of this extensible implementation is shown in Figure~\ref{fig:action_class_diagram}, where the \texttt{ActionFactory} and \texttt{ActionRegistry} classes are presented. Within this design, \texttt{ActionBase} acts as the Product, while \texttt{ActionFactory} implements the Factory Method pattern by creating concrete action instances through its \texttt{create()} method \cite{gfg_factory_method}. This allows the client code (\texttt{app.py}) to simply call \texttt{ActionFactory.create(...)} and obtain the required action type without needing to know the implementation details of the concrete action classes. As a result, object creation is encapsulated and client code remains decoupled from specific action implementations. The design also supports extensibility. New social action types can be introduced without modifying existing action creation logic, which is particularly valuable as additional social interactions may be added in future versions of the protocol. To introduce a new action type, a new class inheriting from \texttt{ActionBase} can be created and registered through the \texttt{ActionRegistry}. Once registered, the new action can be instantiated through \texttt{ActionFactory} in the same manner as existing actions. Consequently, the implementation supports scalability and extensibility while adhering to the Open-Closed Principle of SOLID, whereby software entities should be open for extension but closed for modification.
+\textbf{As shown in Figure~\ref{fig:action_class_diagram},
+\texttt{ActionBase} defines the shared creation workflow in
+\texttt{\_create()}. It loads the public key from \texttt{profile.json} and
+the private key from the client's identity state, checks that the keys
+correspond, generates an action ID and builds the common fields. It then calls
+\texttt{\_extend()}, allowing each subclass to add its action-specific
+fields—for example, \texttt{LikeAction} adds the target action ID and target
+handle, while \texttt{PostAction} adds the post content. Finally,
+\texttt{ActionBase} signs and writes the JSON file. The client uses
+\texttt{GitPublisher} to commit and push the created action.}
+
+\textbf{This shared creation workflow uses the Template Method pattern:
+\texttt{ActionBase} defines the common algorithm, while subclasses customise
+the \texttt{\_extend()} step \cite{gfg_template_method}. Separately, the
+prototype uses a factory design pattern to avoid duplicating the logic for
+instantiating different action classes. When a user enters a command,
+\texttt{ActionFactory.create(...)} obtains the corresponding class from
+\texttt{ActionRegistry} and creates an instance. This allows \texttt{app.py}
+to request an action by command without knowing the concrete class or its
+construction details, encapsulating object creation and decoupling command
+handling from action-specific implementation. The registry maps command names
+to action classes, avoiding a growing chain of action-specific
+\texttt{if}/\texttt{elif} branches in the factory
+\cite{gfg_factory_method}.}
+
+\textbf{This structure supports extension as new social actions are introduced.
+To add an action, a developer can implement a class inheriting from
+\texttt{ActionBase} and register it for a command; the existing factory and
+its dispatch logic do not need to change. The new command must still be
+connected to the CLI parser and registry, but no new action-specific branch
+needs to be added to the factory. This is an example of the Open--Closed
+Principle: the action system can be extended without modifying its existing
+creation logic. The Post, Reply, Like and Follow sequence diagrams in the
+System Design chapter
+(Figures~\ref{fig:post_workflow}, \ref{fig:reply_workflow},
+\ref{fig:like_workflow} and \ref{fig:follow_workflow}) show how these action
+types are used in the protocol workflows.}
 
 \begin{figure}[h]
     \centering
@@ -58,6 +119,7 @@ ActionBase is the parent class of all action classes (LikeAction, ReplyAction, F
     \caption{Social Action Class Structure}
     \label{fig:action_class_diagram}
 \end{figure}
+
 
 \subsection{Following and Discovery}
 
@@ -68,6 +130,37 @@ ActionBase is the parent class of all action classes (LikeAction, ReplyAction, F
 % social actions. Refer to the Discovery and Follow workflows in the System
 % Design chapter (Figures~\ref{fig:discovery_workflow} and
 % \ref{fig:follow_workflow}).
+The FollowAction uses the same object creation as the described Action classes with only specific field being the publickey of the target user. However, it has some extra responsibilities as it needs to add the specified url of the repository to a remote URL so that the user can replicate from that user in the future. As discussed in the Design Chapter (Figures~\ref{fig:discovery_workflow} and \ref{fig:follow_workflow}) a check is made to ensure that the user being targeted to follow is the same initially created (from when the account was published and added to the directory). This involves making an HTTP request to the live hosted directory as defined in the config.py with the "urllib.request" library as shown below thus providing major protection of following a malicious user posting as the the actual desired user.
+\begin{quote}
+\textbf{\texttt{ with urllib.request.urlopen(DIRECTORY_JSON_URL, timeout=5) as response:
+            directory = json.load(response)}}\\
+\textbf{\texttt{        registered_identity = self._registered_identity(handle)
+        if registered_identity.get("repoURL") != repo_url:
+            raise ValueError(
+                f"Repository URL for '{handle}' does not match the social directory"
+            )
+}}\\
+\end{quote}
+The next most important part of the follow workflow is the addremote call with the handle and url which checks if handle is already in remotes of the repsoitory and if not, the target repository is registered as a Git remote. This allows future replication operations to retrieve updates from the repository using Git's native remote repository mechanisms \cite{github_remotes}.
+(Note: should probabaly focus on explain that it is directly the git rmeote add operationa and what it actually means cause this core point of design and similalry replicta sdecion will explain that we can due git fetch - have tried to do this but not too wwell with reference which maybe should keep)   
+
+The GitPython library createremote function handles this with existing git infrastructure to add the followed repository together as handle url mapping as a remote tracking repository to the users own initialised repository as shown below. 
+\begin{quote}
+\textbf{\texttt{ repo = git.Repo(identity_repo_root)
+        # Step 1: Add remote FIRST
+        self.add_remote(repo, handle, repo_url)
+ }}\\
+\textbf{\texttt{    def add_remote(self, repo, handle, repo_url):
+        if handle not in [r.name for r in repo.remotes]:
+            print(f"[FOLLOW] Adding remote {handle} → {repo_url}")
+            repo.create_remote(handle, repo_url)
+        else:
+            print(f"[FOLLOW] Remote {handle} already exists")
+}}\\
+\end{quote}
+Thus instead of extra infrastructure like files storing what repositories the user follows, Git's existing infrastructure is used and to get actions from followed repositories in future during replication git's own fetch operation can be used. However, before replication from the followed user can take place that user's profile.json (identity) is fetched from the respective remote url by looking up via the handle(note could add relevant fetchprofilegit snippets). Finally before creating the follow action JSON, the profile is verified using a dedicated ProfileVerfier class which applies the explained verifier class for profiles.  
+
+The Discovery mechanism as described in the design chapter supports the lookup of users so that they can conveniently follow them and interact with them by providing trusted handle-to-key lookup. At the implementation level when a git repository is published to git repository through PublishManager the directory is loaded and assertregsiteredkley is called (note: could include code snippet) which makes sure that the if the handle being published is already in the directory that its public key matches the one on the directory so no malicous user can pose as another user upon that repsiutory being closed. The dirctory.json is next written to simply as handle mapped to the repoURL and publicKey with an optional siteURL for deployed to gh-pages feeds of users which is handled in updatesiteurl (note could include short code snippet). The directory.json lives on a git repository called social-directory which has froentend files to actually render the directory for users as shown in following figure (show screenshot of social-direcotyr repo which has app.js, etc). The repository is hosted on gh-pages so any update on the repository gets updated in a short time statically. The index.html is what gets rendered by the site which defines the structure and has the id for directory-status, memberList, memberCount which the app.js accesses with document.queryselector and performs operations like validsite url load directory which makes request to get the direcotry.json and set the content in directorystatus based on directory content (note: this explanation is slightly confused and you should probably explain simply but proeprly the logic I am taking with the document and stuff referncing actual code and adding snippets where possible but keeping concise and simple enough). The style.css provides the layout for the visuals of the site.
 
 \subsection{Replication}
 
