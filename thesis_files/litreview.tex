@@ -1,0 +1,844 @@
+\section{Literature Review}
+
+\subsection{Background}
+
+
+Decentralised social networking protocols aim to remove dependence on a single platform or provider \cite{dsnp2026}. Instead of centralised control, users should retain ownership of their identity, data and interactions. Existing protocols attempt to achieve decentralisation through different mechanisms such as federation, relays, peer‑to‑peer logs, or Git‑based replication. Each mechanism offers distinct trade‑offs in terms of scalability, identity portability and infrastructure requirements.
+
+\textbf{Decentralisation Mechanisms.}
+Federation refers to independent servers communicating through a shared protocol, similar to email \cite{ngi2026}. In this model, user identity and data remain server‑hosted, but no single entity controls the entire network. Protocols such as ActivityPub and AT Protocol adopt this approach. In contrast, other systems avoid servers entirely by using relays (Nostr), peer‑to‑peer append‑only logs (Secure Scuttlebutt), or client‑side static hosting (sAT). These mechanisms differ in how they distribute responsibility for identity, storage and replication.
+
+\textbf{Identity Models.}
+Across decentralised protocol designs, identity is typically represented in two ways. The first is \textit{server‑bound identity}, where a user’s identity is tied to a domain or server, as seen in ActivityPub and AT Protocol. This model limits portability, as users depend on administrators who control domain names and hosting. The second model is \textit{portable cryptographic identity}, where identity is tied to public keys, enabling migration across hosts, as seen in Nostr and Secure Scuttlebutt. Git‑based systems historically tied identity to repository URLs, which provides host‑agnostic storage but lacks portability and structured discovery.
+
+\textbf{Replication Models.}
+Replication determines how posts reach followers. Push‑based replication sends posts from servers to followers, as in ActivityPub. Relay‑based replication forwards signed events through independent relays, as in Nostr. Gossip replication exchanges logs between peers when devices connect, as in Secure Scuttlebutt. Pull‑based replication allows clients to fetch updates on demand, as used in Git‑based protocols. Git’s pull‑based model is efficient, scalable and serverless, making it suitable for decentralised social media.
+
+\textbf{Static Hosting.}
+Note: should modify as our model has changed, this one makes seem static hosting not ideal, I mean we still only using Git approach for social interations but idk we shouldnt make it clear the exact design here, but not make it seem like static hosting is wrong altogether becausewe use gh-pages (static hosting) ot give conventient feed but this is not core to protocol, but shouldnt show design) while paying attention to the discussed stuff in thsis litreview For example: Gh-pages is example static hosting site, where pushes to the repsoitory update the static site.
+
+Static hosting platforms (e.g., GitHub Pages, Netlify) serve pre‑rendered files without backend logic. Some decentralised systems explored static hosting for identity and discovery, particularly those aiming to minimise infrastructure requirements. However, static hosting introduces limitations for large‑scale social interactions, and recent Git‑based approaches instead rely on repository‑level replication rather than static sites.
+    
+\textbf{Git Fundamentals.}
+Note: should maybe cover the core git commands like git commit add push as are core to the surveyed git protocols and later our own protocol. And also should prob describe git itself, ive tried to do so below: 
+Git is a version control system which stores data as snapshots of the project over time, helping track changes efficient. Each time user performs a commit, it takes a snapshot of the files which loook at that moment and stores a reference to that snapshot \cite{git_what_is_git}. Before users can commit and track their files, a git repository must be intialised which is a folder created within a project to help record and keep track of commits \cite{git_repository_medium}. Then the modified files which are to be saved as snapshot need to be added to the staging area by the command 'git add' and then can be committed to record the changes to the repository with 'git commit'. Finally 'git push' is used to update remote reference configured (remote repository URL) with the associated objects (commits) to the particular branch \cite{git_docs}(branches are separate workspaces of the git project users can work on). "git remote add" can be used to add repository to track from and consequently git fetch can be used to recieve changes from the remote-tracking branch thus providing pull-based replication \cite{git_docs}.
+
+Git provides several foundational properties that make it suitable for decentralised social protocols. Its directed acyclic graph (DAG) structure enables structured ordering, branching, merging and verifiable history. Hash‑chained integrity ensures tamper‑evident storage. Git supports rewriting, branching and merging, offering flexibility absent in append‑only log systems like Secure Scuttlebutt. Git’s packfile compression allow efficient pull‑based replication of large histories. Repositories can be hosted on any Git provider or self‑hosted, supporting portability and interoperability.
+
+These properties collectively form the basis for the evaluation of existing decentralised protocols and motivate the design of a native Git alternative. 
+
+\textbf{Structure of remaining Literature Review.}
+Next, for each surveyed protocol, a description of what the protocol is, how it works will be explained. Also, the core functionality of how users make posts and follow other users (replication) will be described with intuitive sequence diagrams created. Further, aspects which are suitable for a decentralised protocol (strengths) and what  limitations make it not fully suitable, for each surveyed protocol will be elaborated in the literature review. This will prove the need for a git based alternative and provide what aspects of existing protocols can be re-used or re-design for an ideal decentralised protocol.
+
+\subsection{ActivityPub}
+
+\subsubsection{What it is}
+ActivityPub is a decentralised social networking protocol where users interact through servers that exchange structured social activities (e.g., Create, Like, Follow) using JSON‑LD over HTTP. It is widely used across the Fediverse and enables interoperability between platforms such as Mastodon and Peer‑Tube \cite{w3cActivityPub2018}.
+
+\subsubsection{How it works}
+ActivityPub uses an inbox/outbox model where a user’s client constructs an activity (such as a Create or Follow), sends it to their server, and the server validates and stores it. The server then forwards this activity to the inboxes of follower servers, which also validate it and update their timelines accordingly. This results in a push‑based, server‑mediated delivery mechanism where servers distribute posts to all followers.
+
+\subsubsection{Posting Workflow}
+The posting workflow illustrates how Alice makes a post and how her followers receive the posts she makes. As shown in Figure~\ref{fig:activitypub_posting}, Alice's client constructs a \texttt{Create} activity and sends it to her server's outbox, where the server validates and stores it. The server then iterates through all follower servers and pushes the \texttt{Create} activity to each inbox. Follower servers validate the activity and update their timelines, after which follower clients either fetch or are notified of the new post.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\textwidth]{figures/activitypub_posting.png}
+    \caption{ActivityPub Posting Workflow}
+    \label{fig:activitypub_posting}
+\end{figure}
+
+\subsubsection{Follow/Replication Workflow}
+The follow workflow shows how Alice begins following Bob. As shown in Figure~\ref{fig:activitypub_follow}, Alice’s client constructs a \texttt{Follow} activity and sends it to her server’s outbox. Her server validates the activity and forwards it to Bob’s inbox. Bob’s server checks the request and, if accepted, adds Alice to Bob’s follower list. It then sends an \texttt{Accept} activity back to Alice’s inbox, after which Alice’s server marks Bob as followed. This explicit approval step is a distinctive feature of ActivityPub compared to other protocols.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\textwidth]{figures/activitypub_follow.png}
+    \caption{ActivityPub Follow Workflow}
+    \label{fig:activitypub_follow}
+\end{figure}
+
+\subsubsection{Strengths}
+\begin{itemize}
+    \item Rich social vocabulary (Create, Like, Follow, Undo, Announce).
+    \item Server-side validation ensures integrity through signature checking.
+    \item Widely adopted across the Fediverse, enabling interoperability.
+    \item Clear HTTP-based design and simple server-to-server model.
+    \item Follow requests can be accepted or declined, providing explicit approval.
+    \item Structured JSON-LD activity objects provide a flexible and extensible social action model.
+\end{itemize}
+
+\subsubsection{Limitations}
+\begin{itemize}
+    \item Inbox/outbox model creates significant infrastructure burden.
+    \item Push-based fan-out (server sends a post to every follower) becomes expensive at scale (as seen in Mastodon).
+    \item No Git-style versioning or DAG ordering.
+    \item Moderation burden placed on each server.
+    \item Server dependency ties identity and availability to a host.
+    \item Scalability challenges push users toward large, well-resourced servers, creating centralisation pressure despite the protocol’s decentralised goals.
+\end{itemize}
+
+\subsubsection{Implications for this project}
+\begin{itemize}
+    \item ActivityPub reflects the initial idea of decentralised social media, providing a baseline for comparison.
+    \item It offers many of the social features desired in this project, including a rich vocabulary of activity types validated through inbox/outbox exchanges and integrity checks.
+    \item The ability for users to accept or decline follow requests aligns with common social protocol behaviour.
+    \item Its push-based, server-dependent model highlights the need for a pull-based, serverless alternative in a Git-native design.
+    \item Static, Git-hosted systems lack push notifications, suggesting the need for lightweight alternative notification mechanisms.
+    \item The contrast between Git (pull-based, versioned, structured, static-hostable) and ActivityPub (push-based, server-dependent, unversioned) clarifies the architectural direction of this project.
+    \item Structured activity types and validation steps provide useful concepts that can be adapted into a Git-based, pull-oriented protocol.
+\end{itemize}
+
+\subsection{Nostr}
+
+\subsubsection{What it is}
+Nostr is a decentralised social protocol where users publish signed events to independent relays, which store and forward these events to subscribers. Identity is based on public-key cryptography, allowing users to retain their identity across relays. Its design focuses on simplicity, censorship‑resistance, and minimal reliance on trusted infrastructure \cite{fiatjaf2026}.
+
+\subsubsection{How it works}
+Users create events (e.g., kind~1 for posts and kind~3 for follows) from actions performed in their client. Each event is signed with the user’s private key and forwarded to one or more relays. Relays validate signatures using the user’s public key and store the event. Clients subscribe to relays using \texttt{REQ} messages to receive past and future events associated with specific public keys. **This results in a decentralised, relay-mediated workflow similar to ActivityPub, but without server-bound identity.**
+
+\subsubsection{Posting Workflow}
+The posting workflow illustrates how Alice’s followers receive her posts. As shown in Figure~\ref{fig:nostr_posting}, Alice’s client constructs a signed event of kind~1 and publishes it to one or more relays. These relays validate and store the event, then forward it to all clients subscribed to Alice’s public key. Follower clients receive the event and update their feeds accordingly.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\textwidth]{figures/nostr_posting.png}
+    \caption{Nostr Posting Workflow}
+    \label{fig:nostr_posting}
+\end{figure}
+
+\subsubsection{Follow/Replication Workflow}
+The follow workflow is handled entirely on the client side. As shown in Figure~\ref{fig:nostr_follow}, when Bob decides to follow Alice, Bob’s client creates a signed contacts event (kind~3) listing Alice’s public key. This event is forwarded to relays, which validate and store it. Bob’s client then sends a \texttt{REQ} subscription message to the relays, requesting events associated with Alice’s public key. The relays respond with Alice’s past events and stream future events as they are published. **Unlike ActivityPub, follow requests are not approved or declined; they are unilateral.**
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\textwidth]{figures/nostr_follow.png}
+    \caption{Nostr Follow Workflow}
+    \label{fig:nostr_follow}
+\end{figure}
+
+\subsubsection{Strengths}
+\begin{itemize}
+    \item Identity is portable because it is tied to cryptographic keys rather than server accounts.
+    \item Nostr is inherently censorship-resistant: users can publish to multiple relays, reducing reliance on any single operator.
+    \item Relays are simple store-and-forward nodes, making the protocol easy to deploy.
+    \item **Users retain identity and followers even if banned from a relay, unlike server-bound models such as ActivityPub.**
+    \item **Event kinds provide a structured vocabulary for social actions, similar to ActivityPub’s activity types.**
+\end{itemize}
+
+\subsubsection{Limitations}
+\begin{itemize}
+    \item Follow requests cannot be accepted or declined; they are unilateral.
+    \item Relays do not track client state, causing clients to download entire message histories unnecessarily \cite{stackernews2026}
+    \item Timestamps are the only ordering mechanism, and can be faked, leading to weak ordering guarantees \cite{stackernews2026}.
+    \item Relays may drop or lose messages, and there is no robust replication strategy \cite{stackernews2026}.
+    \item **The lack of structured replication and ordering suggests that a DAG-based model (e.g., Git) would provide stronger guarantees.**
+\end{itemize}
+
+\subsubsection{Implications for this project}
+\begin{itemize}
+    \item Nostr demonstrates a decentralised workflow similar to ActivityPub but without server-bound identity, highlighting the value of key-based identity.
+    \item Event kinds show how different social actions can be represented cleanly, informing the design of Git-native action objects.
+    \item **Relay-based replication exposes weaknesses (no ordering, no state tracking) that motivate Git’s structured DAG-based replication.**
+    \item **The limitations of relays reinforce the need for a pull-based, integrity-preserving replication model aligned with a Git-native architecture.**
+\end{itemize}
+
+\subsection{Secure Scuttlebutt (SSB)}
+
+\subsubsection{What it is}
+Secure Scuttlebutt (SSB) is a decentralised social protocol where each user maintains an append-only log (their feed) stored locally on their device. Each message in the feed is a signed JSON object linked to the previous message, forming a cryptographically verifiable chain. SSB is designed for offline-first communication and peer-to-peer replication without servers \cite{ssbConsortium2026}.
+
+\subsubsection{How it works}
+When a user creates a post, their client constructs a message object, assigns it the next sequence number, computes the hash of the previous message, and signs the new message with the user’s private key. The signed message is appended to the user’s local feed, forming a linked list of append-only logs. Following another user involves adding their feed ID to a local follow list. Replication occurs later through gossip: when two devices connect, they exchange sequence numbers and transfer any missing signed messages. Each received message is verified using the author’s public key before being appended to the local log.
+
+\subsubsection{Posting Workflow}
+The posting workflow illustrates how Alice creates a new post. As shown in Figure~\ref{fig:ssb_posting}, Alice’s client constructs a message object containing the post content, assigns it the next sequence number, computes the hash of the previous message, signs the message, and appends it to her local feed. Because SSB is offline-first, nothing is sent to followers immediately; Bob receives the post only later during gossip replication.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\textwidth]{figures/ssb_posting.png}
+    \caption{SSB Posting Workflow}
+    \label{fig:ssb_posting}
+\end{figure}
+
+\subsubsection{Following/Replication Workflow}
+Following and replication occur when devices connect. As shown in Figure~\ref{fig:ssb_replication}, Bob follows Alice by adding her feed ID to his local follow list. Later, when Bob’s device connects with Alice’s device (e.g., via Wi-Fi or a pub server), gossip replication begins. Bob’s client requests Alice’s latest sequence number, identifies missing messages, and downloads them. Each message is verified using Alice’s public key before being appended to Bob’s local copy of Alice’s feed.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\textwidth]{figures/ssb_follow.png}
+    \caption{SSB Following/Replication Workflow}
+    \label{fig:ssb_follow}
+\end{figure}
+
+\subsubsection{Strengths}
+\begin{itemize}
+    \item The feed is cryptographically protected: each message is signed and linked to the previous one.
+    \item The protocol is fully decentralised, with no servers controlling visibility or access.
+    \item Gossip replication is robust in offline environments and has been deployed in real-world contexts.
+    \item Users only download messages from peers they follow, reducing exposure to unsolicited content.
+    \item The linked-list structure resembles Git’s commit model, showing conceptual compatibility with structured decentralised data.
+\end{itemize}
+
+\subsubsection{Limitations}
+\begin{itemize}
+    \item Gossip replication spreads data slowly, since users only download messages from peers they follow.
+    \item The append-only log structure is rigid: logs cannot be rewritten or pruned, causing indefinite storage growth.
+    \item Documentation and user interfaces are sparse, reducing accessibility for new users \cite{clebertechSSB2026}.
+    \item As data grows, gossip replication becomes increasingly inefficient due to large synchronisation overhead.
+    \item The lack of flexible history management highlights the need for a more structured replication strategy, such as Git’s DAG-based model.
+\end{itemize}
+
+\subsubsection{Implications for this project}
+\begin{itemize}
+    \item SSB demonstrates a decentralised, offline-first model without servers or relays, aligning with the goal of a pull-based protocol.
+    \item Its cryptographically linked feed structure shows the viability of commit-like message chains, informing Git-native action design.
+    \item The rigidity of append-only logs suggests that Git’s DAG provides more flexibility for history management and scalability.
+    \item Gossip replication’s slow, proximity-based synchronisation reinforces the need for a more efficient replication mechanism, such as Git’s pull-based model.
+    \item SSB’s strong cryptographic guarantees highlight the importance of signing posts and actions in a Git-native protocol.
+\end{itemize}
+
+\subsection{sAT Protocol}
+
+\subsubsection{What it is}
+The sAT Protocol is a decentralised, static‑site‑based social protocol where each user hosts their social data on their own domain under a dedicated \texttt{/satellite/} directory. Posts and user metadata are stored as encrypted JSON files, and all interactions occur entirely within the browser through client‑side cryptography. sAT is designed for small, privacy‑preserving social groups and operates without servers, relays, or backend infrastructure \cite{sat2026}.
+
+\subsubsection{How it works}
+When a user creates a post, the browser constructs a JSON object that represents the post and its metadata. A fresh symmetric content key is generated and used to encrypt the post. The encrypted file is uploaded to \texttt{/satellite/posts/}, and the post’s identifier is appended to \texttt{index.json}, a plaintext list of post IDs used for replication. Following another user involves adding their domain to a local follow list and exchanging encrypted “key envelopes,” where the symmetric content key is encrypted individually for each follower using their public key. During replication, the follower fetches the key envelope, decrypts the symmetric key, retrieves the encrypted posts listed in \texttt{index.json}, and decrypts them locally. \textbf{This hybrid symmetric +asymmetric encryption model provides confidentiality without requiring servers.}
+
+\subsubsection{Posting Workflow}
+The posting workflow illustrates how Alice creates a new post. As shown in Figure~\ref{fig:sat_posting}, Alice’s browser constructs a plaintext JSON object containing post content and metadata, generates a new symmetric content key, encrypts the post, and uploads the encrypted file to \texttt{/ satellite / posts /}. The browser then appends the post ID to \texttt{index.json} and uploads the updated file. \textbf{All processing occurs client‑side, and no server
+participates in validation or forwarding.}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\textwidth]{figures/sat_posting.png}
+    \caption{sAT Posting Workflow}
+    \label{fig:sat_posting}
+\end{figure}
+
+\subsubsection{Following/Replication Workflow}
+Following and replication occur through static‑site fetches. As shown inFigure~\ref{fig:sat_replication}, Bob follows Alice by adding her domain to his local follow list. Bob’s browser then sends a follow request to Alice’s static site, which is delivered to Alice’s browser. Alice’s browser encrypts the symmetric content key for Bob using his public key and uploads the resulting key envelope. During replication, Bob fetches the key envelope, decrypts it to recover the symmetric content key, fetches \texttt{index.json}, and downloads and decrypts each encrypted post listed there. \textbf{This pull‑based replication model mirrors Git’s fetch‑oriented workflow, but without DAG
+structure.}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\textwidth]{figures/sat_follow.png}
+    \caption{sAT Following/Replication Workflow}
+    \label{fig:sat_follow}
+\end{figure}
+
+\subsubsection{Strengths}
+\begin{itemize}
+    \item The protocol is fully static‑hostable: all social data resides on static sites (e.g., GitHub Pages) with no servers or relays.
+    \item Provides confidentiality through symmetric encryption and integrity through HTTPS/TLS.
+    \item Each follower receives a personalised encrypted content key, enabling fine‑grained access control.
+    \item Unfollowing is secure: the user rotates the content key and re‑encrypts posts only for remaining followers.
+    \item Structured JSON objects resemble ActivityPub’s activity model, enabling consistent representation of social actions.
+    \item The dedicated \texttt{/satellite/} directory cleanly isolates social data, similar to directory‑scoped Git‑based protocols.
+\end{itemize}
+
+\subsubsection{Limitations}
+\begin{itemize}
+    \item Feed aggregation is slow: followers must fetch and decrypt each post individually.
+    \item The protocol scales poorly beyond small friend groups due to heavy per‑post encryption and lack of discoverability.
+    \item No support for nested replies, limiting expressiveness compared to richer social protocols.
+    \item Browsers must store private keys locally, raising concerns about secure key storage and portability.
+    \item Replication is computationally expensive: decrypting the content key and then decrypting every post is inefficient for larger networks.
+    \item \textbf{The replication model lacks structured ordering or history management, highlighting the need for Git’s DAG‑based commit model.}
+\end{itemize}
+
+\subsubsection{Implications for this project}
+\begin{itemize}
+    \item sAT demonstrates a fully static‑hostable, serverless model aligned with the project’s goal of decentralised, pull‑based social data.
+    \item Its hybrid encryption model shows how confidentiality can be preserved without backend infrastructure.
+    \item The protocol’s limitations (slow replication, lack of structured history, heavy encryption) reinforce the need for Git’s DAG‑based replication.
+    \item \textbf{The dedicated \texttt{/satellite/} directory reflects a broader organisational pattern in decentralised systems, where social data is placed in a clearly defined subdirectory. This same structure appears in Git‑based protocols such as Octotown, which also isolate social activity within a specific folder.}
+    \item sAT highlights the importance of structured social objects (similar to ActivityPub’s activity types) while motivating a more scalable replication strategy.
+\end{itemize}
+
+
+\subsection{AT Protocol}
+
+\subsubsection{What it is}
+AT Protocol is a decentralised social networking protocol built around signed, per‑user repositories,
+Personal Data Servers (PDS), and a DID‑based portable identity system. It separates identity, data
+storage, indexing, and distribution into distinct services (PDS, AppView, BGS, DID Service). This
+architecture decentralises identity and data ownership while still relying on servers for hosting and
+replication \cite{atproto2026}. \textbf{Its repository‑based structure provides a consistent namespace for social records,
+similar to other protocols that organise social data within defined subdirectories.}
+
+\subsubsection{How it works}
+Each user operates a Personal Data Server (PDS) that stores a signed repository containing their social records (posts, likes, follows, media blobs). The repository is a custom DAG‑like structure defined by Lexicon schemas. When a user creates a post, the client constructs a record, signs it with the user’s private key, and writes it into the repository. The PDS then announces repository updates to the Big Graph Service (BGS), which aggregates updates from many PDS instances into a global “firehose” stream \textbf{a continuous feed of repository events collected across the network}. The AppView consumes this stream, verifies signatures using the user’s DID Document, indexes the post, and makes it available for feed generation. Portable identity is enabled by the DID Service, which maps a user’s handle to a DID containing their public keys and
+PDS endpoint.
+
+\subsubsection{Posting Workflow}
+The posting workflow illustrates how Alice creates a post. As shown in
+Figure~\ref{fig:at_posting}, Alice’s client constructs a post record (e.g., \texttt{app.bsky.feed.post}),
+signs it with her private key, and writes it into her PDS repository. The PDS announces the update
+to the Relay/BGS service, which appends it to the firehose stream. The AppView receives the event,
+verifies the signature using Alice’s public key from her DID Document, indexes the post, and makes
+it available for feed generation. \textbf{This workflow demonstrates a server‑mediated, signature‑based
+update model rather than a peer‑to‑peer replication approach.}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\textwidth]{figures/at_posting.png}
+    \caption{AT Protocol Posting Workflow}
+    \label{fig:at_posting}
+\end{figure}
+
+\subsubsection{Following/Replication Workflow}
+Following and replication rely on the PDS and AppView services. As shown in
+Figure~\ref{fig:at_replication}, Bob follows Alice by creating a signed follow record in his repository.
+Bob’s PDS announces this update to the BGS, and the AppView indexes the follow relationship.
+When Alice posts, her PDS announces the update, the BGS appends it to the firehose, and the
+AppView delivers the post to Bob’s feed. \textbf{Replication is therefore mediated by servers rather
+than direct peer‑to‑peer synchronisation.}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\textwidth]{figures/at_follow.png}
+    \caption{AT Protocol Following/Replication Workflow}
+    \label{fig:at_replication}
+\end{figure}
+
+\subsubsection{Strengths}
+\begin{itemize}
+    \item Portable identity through DIDs allows users to migrate between PDS instances without losing their social graph.
+    \item Signed repositories provide strong integrity guarantees for social records.
+    \item The separation of identity, storage, indexing, and distribution enables modularity and independent evolution of components.
+    \item The firehose stream (BGS) provides efficient global distribution of updates.
+    \item Lexicon schemas define structured record types, enabling consistent representation of posts, follows, likes, and other actions.
+\end{itemize}
+
+\subsubsection{Limitations}
+\begin{itemize}
+    \item The protocol still relies on servers (PDS, BGS, AppView), limiting decentralisation compared to peer‑to‑peer systems.
+    \item Content is not encrypted; all posts are public by default.
+    \item The repository is DAG‑like but not Git‑based, lacking features such as branching, merging, and flexible history management.
+    \item The firehose model centralises distribution through the BGS, creating potential bottlenecks.
+    \item \textbf{The server‑mediated replication model contrasts with fully pull‑based approaches, highlighting different trade‑offs in decentralised social data design.}
+\end{itemize}
+
+\subsubsection{Implications for this project}
+\begin{itemize}
+    \item AT Protocol demonstrates how signed repositories can structure social data, providing integrity without relying on ad‑hoc formats.
+    \item Its DID‑based identity model shows how portable identity can be achieved independently of hosting infrastructure.
+    \item The reliance on servers highlights the limitations of non‑peer‑to‑peer replication for fully decentralised systems.
+    \item \textbf{The repository‑based organisation of social records illustrates a recurring pattern in decentralised protocols, where social data is stored within a structured, verifiable store.}
+    \item The protocol’s DAG‑like record structure motivates exploring more flexible commit‑based models for decentralised social data.
+\end{itemize}
+
+\subsection*{Summary of Non-Git Based Protocols}
+\textbf{Table~\ref{tab:non_git_summary} summarises the key insights from the detailed survey of the
+previously discussed protocols, highlighting what each model does well, the useful ideas that can
+inform this thesis, their core limitations, and the gaps that motivate the need for a Git‑native
+decentralised protocol.}
+
+\begin{table}[h]
+\centering
+\caption{Summary of Non-Git Based Protocols}
+\label{tab:non_git_summary}
+\begin{tabular}{p{2.5cm} p{4cm} p{4cm} p{4cm} p{4cm}}
+\textbf{Protocol} &
+\textbf{What it does well} &
+\textbf{Key limitations} &
+\textbf{Useful ideas} &
+\textbf{Gaps / Missing} \\
+
+ActivityPub &
+Provides rich social activity types; server-validated integrity; widely adopted &
+Inbox/outbox infrastructure creates heavy server load; push fan-out bottleneck; server dependency &
+Clear structured activity model; validation checks &
+Not static-hostable; push-based model too heavy (needs pull-based) \\
+
+Nostr &
+Portable identity via public keys; simple relay model; censorship resistance &
+Relay limitations: weak ordering, no state tracking, reliability issues &
+Event kinds for representing social actions &
+No structured replication; Git’s DAG commit model may be more suitable \\
+
+SSB &
+Strong integrity of local feed; fully decentralised offline gossip replication &
+Gossip synchronisation is slow; append-only storage growth &
+Append-only logs resemble Git-like structure &
+Needs more scalable replication such as Git DAG \\
+
+sAT &
+Fully static-hostable; confidentiality via hybrid encryption &
+Slow feed replication; limited features; small-group design &
+Dedicated \texttt{/satellite/} directory for social data &
+Slow replication; lacks structured ordering (Git DAG may improve efficiency) \\
+
+AT Protocol &
+Portable identity via DIDs; strong indexing/discovery &
+Still server-dependent; complex architecture; no confidentiality &
+Repository-based identity + versioning (DAG-like) &
+Not static-hostable; not Git-compatible \\
+\end{tabular}
+\end{table}
+\subsection*{Transition to Git-Based Protocols}
+
+As seen in the detailed analysis, each of the non-Git based protocols provides key insights into what
+a decentralised social protocol should include. ActivityPub offers rich structured activity types for social actions; Nostr shows how portable identity can be achieved through public keys with a simple relay model; SSB provides strong append-only integrity; sAT demonstrates a fully static-hostable design with confidentiality; and AT Protocol, like Nostr, achieves portable identity but through DIDs. However, none of these protocols provide an efficient, scalable, pull-based replication model, and all lack Git’s structured ordering and efficient synchronisation. \textbf{These gaps naturally motivate examining Git-based protocols, which offer versioning, pull-based replication, integrity-preserving history, and a structured data model suitable for decentralised social media.}
+
+\subsection{Git-Based Approaches}
+
+\subsubsection{Gitweets}
+
+\subsubsection*{What it is}
+Gitweets is a minimal Git-based social prototype where a user's Git repository acts as their
+timeline, and each post is represented as a Git commit whose commit message contains the
+post text. It relies entirely on standard Git operations (commit, push, fetch) and exposes posts
+through a static HTML viewer that reads commit history via the GitHub REST API. Gitweets is
+not a full social protocol, but a demonstration of using Git as a pull-based transport layer for
+social content. \textbf{Its commit-based model illustrates how social data can be represented within Git’s existing versioned structure.} Gitweets is publicly available on GitHub \cite{gitweets2026}.
+
+\subsubsection*{How it works}
+Users create posts by committing to their repository, where the commit message contains the
+post content. Followers replicate posts by fetching the repository, relying on Git’s pull-based model to retrieve new commits. A static HTML viewer renders the timeline by reading commit
+history from the GitHub API. There is no structured representation of social actions, no
+signing, and no portable identity layer; the protocol simply treats Git commits as posts.
+
+\subsubsection*{Posting Workflow}
+As shown in Figure~\ref{fig:gitweets_posting}, Alice creates a post by running a Git commit with
+the post text as the commit message. She then pushes the commit to her remote repository.
+Bob, who follows Alice, fetches Alice’s repository, receiving the new commit. Bob’s viewer
+reads the commit history and displays the post. \textbf{This workflow demonstrates a simple,
+pull-based replication model using standard Git operations.}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\textwidth]{figures/gitweets_posting.png}
+    \caption{Gitweets Posting Workflow}
+    \label{fig:gitweets_posting}
+\end{figure}
+\subsubsection*{Following/Replication Workflow}
+As shown in Figure~\ref{fig:gitweets_follow}, Gitweets has no built‑in follow system; instead, Bob manually adds Alice’s repository as a Git remote and fetches her commits. Fetching downloads
+Alice’s commits locally without merging them into Bob’s own timeline. To view Alice’s posts, Bob
+opens the Gitweets viewer pointed at Alice’s repository, which retrieves her commit history and
+renders it as her timeline. Bob may optionally “retweet” one of Alice’s posts by cherry‑picking the corresponding commit into his own repository and pushing it, causing the post to appear on his
+own timeline. \textbf{This workflow illustrates Gitweets’ simple pull‑based replication model and the absence of structured social objects.}
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\textwidth]{figures/gitweets_follow.png}
+    \caption{Gitweets Following/Replication Workflow}
+    \label{fig:gitweets_follow}
+\end{figure}
+
+\subsubsection*{Strengths}
+\begin{itemize}
+    \item Simple mental model: posting = commit; replication = fetch.
+    \item Uses existing Git infrastructure, making it lightweight and easy to host.
+    \item Pull-based replication avoids server-side fan-out.
+    \item Static HTML viewer demonstrates compatibility with Git-hosted content.
+\end{itemize}
+
+\subsubsection*{Limitations}
+\begin{itemize}
+    \item Posts stored as commit messages limit expressiveness and metadata.
+    \item No discovery mechanism; users must manually exchange repository URLs.
+    \item No signing or encryption; authorship and confidentiality are not guaranteed.
+    \item Identity tied to Git hosting provider rather than portable cryptographic identity.
+    \item Not a full social protocol; lacks replies, likes, follows, and structured actions.
+\end{itemize}
+
+\subsubsection*{Implications for this project}
+\begin{itemize}
+    \item Gitweets demonstrates the viability of Git’s pull-based replication for social content.
+    \item Its simplicity highlights the need for structured social objects rather than commit messages.
+    \item The lack of discovery motivates a minimal discovery mechanism in Git-native designs.
+    \item \textbf{The commit-based model shows how Git’s DAG can represent social history, motivating more structured Git-native approaches.}
+\end{itemize}
+\subsubsection{Social4Git}
+
+\subsubsection*{What it is}
+Social4Git is a more structured Git‑based social protocol that uses **two Git repositories per user**:
+a public repository containing the user’s published posts, and a private repository that stores a
+cached collection of posts from all the users they follow. It improves on Gitweets by storing posts as
+actual text files plus metadata, rather than commit messages, making it more suitable for social
+content. The protocol demonstrates how Git can be used for decentralised posting, following, and
+replication without servers, while still relying on Git’s built‑in integrity guarantees. **However, it does
+not implement signing or authentication, meaning authorship cannot be verified and identity is tied
+directly to the hosting provider.**  Social4Git is publicly available on GitHub \cite{social4git2026}.
+
+\subsubsection*{How it works}
+When a user creates a post, their client generates two files: a raw text file containing the post
+content, and a metadata file containing the author’s handle and a post ID (derived from timestamp +
+content). These files are committed and pushed to the user’s public Git repository, meaning posting
+is still fundamentally “push a commit,” but with a more appropriate file‑based structure than
+Gitweets.
+
+To follow another user, the follower adds the target user’s public repository URL to a follow list,
+which is then committed and pushed to the follower’s private repository. This private repository is
+responsible for building the user’s feed.
+
+Replication occurs when the user runs a manual sync: the client performs \texttt{git fetch} on each
+followed user’s public repository, extracts their posts, and copies them into the follower’s private
+repository. **This isolates published posts (public repo) from the user’s personal feed (private repo),
+providing a cleaner separation than Gitweets.**
+
+\subsubsection*{Posting Workflow}
+As shown in Figure~\ref{fig:social4git_posting}, Alice creates a post by generating a post file and a
+metadata file, committing both, and pushing them to her public repository. Followers receive the
+post only when they manually run \texttt{social4git sync}, which fetches updates from Alice’s public
+repository and copies new posts into their private repository. **This demonstrates Social4Git’s
+pull‑based replication model.**
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\textwidth]{figures/social4git_posting.png}
+    \caption{Social4Git Posting Workflow}
+    \label{fig:social4git_posting}
+\end{figure}
+
+\subsubsection*{Following/Replication Workflow}
+As shown in Figure~\ref{fig:social4git_follow}, Bob follows Alice by adding Alice’s repository URL to
+a local following list, which is then committed and pushed to Bob’s private repository. Later, when
+Bob wants to retrieve Alice’s posts, he runs \texttt{social4git sync}, causing his client to fetch Alice’s
+public repository, extract any new posts, and copy them into Bob’s private repository. **Following
+simply means adding a repository URL to a local list stored inside the private repository.**
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\textwidth]{figures/social4git_follow.png}
+    \caption{Social4Git Following/Replication Workflow}
+    \label{fig:social4git_follow}
+\end{figure}
+
+\subsubsection*{Strengths}
+\begin{itemize}
+    \item Clear separation of concerns: the public repository is for publishing posts, while the private repository stores the user’s feed.
+    \item Uses Git’s built‑in integrity: each commit is hash‑chained, making tampering detectable.
+    \item Simple mental model: posting, following, and replication use familiar Git operations.
+    \item Identity is straightforward: a user’s handle is simply their public Git repository URL.
+    \item More structured than Gitweets because posts are stored as files rather than commit messages.
+\end{itemize}
+
+\subsubsection*{Limitations}
+\begin{itemize}
+    \item No structured activity model (no replies, likes, reposts, or rich social actions).
+    \item No discovery mechanism; users must manually know each other’s repository URLs.
+    \item **Identity is tied to the hosting provider rather than a portable cryptographic identity layer.**
+    \item **No signing or authentication mechanism; commits are not cryptographically tied to authorship.**
+    \item Not fully decentralised: depends entirely on a central Git hosting provider.
+\end{itemize}
+
+\subsubsection*{Implications for this project}
+\begin{itemize}
+    \item Social4Git demonstrates a promising pull‑based replication model aligned with the goals of this project.
+    \item The separation between public posting and private feed repositories is a useful architectural pattern.
+    \item JSON‑based structured activity formats (e.g., ActivityPub) could be integrated to support richer social actions.
+    \item The absence of discovery highlights the need for a minimal discovery mechanism in a Git‑native protocol.
+    \item **The lack of signing and authentication motivates the use of a portable cryptographic identity layer in this project, enabling verifiable authorship independent of any hosting provider.**
+\end{itemize}
+\subsubsection{GitSocial}
+
+\subsubsection*{What it is}
+gitsocial is a more advanced Git‑based social protocol that uses a single Git repository per user, but
+isolates all social activity inside a dedicated branch called \texttt{gitsocial}. This provides a clean
+separation between normal project files and social actions. Instead of storing posts as files (as in
+Social4Git), gitsocial represents each post as a Git commit on the \texttt{gitsocial} branch. The commit
+message contains the post text along with a structured GitMsg header describing the type of social
+action (post, comment, repost, quote), enabling nested threads, replies, and reposts. gitsocial also
+introduces a follow list stored in JSON format, allowing users to track who they follow. During sync,
+the client fetches commits directly from the \texttt{gitsocial} branches of followed users and interprets
+GitMsg metadata to build the user’s timeline. **However, posts remain stored inside commit messages,
+and the protocol lacks signing, encryption, and any discovery mechanism, leaving identity and
+availability dependent on the hosting provider.** GitSocial is publicly available on GitHub \cite{gitsocial2026}.
+
+
+\subsubsection*{How it works}
+When a user creates a post, their client creates a Git commit on the \texttt{gitsocial} branch, embeds
+the post text in the commit message, and attaches a structured GitMsg header describing the action
+type (post/comment/repost/quote). The client then pushes the updated \texttt{gitsocial} branch to the
+user’s public repository.
+
+To follow another user, the follower adds the target user’s repository URL to a follow list stored in a
+JSON file. This file is committed and pushed to the follower’s repository. During replication, the
+client reads this follow list, performs \texttt{git fetch} on each followed user’s repository, and retrieves
+only the commits from their \texttt{gitsocial} branch. The client then parses the GitMsg metadata to
+construct the user’s feed. **Unlike Social4Git, gitsocial does not copy posts into a private repository;
+instead, it reads commits directly from remote repositories, avoiding duplicated storage.**
+
+\subsubsection*{Posting Workflow}
+As shown in Figure~\ref{fig:gitsocial_posting}, Alice creates a post by representing it as a Git commit
+on her \texttt{gitsocial} branch. The commit contains the post text and GitMsg metadata indicating
+whether it is a post, comment, repost, or quote. Alice then pushes the updated branch to her public
+repository, making the commit available for followers. **Because gitsocial is pull‑based, followers only
+receive these posts when they later fetch the \texttt{gitsocial} branch during sync.**
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\textwidth]{figures/gitsocial_posting.png}
+    \caption{GitSocial Posting Workflow}
+    \label{fig:gitsocial_posting}
+\end{figure}
+
+\subsubsection*{Following/Replication Workflow}
+As shown in Figure~\ref{fig:gitsocial_follow}, Bob follows Alice by adding Alice’s repository URL to a
+follow‑list JSON file stored inside Bob’s repository. This file is committed and pushed to Bob’s
+repository. Later, when Bob runs sync, his client reads the follow list to determine which repositories
+to fetch from. For each followed user, the client fetches the \texttt{gitsocial} branch and stores the
+returned commits locally. Bob’s client then interprets GitMsg metadata to build or update his feed.
+**Replication is pull‑based and not real‑time.**
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\textwidth]{figures/gitsocial_follow.png}
+    \caption{GitSocial Following/Replication Workflow}
+    \label{fig:gitsocial_follow}
+\end{figure}
+
+\subsubsection*{Strengths}
+\begin{itemize}
+    \item Clean isolation of social activity using a dedicated \texttt{gitsocial} branch.
+    \item Resource‑efficient replication: followers fetch commits directly rather than copying files.
+    \item Rich social model: GitMsg supports posts, comments, nested threads, reposts, and quotes.
+    \item Follow list enables scalable social features such as follower counts and mutual follows.
+    \item Simple Git‑based workflow: posting, following, and replication rely on familiar Git operations.
+    \item Integrity from Git: hash‑chained commits ensure posts cannot be modified without detection.
+\end{itemize}
+
+\subsubsection*{Limitations}
+\begin{itemize}
+    \item No mandatory signing: authorship cannot be cryptographically verified.
+    \item No encryption: confidentiality relies solely on Git hosting access controls.
+    \item Posts stored inside commit messages limit metadata, editing, and media support.
+    \item Editing commits requires rewriting history, forcing followers to re‑fetch entire branches.
+    \item No discovery mechanism; users must manually know repository URLs.
+    \item Not fully decentralised: identity and availability depend on a central Git hosting provider.
+\end{itemize}
+
+\subsubsection*{Implications for this project}
+\begin{itemize}
+    \item gitsocial demonstrates a more complete social activity model than Gitweets or Social4Git.
+    \item Storing posts inside commit messages highlights the need for structured JSON‑based objects.
+    \item The follow list is a useful idea for scalable replication and feed construction.
+    \item The absence of discovery suggests the need for a minimal discovery mechanism.
+    \item **The lack of signing and encryption indicates the importance of a portable, cryptographically
+    verifiable identity layer in Git‑based social protocols.**
+\end{itemize}
+\subsubsection{Octotown}
+
+\subsubsection*{What it is}
+Octotown is a public social network built entirely on GitHub, using GitHub’s existing platform
+features rather than Git commits or files. Instead of representing posts as commits (as in gitsocial)
+or text files (as in Social4Git), Octotown represents posts as GitHub Issues inside a dedicated
+repository named \texttt{.social}. Replies are GitHub Issue Comments, and social interactions use
+GitHub’s built‑in features such as labels, reactions, and notifications. A user’s identity is simply their
+GitHub username, and their entire social presence is stored inside their \texttt{.social} repository. This
+design provides rich interaction features “for free,” but **it is fully dependent on GitHub, with no Git‑level integrity guarantees and no portable identity.** Octotown is formally documented in its online specification \cite{octotown2026}.
+
+\subsubsection*{How it works}
+When a user creates a post, the client sends a REST request to the GitHub Issues API containing the
+post content. GitHub creates an Issue inside the user’s \texttt{.social} repository, which becomes the
+post. Replies are created as Issue Comments via the same API.
+
+Following is handled through GitHub’s native follow system. To follow someone, the user must
+follow their GitHub account. When building the feed, the client queries the GitHub API to retrieve
+the list of followed accounts, filters for those that have a \texttt{.social} repository, fetches Issues from
+those repositories, and constructs the timeline. **Because this process depends on GitHub’s API and
+follow graph, Octotown inherits GitHub’s platform‑specific behaviour and performance
+characteristics.**
+
+\subsubsection*{Posting Workflow}
+As shown in Figure~\ref{fig:octotown_posting}, Alice writes a post in the Octotown client, which
+constructs a REST API request to \texttt{POST /repos/Alice/.social/issues} with the post content. GitHub
+creates a new Issue inside the \texttt{.social} repository, which becomes the published post. **Posts are
+stored as Issues rather than files or commits, reflecting Octotown’s reliance on GitHub’s platform
+features rather than Git itself.**
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\textwidth]{figures/octotown_posting.png}
+    \caption{Octotown Posting Workflow}
+    \label{fig:octotown_posting}
+\end{figure}
+
+\subsubsection*{Following/Replication Workflow}
+As shown in Figure~\ref{fig:octotown_follow}, Bob follows Alice by clicking “Follow” on Alice’s
+GitHub profile, updating GitHub’s own follow list. When Bob opens the Octotown client, it queries
+GitHub’s Follow API to retrieve the accounts Bob follows, checks which of them have a
+\texttt{.social} repository, and fetches Issues from those repositories. **Replication is pull‑based and
+occurs only when the user opens the client, relying entirely on GitHub’s APIs and follow graph.**
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\textwidth]{figures/octotown_follow.png}
+    \caption{Octotown Following/Replication Workflow}
+    \label{fig:octotown_follow}
+\end{figure}
+
+\subsubsection*{Strengths}
+\begin{itemize}
+    \item Leverages GitHub’s existing infrastructure, providing rich interaction features (labels, comments, reactions, notifications).
+    \item Simple mental model: social presence is stored in a dedicated \texttt{.social} repository.
+    \item More expressive than other Git‑based protocols due to GitHub Issues’ built‑in functionality.
+    \item GitHub Actions can automate caching and reduce API load.
+    \item Clear separation of social activity from normal repositories through the dedicated \texttt{.social} repo.
+\end{itemize}
+
+\subsubsection*{Limitations}
+\begin{itemize}
+    \item **Highly centralised: Octotown is tied specifically to GitHub and cannot run on other Git hosts.**
+    \item **Identity is not portable: a user’s identity is their GitHub username, and suspension removes their entire social presence.**
+    \item **No Git‑level integrity: Issues are not commits and lack cryptographic hash‑chain protection.**
+    \item Not federated: cannot interoperate with ActivityPub or other decentralised networks.
+    \item No discovery mechanism beyond GitHub’s follow system; users must already be GitHub users.
+\end{itemize}
+
+\subsubsection*{Implications for this project}
+\begin{itemize}
+    \item Octotown demonstrates a Git‑adjacent social model built on top of GitHub’s platform features rather than Git itself.
+    \item The dedicated \texttt{.social} repository illustrates the value of isolating social activity within a structured location.
+    \item Platform‑specific features (Issues, Actions, API) provide rich interactions but highlight the risks of vendor lock‑in.
+    \item Automated caching via GitHub Actions suggests potential optimisation strategies for reducing repeated expensive operations.
+    \item **Octotown’s dependence on GitHub underscores the importance of portable identity and host‑agnostic Git repositories in decentralised protocol design.**
+\end{itemize}
+
+\subsubsection{Git-as-Federation-Transport}
+
+\subsubsection*{What it is}
+Git‑as‑a‑Federation‑Transport is a server‑based, ActivityPub‑like protocol that uses Git push/fetch as
+the transport layer instead of HTTP inbox/outbox. Each server hosts a single Git repository
+containing all users on that server, and the repository URL represents the server’s identity.
+Individual users are represented as JSON actor files, and each post is stored as a JSON file inside a
+user‑specific directory such as \texttt{users/alice/posts/0012.json}. This design provides a clear
+directory structure and a clean JSON‑based representation of posts, similar to sAT and the AT
+Protocol. **However, because the architecture is server‑centric rather than user‑centric, it resembles
+ActivityPub far more than the other Git‑based protocols analysed.** Git-as-Federation-Transport is formally described in an online article \cite{gittransport2026}.
+
+\subsubsection*{How it works}
+When a user creates a post, the server generates a JSON file for that post and stores it under the
+user’s directory. The server then commits this file to its Git repository. Unlike the pull‑based
+Gitweets/Social4Git/gitsocial model, Git‑as‑Transport uses a push‑based mechanism: the server
+pushes new commits to every other server it follows.
+
+However, receiving servers do not immediately update user timelines. They must later perform a
+manual or scheduled fetch, scan the new commits, locate the JSON post files, and import them into
+their local timeline. Following is configured at the server level: an administrator adds another server
+as a Git remote. Replication occurs when the server periodically fetches from these remotes,
+receiving Git packfiles containing compressed Git objects, which are then parsed to build the feed.
+**This workflow demonstrates Git‑based server‑to‑server replication, but also highlights the absence
+of user‑level decentralisation.**
+
+\subsubsection*{Posting Workflow}
+As shown in Figure~\ref{fig:gittransport_posting}, Alice creates a post on her server. The server
+converts the post into a JSON file, commits it to the server’s Git repository, and pushes the commit
+to all servers it follows. **The push only transfers Git objects; follower servers do not display the post
+until they later perform a fetch and import the JSON file.**
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\textwidth]{figures/gittransport_posting.png}
+    \caption{Git-as-Federation-Transport Posting Workflow}
+    \label{fig:gittransport_posting}
+\end{figure}
+
+\subsubsection*{Following/Replication Workflow}
+As shown in Figure~\ref{fig:gittransport_follow}, following is server‑to‑server rather than
+user‑to‑user. To follow another server, an administrator adds the target server as a Git remote.
+During replication, the server runs \texttt{git fetch} to retrieve new commits. Git writes the fetched
+objects into the local repository, after which the application scans the commits for JSON post files
+and imports them into its timeline database. **Replication is pull‑based, meaning a server does not
+display new posts until it chooses to fetch and process them.**
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\textwidth]{figures/gittransport_follow.png}
+    \caption{Git-as-Federation-Transport Following/Replication Workflow}
+    \label{fig:gittransport_follow}
+\end{figure}
+
+\subsubsection*{Strengths}
+\begin{itemize}
+    \item Simple federation model: replaces ActivityPub’s HTTP inbox/outbox with Git push/fetch.
+    \item No HTTP layer: avoids HTTP signatures, delivery failures, and inbox/outbox semantics.
+    \item Clean directory structure: each user has a dedicated subdirectory with JSON‑based posts.
+    \item JSON posts are easily extensible to support richer social actions.
+    \item Demonstrates how Git replication can distribute structured social data.
+\end{itemize}
+
+\subsubsection*{Limitations}
+\begin{itemize}
+    \item **Server‑level identity, not user‑level identity: identity is tied to the server domain rather than a portable cryptographic identifier.**
+    \item **No user‑level decentralisation: servers own all user data and manage all posting and replication.**
+    \item **Single point of failure per server: if a server goes offline, all users and posts on that server disappear.**
+    \item Limited social actions: currently supports only posts; no replies, comments, likes, or reposts.
+    \item Heavy server‑to‑server replication: Git packfiles contain full history, making replication slow.
+    \item Experimental and incomplete: lacks discovery, moderation, and a full activity model.
+\end{itemize}
+
+\subsubsection*{Implications for this project}
+\begin{itemize}
+    \item Git‑as‑Transport illustrates a server‑centric Git‑based design closer to ActivityPub than to user‑centric Git protocols.
+    \item The use of JSON files for posts reinforces the value of structured, extensible social objects.
+    \item The directory structure (\texttt{users/<user>/posts/<id>.json}) provides a clear organisational pattern.
+    \item The replication workflow shows how Git packfiles can distribute structured social data.
+    \item **The server‑centric model highlights the importance of user‑level identity ownership and decentralisation in Git‑based social protocols.**
+\end{itemize}
+
+\subsection*{Summary of Git-Based Protocols}
+\textbf{Table~\ref{tab:git_summary} summarises the key insights from the Git-based protocols
+surveyed, highlighting their strengths, limitations, useful ideas, and the gaps that motivate the
+need for a user-centric, Git-native decentralised protocol.}
+
+\begin{table}[h]
+\centering
+\caption{Summary of Git-Based Protocols}
+\label{tab:git_summary}
+\begin{tabular}{p{2.5cm} p{4cm} p{4cm} p{4cm} p{4cm}}
+\textbf{Protocol} &
+\textbf{What it does well} &
+\textbf{Key limitations} &
+\textbf{Useful ideas} &
+\textbf{Gaps / Missing} \\
+
+Gitweets &
+Very simple; uses existing Git infrastructure; posting = commit, replication = fetch &
+Not a real social protocol; posts stored in commit messages; no replies, likes, follows &
+Shows Git + static hosting + REST API can form minimal social system &
+No structured data model; no social actions; commit messages unsuitable for posts \\
+
+Social4Git &
+Clear separation: public repo for posts, private repo for feed; Git integrity; posts as files &
+No replies/likes; no discovery; no signing; identity tied to hosting provider &
+Separation of public posting vs private feed; File‑based post storage demonstrates a clear Git‑native representation of social content &
+
+Lacks structured social vocabulary; no portable identity; no discovery mechanism \\
+
+Gitsocial &
+Dedicated \texttt{gitsocial} branch; efficient replication; rich social model (posts, comments, threads) &
+No mandatory signing; posts inside commits; editing requires history rewrite &
+Structured metadata supports many social actions; follow list improves scalability &
+No discovery; commit-message posts limit editing/media; no portable identity \\
+
+Octotown &
+Leverages GitHub’s platform features; rich interactions; simple mental model &
+Highly centralised; identity not portable; no Git-level integrity; GitHub-only &
+Isolation of social activity in \texttt{.social}; caching via GitHub Actions &
+Discovery only via GitHub follow graph; no portability; no Git-level integrity \\
+
+Git-as-Federation Transport &
+Simple server federation; JSON posts; clean directory structure; extensible format &
+Server-level identity; no user decentralisation; heavy replication; limited actions &
+JSON post format; directory structure; Git packfile workflow &
+Identity tied to servers; incomplete activity model; no user-level ownership \\
+\end{tabular}
+\end{table}
+
+\subsection*{Transition to Requirements}
+
+Across the Git-based protocols, several themes emerge. Gitweets demonstrates the feasibility of using Git for social posting but lacks structured actions. Social4Git shows that file-based
+posts and Git’s integrity model are viable, yet it provides no discovery or portable identity. Gitsocial
+offers a richer activity model but inherits severe limitations from storing posts inside commit
+messages. Octotown illustrates how platform-specific features can provide expressive interactions,
+but at the cost of centralisation and loss of Git-level guarantees. Git-as-Federation-Transport
+demonstrates server-centric Git replication but lacks user-level identity ownership and decentralised
+control. Together, these protocols reveal important ideas but also clear gaps that motivate the need
+for a user-centric, Git-native protocol with structured JSON actions, portable identity, decentralised
+discovery, and efficient replication.
+

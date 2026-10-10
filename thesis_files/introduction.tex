@@ -1,0 +1,30 @@
+\section{Introduction}
+
+\subsection{Motivation}
+Social media is integral to society with over 4.8 billion users worldwide\cite{umaine_socialmedia_stats} as it provides accessible communication and entertainment. However, most platforms like Facebook 
+are centralised, meaning that a single provider controls identity, data storage and moderation. Thus raising censor censorship concerns (un-ethical banning of users), data privacy concerns and biases in what users see (algorithmitic bias) \cite{Ruwe2023}.
+
+These limitations motivate interest in decentralised alternatives, decentralised means control is not in the handle of a single organisation but is distributed across users or nodes \cite{Ruwe2023}.The foundational principles of decentralisation emphasise transparency, user control and resilience against single points of failure. Transparency means that all actions including moderated decisions can be independently verified, user control allows users to have control over who can access their data and resilience prevents the system depending on a vulnerable central server. These principles have been established across decentralised identity and distributed system papers. However, true decentralisation has been challenging to solve as most existing systems have not been able to fully realise these goals \cite{w3c_did_core}.
+
+
+\subsection{Problem Definition}
+Current alternatives to centralised social media partially solve decentralisation but none achieve true-user level decentralisation, replication, discovery and social interactions. For example, the popular Mastadon ActivityPub protocol enables federation across servers \cite{wesleyac_identity_decentralization}, but identity still remains server-bound. The reason for this is that users depend on administrators who control domain names and the moderation policies. The previous thesis confirmed that ActivityPub cannot be made fully server-less without reintroducing backend dependencies.
+
+Similarly, protocols like Secure Scuttlebutt (SSB), Nostr and Authenticated Transfer (AT) Protocol attempt to decentralise social interactions but still on relays, Personal Data Servers (PDS), or heavy infrastructure, limiting portability and true independence. Git’s infrastructure has been shown to be ideal for addressing the above limitations since existing Git-based prototypes demonstrate that Git can replicate user data efficiently without servers. However they remain incomplete, lacking structured social actions, portable identity, a clear discovery mechanism and a consistent social vocabulary.
+
+Thus, the core problem is the absence of a lightweight, interoperable, Git-native serverless protocol which supports complete social interactions while preserving user-controlled identity and efficient replication. 
+
+
+\subsection{Research Question}
+How can we design a lightweight, Git-native serverless social protocol which provides portable identity, structured representation of social actions, efficient replication, a complete social vocabulary, and serverless discovery of user repositories?
+
+
+\subsection{Proposed Direction}
+This project will conduct a systematic analysis of existing decentralised social media protocols, examining their architectures, strengths, limitations and relevance to the problem. 
+This includes both non-Git based and Git-based attempts, providing concrete functional and non-functional requirements for a decentralised social protocol. 
+
+The design phase will reuse and extend strengths identified across both Git-based and non-Git-based protocols, while discarding or redesigning components that introduce centralisation, heavy infrastructure or server dependencies. Building upon these insights, the project will implement a Git-native prototype leveraging Git’s existing infrastructure to define identity models, replication flows and social vocabulary.
+
+\subsection{Scope}
+The project focuses on protocol design rather than building a full social network application. The protocol aims to remain minimal, extensible and serverless, allowing future applications to build on top of it while preserving its decentralised properties. The scope includes decentralised identity, efficient replication, Git-native discovery and a structured social vocabulary. Sophisticated User interface, moderation tooling and large-scale deployment are out of scope.
+
