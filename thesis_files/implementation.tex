@@ -282,6 +282,7 @@ agree.}
 %     \label{fig:implementation_social_directory}
 % \end{figure}
 
+
 \subsection{Replication}
 
 % Describe how Replicator obtains remote repository data, verifies candidate
@@ -289,6 +290,11 @@ agree.}
 % role of ActionVerifier and profile verification where relevant. Refer to
 % Figures~\ref{fig:replication_workflow} and
 % \ref{fig:multihop_replication} in the System Design chapter.
+As described above, the follow action establishes remote repositories as a replication source. The remote repositories are not just the repositories users follow, but also includes the canonical-social from where the profile is cloned from.
+The Figures~\ref{fig:replication_workflow} shows the key git operations used to write actions locally from the replication sources which are git fetch to retrieve commits and objects from the remote repositories' main branch where the social/actions are located and git merge to write into the local social/actions of the user. But to ensure that only actions from the main branch are replicated (e.g. ensure not from gh-pages), a check is made as shown below. Also within then the loop through remotes the 'origin' is skipped as do not need to replicate from the user's own repository. Then when the remotes main is fetched, a security check is made on the owner of the repotiry by loading an verifying the profile.json and its publickey. Then the merge is performed, but the entire main but the entire main branch of the remote repository is not merged since their profile identity should stay separate but only their 'social/actions' directory is written locally into the user's own 'social/actions'.
+This is shown below
+Note: insert code snippets relevant to above clearly referenced within explanation. Upon copying this verified actions, the client checks if the state of the repository has changed and if new actions arrived via the remote repository, a commit recording the replication event is created but if no new actions accepted, no commit is created thus avoiding generating empty commits if no new protocol data is introduced. Note: insert the repo.isdirty check. There are no conflicts in the latest 'social/actions' containing replicated actions since each social action has unique id with the handle and id prefix (note: should probably update the respective section where social action creation mentions how it generates the id and why that unique and no collisions). Any exceptions are caught where the profile is not verified and the client moves onto the next remote if present. The updated main branch with the 'social/actions' is then pushed to the repository. Now the feed of the user can be constructed and published to gh-pages based on the latest social-actions as will be covered in the next section. Also, as a planned consuequence of this replication model if user Alice replicates from a remote repository Bob and that user has replicated repository from a separate user Charlie then Alice recieves Charlie's actions despite not directly following as Alice has trustued Bob's profile/identity and each individual action of Charlie is still checked by verifying the public key as shown in this Figure \ref{fig:multihop_replication}. 
+
 
 \subsection{Feed Construction and Site Publication}
 
