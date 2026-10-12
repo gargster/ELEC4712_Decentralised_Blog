@@ -7,18 +7,18 @@
 % the Results chapter.
 
 \subsection{Prototype Overview}
-\textbf{The prototype is built using the following tools and technologies:}
+The prototype is built using the following tools and technologies:
 \begin{itemize}
-    \item \textbf{Git} for version control and repository-based storage and exchange;
-    \item \textbf{Python} for the client-side protocol operations;
-    \item \textbf{HTML, CSS and JavaScript} for the feed and directory websites;
-    \item \textbf{GitHub} for hosting user and directory repositories, with
+    \item Git for version control and repository-based storage and exchange;
+    \item Python for the client-side protocol operations;
+    \item HTML, CSS and JavaScript for the feed and directory websites;
+    \item GitHub for hosting user and directory repositories, with
     GitHub Pages serving the static websites; and
-    \item \textbf{PyNaCl and GitPython} for cryptographic and Git operations
+    \item PyNaCl and GitPython for cryptographic and Git operations
     in the Python client.
 \end{itemize}
 
-\textbf{The repository contains the \texttt{client} source code,
+The repository contains the \texttt{client} source code,
 \texttt{thesis\_files} for the thesis, and documentation such as
 \texttt{README.md}, which explains how to run the prototype, and
 \texttt{latest\_design.md}, which contains the workflow diagrams. The
@@ -27,7 +27,7 @@ entry point is \texttt{client/app.py}. Running \texttt{python app.py} from the
 \texttt{client} directory displays the available commands, including profile
 creation, social actions, replication, feed display and site publication. The
 automated tests use \texttt{pytest}; their results are reported in the Results
-chapter.}
+chapter.
 
 % Keep this overview concise: the System Design chapter already explains the
 % protocol architecture and workflows. This chapter describes how the
@@ -35,7 +35,12 @@ chapter.}
 
 \subsection{Identity and Signed Data}
 
-\textbf{The \texttt{profile create} command is handled by
+The Identity Management component is primarily exercised through the following commands: 
+\begin{itemize} 
+    \item \texttt{profile create <handle> <display-name> <bio>} 
+    \item \texttt{publish <repository-url>} 
+\end{itemize}
+The \texttt{profile create} command is handled by
 \texttt{ProfileCreator}, which clones the canonical repository template and
 generates an Ed25519 key pair using PyNaCl. It creates a profile containing
 the user's handle, public key and profile information, then signs and saves
@@ -45,52 +50,66 @@ in the profile. The user then runs \texttt{publish} with the URL of the Git
 repository where the identity will be hosted. \texttt{PublishManager}
 publishes the repository, adds the repository URL to the profile, re-signs
 and pushes the updated profile, and registers the account in the social
-directory.}
+directory.
 
-\textbf{The \texttt{Signer} and \texttt{Verifier} classes provide the shared
+The \texttt{Signer} and \texttt{Verifier} classes provide the shared
 JSON signing and verification operations. Before signing, \texttt{Signer}
 serialises the object with sorted keys and excludes any existing signature.
 It signs these bytes with the Ed25519 private key and stores the resulting
 signature in Base64 form. \texttt{Verifier} decodes the signature and checks
-it against the same sorted JSON representation using the public key. The
-following lines show the core operations (a screenshot of these lines can be
-included here):}
+it against the same sorted JSON representation using the public key.
+\textbf{Listing~\ref{lst:signing} shows the shared byte representation used
+for signing and verification.}
 
-\begin{lstlisting}[caption={Core JSON signing and verification operations}]
+\begin{lstlisting}[caption={Core JSON signing and verification operations},label={lst:signing}]
 message = json.dumps(obj_to_sign, sort_keys=True).encode("utf-8")
 signed = self.signing_key.sign(message)
 self.verify_key.verify(message, signature_bytes)
 \end{lstlisting}
 
-\textbf{\texttt{ProfileVerifier} uses \texttt{Verifier} to check a profile's
+\texttt{ProfileVerifier} uses \texttt{Verifier} to check a profile's
 signature before returning its verified handle, public key and repository
-URL. This is the implementation of the profile verification step shown in
-Figure~\ref{fig:identity_workflow}.}
+URL. Figure~\ref{fig:identity_workflow} shows the corresponding design
+workflow. \textbf{The shared sorted JSON representation lets profiles and
+actions use the same signing mechanism. A valid signature establishes that
+the data matches the presented public key; it does not by itself link that
+key to a human-readable handle. Follow makes that association by checking
+the key against the public directory, which remains a trusted source for
+handle registration. Signatures provide integrity and key-based authorship
+verification, not confidentiality.}
 
 \subsection{Social Action Implementation}
-\textbf{Social actions are stored as JSON files in the user's
+The Social Action component is exercised through the following commands: 
+\begin{itemize} 
+    \item \texttt{post <content>} 
+    \item \texttt{reply <action-id> <content>} 
+    \item \texttt{like <action-id>} 
+    \item \texttt{follow <handle> <repository-url>} 
+\end{itemize}
+
+Social actions are stored as JSON files in the user's
 \texttt{social/actions/} directory. As described in the System Design
 chapter, they share common fields: an identifier, action type, author public
 key, creation timestamp and signature. Since these fields and the creation
 steps are common across post, reply, like and follow actions, the
-implementation uses \texttt{ActionBase} to avoid duplicating this logic.}
+implementation uses \texttt{ActionBase} to avoid duplicating this logic.
 
-\textbf{As shown in Figure~\ref{fig:action_class_diagram},
+As shown in Figure~\ref{fig:action_class_diagram},
 \texttt{ActionBase} defines the shared creation workflow in
 \texttt{\_create()}. It loads the public key from \texttt{profile.json} and
 the private key from the client's identity state, checks that the keys
-correspond, generates an action ID and builds the common fields. \textbf{The
+correspond, generates an action ID and builds the common fields. The
 ID follows the form \texttt{<type>-<handle>-<number>}, with the number
-incremented from the existing local action files.} It then calls
+incremented from the existing local action files. It then calls
 \texttt{\_extend()}, allowing each subclass to add its action-specific
 fields: \texttt{PostAction} adds post content; \texttt{ReplyAction} adds
 content, the \texttt{inReplyTo} action ID and target handle;
 \texttt{LikeAction} adds the target action ID and target handle; and
 \texttt{FollowAction} adds the followed user's public key as its target.
 Finally, \texttt{ActionBase} signs and writes the JSON file. The client uses
-\texttt{GitPublisher} to commit and push the created action.}
+\texttt{GitPublisher} to commit and push the created action.
 
-\textbf{This shared creation workflow uses the Template Method pattern:
+This shared creation workflow uses the Template Method pattern:
 \texttt{ActionBase} defines the common algorithm, while subclasses customise
 the \texttt{\_extend()} step \cite{gfg_template_method}. Separately, the
 prototype uses a factory design pattern to avoid duplicating the logic for
@@ -102,9 +121,9 @@ construction details, encapsulating object creation and decoupling command
 handling from action-specific implementation. The registry maps command names
 to action classes, avoiding a growing chain of action-specific
 \texttt{if}/\texttt{elif} branches in the factory
-\cite{gfg_factory_method}.}
+\cite{gfg_factory_method}.
 
-\textbf{This structure supports extension as new social actions are introduced.
+This structure supports extension as new social actions are introduced.
 To add an action, a developer can implement a class inheriting from
 \texttt{ActionBase} and register it for a command; the existing factory and
 its dispatch logic do not need to change. The new command must still be
@@ -115,7 +134,7 @@ creation logic. The Post, Reply, Like and Follow sequence diagrams in the
 System Design chapter
 (Figures~\ref{fig:post_workflow}, \ref{fig:reply_workflow},
 \ref{fig:like_workflow} and \ref{fig:follow_workflow}) show how these action
-types are used in the protocol workflows.}
+types are used in the protocol workflows.
 
 \begin{figure}[h]
     \centering
@@ -126,24 +145,29 @@ types are used in the protocol workflows.}
 
 
 \subsection{Following and Discovery}
-\textbf{Following builds on the shared action-creation process described
-above. \texttt{FollowAction} creates a signed Follow action whose target is
-the followed user's public key. In addition, the follow command uses the
-repository URL supplied by the user to configure a Git remote, allowing later
-replication to fetch from that repository. The implementation follows the
-validation and follow sequence shown in Figures~\ref{fig:discovery_workflow}
-and \ref{fig:follow_workflow}; the key implementation steps are described
-below.}
 
-\textbf{Before accessing the target repository, the client retrieves the
+The Following functionality is accessed through: 
+\begin{itemize} 
+    \item \texttt{follow <handle> <repository-url>} 
+\end{itemize}
+\textbf{The design workflow is shown in Figures~\ref{fig:discovery_workflow}
+and \ref{fig:follow_workflow}. In the implementation, a Follow action
+records the social relationship by targeting the other user's public key.
+Separately, the repository URL is saved as a named Git remote, which gives
+replication a source to fetch from. Git remote configuration therefore
+avoids a second list of repository URLs, while the signed Follow action
+remains the record of whom the user follows.}
+
+Before accessing the target repository, the client retrieves the
 handle's entry from the public directory and checks that the supplied
 repository URL matches the registered URL. The directory response is obtained
 over HTTP using \texttt{urllib.request}; the configured URL identifies the
 published JSON data. The client then checks that the supplied repository URL
 matches the entry's \texttt{repoURL}, rejecting a mismatch before fetching the
-repository.}
+repository. \textbf{Listing~\ref{lst:follow-directory} shows this lookup and
+URL check.}
 
-\begin{lstlisting}[caption={Checking a Follow target against the directory}]
+\begin{lstlisting}[caption={Checking a Follow target against the directory},label={lst:follow-directory}]
 with urllib.request.urlopen(DIRECTORY_JSON_URL, timeout=5) as response:
     directory = json.load(response)
 entry = directory.get(handle)
@@ -153,40 +177,29 @@ if entry.get("repoURL") != repo_url:
     raise ValueError("Repository URL does not match the directory")
 \end{lstlisting}
 
-\textbf{This excerpt shows the two checks in order: the client downloads the
-published JSON, selects the entry indexed by the requested handle, then
-rejects a missing entry or a repository URL that differs from the registered
-one. Only after these checks does it access the target repository.}
-
-\textbf{After this check, the client adds the target repository as a named Git
+After this check, the client adds the target repository as a named Git
 remote, using the handle as the remote name. A Git remote is a saved
 name-to-URL association in the local repository; it does not copy the remote
 actions at this point. GitPython's \texttt{create\_remote()} adds this
 configuration, which the replication process can later use to fetch the
 remote branch. This reuses Git's existing remote mechanism rather than
 maintaining a separate list of followed repository URLs
-\cite{github_remotes}.}
+\cite{github_remotes}.
 
-\begin{lstlisting}[caption={Adding a followed repository as a Git remote}]
-if handle not in [r.name for r in repo.remotes]:
-    repo.create_remote(handle, repo_url)
-\end{lstlisting}
+\textbf{A remote is added only when that handle is not already configured,
+avoiding duplicate remotes.}
 
-\textbf{The condition avoids adding the same named remote twice; when absent,
-\texttt{create\_remote()} stores the handle-to-URL association in the local
-repository's Git configuration. The remote name is subsequently used to
-fetch that repository.}
-
-\textbf{The client then fetches the target's \texttt{main} branch and reads
+The client then fetches the target's \texttt{main} branch and reads
 \texttt{social/profile.json} from it. \texttt{ProfileVerifier} delegates
 signature checking to the shared \texttt{Verifier}; the follow operation
 also compares the verified handle and public key, and the profile's repository
 URL, with the requested values and the directory entry before creating the
 Follow action. Thus a valid signature proves control of the profile's key,
 while the directory comparison checks that this is the key registered for
-the handle.}
+the handle. \textbf{Listing~\ref{lst:follow-profile} shows these
+comparisons.}
 
-\begin{lstlisting}[caption={Validating the fetched Follow profile}]
+\begin{lstlisting}[caption={Validating the fetched Follow profile},label={lst:follow-profile}]
 verified = ProfileVerifier(profile).verify()
 if verified["handle"] != handle:
     raise ValueError("Signed profile handle does not match")
@@ -196,14 +209,13 @@ if profile["repoURL"] != repo_url:
     raise ValueError("Profile repository URL does not match")
 \end{lstlisting}
 
-\textbf{Here, the first line validates the profile's signature. The following
-comparisons then bind that signed profile to the requested handle, the
-directory's registered public key and the repository URL supplied by the
-user. A valid signature alone establishes control of a key; these additional
-comparisons establish that the key and repository correspond to the handle
-being followed.}
+\textbf{The signature check establishes that the profile matches its key;
+the comparisons bind that key and repository URL to the requested handle and
+the directory entry. This helps detect a repository presenting a different
+key for a registered handle, while relying on the directory's handle-to-key
+mapping.}
 
-\textbf{Once the profile passes these checks, \texttt{FollowAction} creates
+Once the profile passes these checks, \texttt{FollowAction} creates
 the signed action targeted at the verified public key. The action is
 committed and pushed to the follower's repository. Fetching the remote
 \texttt{main} branch to obtain the profile can also transfer Git objects from
@@ -212,17 +224,15 @@ action set used by the client. The saved remote is used by the separate
 replication process to discover, verify and accept actions for local use.
 This keeps Follow responsible for establishing the relationship and
 replication responsible for processing remote activity, as described in the
-corresponding System Design workflows.}
+corresponding System Design workflows.
 
-\textbf{The directory supports this lookup by mapping each handle to a
-repository URL and registered public key. When an account is published,
+When an account is published,
 \texttt{PublishManager} checks an existing entry before updating it. If the
 handle already has a registered key, publication refuses to replace it with
-a different key. This is the publishing-side safeguard that complements the
-Follow-time comparison and helps detect a recreated repository presenting a
-different key for the same handle.}
+a different key. This complements the Follow-time comparison.
 
-\begin{lstlisting}[caption={Preventing replacement of a registered key}]
+\textbf{Listing~\ref{lst:registered-key} shows the publishing guard.}
+\begin{lstlisting}[caption={Preventing replacement of a registered key},label={lst:registered-key}]
 registered_key = entry.get("publicKey")
 if registered_key != public_key:
     raise RuntimeError(
@@ -231,48 +241,37 @@ if registered_key != public_key:
     )
 \end{lstlisting}
 
-\textbf{This guard runs when the account is published: if the handle already
-has a directory entry, the stored key must match the key being published.
-The exception prevents an ordinary publish operation from silently replacing
-the handle's established key.}
-
-\textbf{The directory entry also contains an optional \texttt{siteURL}.
+The directory entry also contains an optional \texttt{siteURL}.
 After site publication succeeds, \texttt{PublishManager} adds this URL to
 the existing entry, allowing the directory website to link the handle to
 the published feed. The repository URL remains available separately for
-following and protocol access.}
+following and protocol access.
 
-\textbf{The directory website is a static interface to this JSON data.
+The directory website is a static interface to this JSON data.
 \texttt{index.html} defines elements with the IDs \texttt{member-list},
 \texttt{member-count} and \texttt{directory-status}. In \texttt{app.js},
 \texttt{document.querySelector()} uses these IDs to select the elements
 where the directory cards, profile count and loading or empty-directory
 message are displayed. The loader fetches and sorts entries from
-\texttt{directory.json}, then renders a card for each handle. The following
-excerpt shows the connection between the HTML elements and the main display
-updates:}
+\texttt{directory.json}, then renders a card for each handle.
+\textbf{Listing~\ref{lst:directory-dom} shows the HTML elements that the
+directory script selects and updates.}
 
-\begin{lstlisting}[caption={Selecting and updating directory page elements}]
+\begin{lstlisting}[caption={Selecting directory cards in the DOM},label={lst:directory-dom}]
 const memberList = document.querySelector("#member-list");
-const directoryStatus = document.querySelector("#directory-status");
-const memberCount = document.querySelector("#member-count");
 memberList.replaceChildren(...entries.map(
   ([handle, entry]) => renderMember(handle, entry)
 ));
-memberCount.textContent = `${entries.length} ${entries.length === 1 ? "profile" : "profiles"}`;
-directoryStatus.textContent = entries.length === 0
-  ? "No profiles are listed in the directory yet."
-  : "";
 \end{lstlisting}
 
 \textbf{\texttt{replaceChildren()} fills the member-list element with the
-cards created by \texttt{renderMember()}, while the next lines update the
-count and show a message if there are no entries. Within each card, a valid
+cards created by \texttt{renderMember()}. The page also updates the profile
+count and an empty-directory message.} Within each card, a valid
 \texttt{siteURL} links the handle to the published feed and the repository
 URL is shown as a separate link. \texttt{style.css} controls the visual
 layout. The website makes directory entries discoverable; the client's
 Follow validation—not the web page—checks that a handle, key and repository
-agree.}
+agree.
 
 % Optional: include a screenshot of the rendered social-directory website
 % (rather than a source-code repository screenshot) to show how users access
@@ -287,7 +286,11 @@ agree.}
 
 \subsection{Replication}
 
-\textbf{As described in the Following and Discovery section, following adds
+Replication is triggered through the command: 
+\begin{itemize} 
+    \item \texttt{replicate} 
+\end{itemize}
+As described in the Following and Discovery section, following adds
 the target repository as a named remote. Replication also processes the
 configured canonical repository, which is cloned when an identity is
 created. The workflow in Figure~\ref{fig:replication_workflow} is implemented
@@ -297,9 +300,10 @@ branch of each other remote. This branch check keeps replication from being
 run on the published \texttt{gh-pages} branch. The fetched remote branch is
 not merged wholesale; only accepted action JSON files are written into the
 local \texttt{social/actions/} directory, keeping the local profile and
-identity separate.}
+identity separate. \textbf{Listing~\ref{lst:replication-sources} shows the
+branch guard and remote selection.}
 
-\begin{lstlisting}[caption={Selecting replication sources and checking their profiles}]
+\begin{lstlisting}[caption={Selecting replication sources and checking their profiles},label={lst:replication-sources}]
 branch = self.repo.git.rev_parse("--abbrev-ref", "HEAD")
 if branch != "main":
     return
@@ -311,7 +315,9 @@ for remote in self.repo.remotes:
     self._verified_remote_public_key(remote.name)
 \end{lstlisting}
 
-\textbf{After fetching, the client verifies the remote repository's
+\textbf{Git fetch makes the remote branch's objects available locally; it
+does not decide which social actions to accept.} After fetching, the client
+verifies the remote repository's
 \texttt{social/profile.json} with \texttt{ProfileVerifier}. It then reads
 candidate \texttt{.json} files from that remote's
 \texttt{social/actions/} tree. Unreadable or malformed files are rejected;
@@ -319,9 +325,11 @@ each readable action is passed to \texttt{ActionVerifier} before being
 written locally. The verifier checks the signature against the public key
 contained in that action's \texttt{author} field. Profile verification and
 action verification are separate checks: the former validates the remote
-profile, while each action's signature is checked independently.}
+profile, while each action's signature is checked independently.
+\textbf{Listing~\ref{lst:replication-verify} shows the action check before
+local storage.}
 
-\begin{lstlisting}[caption={Verifying candidate actions before local storage}]
+\begin{lstlisting}[caption={Verifying candidate actions before local storage},label={lst:replication-verify}]
 action = json.loads(raw_action)
 if not ActionVerifier.verify(action):
     print(f"[REPLICATE] Rejected invalid action {action_file}")
@@ -333,71 +341,225 @@ with open(local_path, "w", encoding="utf-8") as action_handle:
     json.dump(action, action_handle, indent=2)
 \end{lstlisting}
 
-\textbf{The excerpt shows that invalid signatures are skipped, while verified
-action files are placed under the same relative path in the local repository.
-This allows an action to be relayed through another repository without
-changing its original author or signature. Replication does not require the
-action's author key to be the public key in the fetched repository profile;
-the signature is verified against the key carried by the action itself.}
+\textbf{The client writes accepted files at the same relative path. Because
+it verifies each action against the key in that action's \texttt{author}
+field, a repository can relay another user's signed action without changing
+its author or signature.}
 
-\textbf{Once a remote has been processed, the client stages
-\texttt{social/actions/} and checks whether the repository is dirty. It
-creates a commit when there are changes to record; when replication adds no
-changes and the repository is otherwise clean, no empty replication commit
-is created. Errors verifying or reading a remote are reported and the loop
+\textbf{After a remote has been processed, the client stages
+\texttt{social/actions/} and checks whether the repository is dirty. In
+GitPython, the check compares the index with HEAD and the tracked working tree
+with the index;
+\texttt{untracked\_files=True} also includes untracked files. If replication
+adds nothing and the repository is otherwise clean, the client skips the
+commit. Listing~\ref{lst:replication-commit} shows this check and the commit
+message. Errors verifying or reading a remote are reported and the loop
 continues to the next configured remote. After processing the remotes, the
 client attempts to push the updated local \texttt{main} branch to
 \texttt{origin}.}
 
-\begin{lstlisting}[caption={Committing replicated actions only when the repository changed}]
+\begin{lstlisting}[caption={Staging and committing replicated actions},label={lst:replication-commit}]
 self.repo.git.add("social/actions")
 if self.repo.is_dirty(index=True, working_tree=True, untracked_files=True):
     self.repo.git.commit(
         "-m", f"Merge verified actions from {remote.name}/main"
     )
-
-self.repo.remotes["origin"].push("main")
 \end{lstlisting}
 
-\textbf{The commit message uses “Merge” descriptively, but the implementation
-does not run \texttt{git merge}: it copies verified action files from the
-fetched tree. This is also the basis for multi-hop replication in
-Figure~\ref{fig:multihop_replication}. If Bob has already replicated
-Charlie's action, Alice can receive it when replicating Bob, even without
-directly following Charlie. Alice still verifies the action's own signature,
-so the original author key—not the intermediate repository—remains the basis
-for action authenticity. The locally accepted actions can then be used by
-the feed construction and site publication process described next.}
+\textbf{“Merge” here is only text in the commit message; the code stages and
+commits copied action files, without running \texttt{git merge}. The copy is
+shown in Listing~\ref{lst:replication-verify}. This acceptance step enables
+the multi-hop propagation in Figure~\ref{fig:multihop_replication}, with each
+client verifying the original action signature.}
 
 
 
 \subsection{Feed Construction and Site Publication}
+Feed construction is accessed through: 
+\begin{itemize} 
+    \item \texttt{feed} 
+    \item \texttt{publish-site} 
+\end{itemize}
+The previous section ends with verified actions available in the
+local repository. The \texttt{publish-site} command, handled by
+\texttt{SitePublisher}, packages this current local state as a static website;
+it does not perform replication. This differs from the \texttt{feed} command,
+handled by \texttt{ShowFeedAction}, which displays a feed in the terminal.
+Figure~\ref{fig:feed_construction_workflow} in the System Design chapter
+shows the overall workflow; this section focuses on how the prototype builds
+and publishes the site.
 
-% Describe how locally available signed actions and verified profile
-% information are assembled for display, and how the static site is published
-% separately from protocol data. Identify the responsibilities of
-% ShowFeedAction, SitePublisher, and PublishManager accurately; distinguish
-% local feed display from generation/publication of feed.json. Refer to
-% Figure~\ref{fig:feed_construction_workflow} in the System Design chapter.
-The feed construction involves constructing a feed.json file from the user's current 'social/actions' directory having been 
-built from the above operations. The feed file is then uploaded to the gh-pages branch of the repository. This branch is 
-statically hosted on Git-Hub Pages, rendering feed content using frontend files of app.js, index.html, style.css. 
-The canonical-social repository is where these frontend files in a directory called site-template are declared so that each 
-repository can contain these upon creation as they all clone from it. Note: I may insert screenshot of site-template of canonical-social.  
-The publish-site command is responsible for generating the feed and updating the static site with its latest content as shown in the 
-Figure~\ref{fig:feed_construction_workflow}. The command corresponds to the publish command of a dedicated SitePublisher class. 
-The method first calls validates template to ensure that the frontend files required to render the site from the clone. 
-The users own profile is verified using the ProfileVerifier class to ensure no impersonation. 
-Then the first major stage of building feed is getting the profile names of users' whos actions are in the feed which is implemented as a dictionary mapping the public key to handle. 
-The 'urlib.request' library is used to make and receive response from the directory and then the ProfileVerifier is again used to verfiy the profiles, neglecting profiles which are not valid. 
-Eventually the profiles are created a dictionary of public key to handle mapping, while the data structure for loading verifying actions is a list of dictionaries. If the files in the 'social/actions'
-path is valid it is loaded as a json object upon verifying the signature with ActionVerfier which is then appended to the list of actions for that user. 
-Now the client prepares the gh-pages branch which first prevents switching branches when the repository contains any uncommitted files (isdirty check). 
-Other checks are that thean an origin remote is configured (to where it must be pushed to). Once these are done, latest repository information from origin (through origin.fetch) is importantly run. 
-This allows client to determine if a local gh-pages branch exists, if it does exist it is checked out and syncrhonised with the remote version with a fast-forward merge bbut if only a remote gh-branches exists a new local tracking branch is created from the report. 
-Lastly, if no gh-pages branch exists at all, a new orphan branch is created and it is preparaed for static site contents by removing all existing files (Note: insert/reference relevant code such as checkout, orphan, etc). Next, the writesitefiles function writes into the validated/clean gh-page 
-by first copying the subdirectories of the template using shutil.copytree(...)  and the individual files with shutil.cop2 but the existing feed.json is excluded from the copy process as it is instead generated dynamically from the users protocol data. This data is passed as a dictionary and written
- to a new feed.json file using 'json.dump' and then commited and pushed to the branch, so the static site now can update and render or rerender the feed page according to the latest data. Finally, the directory.json is updated with the url of the deployed site through the PublishManger class.
+\texttt{SitePublisher} first validates that the template contains
+\texttt{index.html}, \texttt{app.js} and \texttt{style.css}. It verifies the
+user's profile with \texttt{ProfileVerifier} and reads each local action as
+JSON, using \texttt{ActionVerifier} to exclude unreadable or invalidly signed
+actions from the generated feed. \textbf{Listing~\ref{lst:site-actions}
+shows the signature check: invalid actions are skipped, while valid ones are
+added to the list that will be serialized.}
+
+\begin{lstlisting}[caption={Including only verified actions in the site feed},label={lst:site-actions}]
+if not ActionVerifier.verify(action):
+    continue
+actions.append(action)
+\end{lstlisting}
+
+For readable author names, the publisher uses
+\texttt{urllib.request} to retrieve profiles from repository URLs listed in
+the public directory. Each retrieved profile is checked with
+\texttt{ProfileVerifier}, and its signed handle and public key are compared
+with the directory entry before a name is added to the mapping. Profiles
+that cannot be retrieved or verified are omitted, allowing the frontend to
+display the author's public key instead. This lookup supports feed
+presentation and is separate from the Follow-time validation described
+above. \textbf{Listing~\ref{lst:site-profile-names} shows how a discovered
+profile is matched to the directory before its display name is accepted.}
+
+\begin{lstlisting}[caption={Checking discovered profiles before adding display names},label={lst:site-profile-names}]
+with urllib.request.urlopen(profile_url, timeout=5) as response:
+    remote_profile_data = json.load(response)
+
+remote_profile = ProfileVerifier(remote_profile_data).verify()
+if remote_profile["handle"] != handle:
+    raise ValueError("Directory handle does not match signed profile")
+if remote_profile["publicKey"] != user_info.get("publicKey"):
+    raise ValueError("Profile key does not match directory")
+profiles.setdefault(
+    remote_profile["publicKey"],
+    remote_profile_data.get("displayName") or remote_profile["handle"],
+)
+\end{lstlisting}
+
+The verified profile, profile-name mapping and action list are
+assembled into a dictionary and written as the user's \texttt{feed.json}.
+This is the data contract between the Python publisher and the browser
+frontend: it contains the information needed to render the profile and
+social actions, rather than the HTML page itself.
+\textbf{Listing~\ref{lst:feed-data} shows this structure.}
+
+\begin{lstlisting}[caption={Assembling the profile, names and verified actions for feed.json},label={lst:feed-data}]
+profile = self._load_profile(profile_path)
+return {
+    "profile": profile,
+    "profiles": self._load_profile_names(profile),
+    "actions": self._load_verified_actions(),
+}
+\end{lstlisting}
+
+The shared frontend is stored in the \texttt{site-template} directory
+of the local \texttt{canonical-social} repository. The publisher uses
+\texttt{shutil.copytree()} for template subdirectories and
+\texttt{shutil.copy2()} for individual files. It skips any template
+\texttt{feed.json}, because the current profile, profile-name mapping and
+verified actions are serialized to a fresh \texttt{feed.json} using
+\texttt{json.dump()}. This keeps the shared presentation files separate
+from feed data generated from the user's local protocol state.
+
+The template's \texttt{index.html} defines the profile card and feed
+section. Its element IDs—such as \texttt{profile-name},
+\texttt{profile-handle}, \texttt{feed-status}, \texttt{post-list} and
+\texttt{feed-filter}—provide the targets that \texttt{app.js} selects with
+\texttt{document.querySelector()}. The filter defaults to showing all posts
+including posts received through multi-hop replication, and can be changed
+to show followed authors. \textbf{Listing~\ref{lst:feed-dom} shows how
+JavaScript selects the page elements it updates.}
+
+\begin{lstlisting}[caption={Connecting feed page elements to app.js},label={lst:feed-dom}]
+const profileName = document.querySelector("#profile-name");
+const feedStatus = document.querySelector("#feed-status");
+const postList = document.querySelector("#post-list");
+const feedFilter = document.querySelector("#feed-filter");
+\end{lstlisting}
+
+When the page loads, \texttt{loadFeed()} fetches the published
+\texttt{feed.json} and passes the parsed object to \texttt{prepareFeed()}.
+That function indexes posts by ID, likes and replies by their target, and
+retains Follow actions for the filter. \textbf{Listing~\ref{lst:feed-index}
+shows the post index; separate branches group likes and replies by their
+targets and collect Follow actions for the filter.}
+
+\begin{lstlisting}[caption={Indexing action types for feed rendering},label={lst:feed-index}]
+if (action.type === "post") {
+  postsById.set(action.id, action);
+}
+\end{lstlisting}
+
+\texttt{loadFeed()} then passes this prepared data to the rendering
+functions and updates the page elements selected above. In
+\texttt{renderPost()}, the maps let the client display likes and replies
+alongside the post they reference; \texttt{renderFeed()} uses Follow actions
+to apply the selected author filter. The \texttt{feed-status} element reports
+empty-feed or loading errors. \texttt{style.css} supplies the colours,
+typography and layout for the rendered page, using the same visual style as
+the social directory.
+
+% Optional screenshot: show canonical-social/site-template and its
+% index.html, app.js, and style.css files.
+% \begin{figure}[h]
+%     \centering
+%     \includegraphics[width=\textwidth]{figures/canonical_site_template.png}
+%     \caption{Static-site template in the canonical repository}
+%     \label{fig:canonical_site_template}
+% \end{figure}
+
+Before switching to \texttt{gh-pages}, the publisher checks for
+uncommitted changes, a detached HEAD and a missing \texttt{origin} remote,
+and refuses to proceed if these conditions make publication unsafe. The
+detached-HEAD check is applied at the same stage.
+\textbf{Listing~\ref{lst:site-guards} shows the checks made before fetching
+the remote.}
+
+\begin{lstlisting}[caption={Checking the repository before site publication},label={lst:site-guards}]
+if self.repo.is_dirty(untracked_files=True):
+    raise RuntimeError("Commit or remove local changes before publishing")
+if self.repo.head.is_detached:
+    raise RuntimeError("Cannot publish from detached HEAD")
+if "origin" not in self.repo.remotes:
+    raise RuntimeError("The user repository needs an origin remote")
+
+origin = self.repo.remotes.origin
+origin.fetch()
+\end{lstlisting}
+
+After fetching, the publisher prepares the site branch: an existing
+local branch is checked out and fast-forwarded where possible; a remote-only
+branch is checked out as a tracking branch; and if no site branch exists, an
+orphan \texttt{gh-pages} branch is created and cleared. These Git operations
+keep the static files separate from protocol data on \texttt{main}. After
+copying the template and generating \texttt{feed.json}, the publisher stages
+and commits changes, pushes \texttt{gh-pages} to \texttt{origin}, and returns
+the working copy to its original branch.
+\textbf{Listing~\ref{lst:site-branch} shows the three branch preparation
+cases.}
+
+\begin{lstlisting}[caption={Preparing the gh-pages branch for publication},label={lst:site-branch}]
+if local_branch is not None:
+    self.repo.git.checkout("gh-pages")
+    if remote_ref is not None:
+        self.repo.git.merge("--ff-only", remote_ref.path)
+elif remote_ref is not None:
+    local_branch = self.repo.create_head("gh-pages", remote_ref)
+    local_branch.set_tracking_branch(remote_ref)
+    self.repo.git.checkout("gh-pages")
+else:
+    self.repo.git.checkout("--orphan", "gh-pages")
+    self.repo.git.rm("-r", "-f", ".")
+\end{lstlisting}
+
+After a successful push, \texttt{PublishManager} records the derived
+\texttt{siteURL} in the directory, provided the repository URL and public key
+match the registered entry. GitHub Pages serves the published files, so the
+website reflects the local protocol data available when
+\texttt{publish-site} runs. Later posts or replicated actions appear after
+the site is published again.
+
+% Optional screenshot: show the rendered feed website after publication.
+% \begin{figure}[h]
+%     \centering
+%     \includegraphics[width=\textwidth]{figures/published_social_feed.png}
+%     \caption{Published static social feed}
+%     \label{fig:published_social_feed}
+% \end{figure}
+
 \subsection{Implementation Verification}
 
 % Briefly describe the test strategy, test environment, and how tests map to
@@ -407,10 +569,10 @@ by first copying the subdirectories of the template using shutil.copytree(...)  
 
 \subsection{Implementation Limitations}
 
-\textbf{Action identifiers use a sequential counter based on the action files
+Action identifiers use a sequential counter based on the action files
 present in the local repository. If the same identity creates actions
 concurrently from separate repository copies, those copies may select the
-same next identifier.}
+same next identifier.
 
 % Describe any other implementation-specific constraints that affect
 % interpretation or reproducibility. Reserve broader implications and future
