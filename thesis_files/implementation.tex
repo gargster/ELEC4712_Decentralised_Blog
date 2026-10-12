@@ -79,7 +79,9 @@ implementation uses \texttt{ActionBase} to avoid duplicating this logic.}
 \texttt{ActionBase} defines the shared creation workflow in
 \texttt{\_create()}. It loads the public key from \texttt{profile.json} and
 the private key from the client's identity state, checks that the keys
-correspond, generates an action ID and builds the common fields. It then calls
+correspond, generates an action ID and builds the common fields. \textbf{The
+ID follows the form \texttt{<type>-<handle>-<number>}, with the number
+incremented from the existing local action files.} It then calls
 \texttt{\_extend()}, allowing each subclass to add its action-specific
 fields: \texttt{PostAction} adds post content; \texttt{ReplyAction} adds
 content, the \texttt{inReplyTo} action ID and target handle;
@@ -285,15 +287,88 @@ agree.}
 
 \subsection{Replication}
 
-% Describe how Replicator obtains remote repository data, verifies candidate
-% actions, stores accepted actions locally, and propagates them. Explain the
-% role of ActionVerifier and profile verification where relevant. Refer to
-% Figures~\ref{fig:replication_workflow} and
-% \ref{fig:multihop_replication} in the System Design chapter.
-As described above, the follow action establishes remote repositories as a replication source. The remote repositories are not just the repositories users follow, but also includes the canonical-social from where the profile is cloned from.
-The Figures~\ref{fig:replication_workflow} shows the key git operations used to write actions locally from the replication sources which are git fetch to retrieve commits and objects from the remote repositories' main branch where the social/actions are located and git merge to write into the local social/actions of the user. But to ensure that only actions from the main branch are replicated (e.g. ensure not from gh-pages), a check is made as shown below. Also within then the loop through remotes the 'origin' is skipped as do not need to replicate from the user's own repository. Then when the remotes main is fetched, a security check is made on the owner of the repotiry by loading an verifying the profile.json and its publickey. Then the merge is performed, but the entire main but the entire main branch of the remote repository is not merged since their profile identity should stay separate but only their 'social/actions' directory is written locally into the user's own 'social/actions'.
-This is shown below
-Note: insert code snippets relevant to above clearly referenced within explanation. Upon copying this verified actions, the client checks if the state of the repository has changed and if new actions arrived via the remote repository, a commit recording the replication event is created but if no new actions accepted, no commit is created thus avoiding generating empty commits if no new protocol data is introduced. Note: insert the repo.isdirty check. There are no conflicts in the latest 'social/actions' containing replicated actions since each social action has unique id with the handle and id prefix (note: should probably update the respective section where social action creation mentions how it generates the id and why that unique and no collisions). Any exceptions are caught where the profile is not verified and the client moves onto the next remote if present. The updated main branch with the 'social/actions' is then pushed to the repository. Now the feed of the user can be constructed and published to gh-pages based on the latest social-actions as will be covered in the next section. Also, as a planned consuequence of this replication model if user Alice replicates from a remote repository Bob and that user has replicated repository from a separate user Charlie then Alice recieves Charlie's actions despite not directly following as Alice has trustued Bob's profile/identity and each individual action of Charlie is still checked by verifying the public key as shown in this Figure \ref{fig:multihop_replication}. 
+\textbf{As described in the Following and Discovery section, following adds
+the target repository as a named remote. Replication also processes the
+configured canonical repository, which is cloned when an identity is
+created. The workflow in Figure~\ref{fig:replication_workflow} is implemented
+by \texttt{Replicator}: it requires the local repository to be on
+\texttt{main}, skips the user's \texttt{origin}, and fetches the \texttt{main}
+branch of each other remote. This branch check keeps replication from being
+run on the published \texttt{gh-pages} branch. The fetched remote branch is
+not merged wholesale; only accepted action JSON files are written into the
+local \texttt{social/actions/} directory, keeping the local profile and
+identity separate.}
+
+\begin{lstlisting}[caption={Selecting replication sources and checking their profiles}]
+branch = self.repo.git.rev_parse("--abbrev-ref", "HEAD")
+if branch != "main":
+    return
+
+for remote in self.repo.remotes:
+    if remote.name == "origin":
+        continue
+    remote.fetch("main")
+    self._verified_remote_public_key(remote.name)
+\end{lstlisting}
+
+\textbf{After fetching, the client verifies the remote repository's
+\texttt{social/profile.json} with \texttt{ProfileVerifier}. It then reads
+candidate \texttt{.json} files from that remote's
+\texttt{social/actions/} tree. Unreadable or malformed files are rejected;
+each readable action is passed to \texttt{ActionVerifier} before being
+written locally. The verifier checks the signature against the public key
+contained in that action's \texttt{author} field. Profile verification and
+action verification are separate checks: the former validates the remote
+profile, while each action's signature is checked independently.}
+
+\begin{lstlisting}[caption={Verifying candidate actions before local storage}]
+action = json.loads(raw_action)
+if not ActionVerifier.verify(action):
+    print(f"[REPLICATE] Rejected invalid action {action_file}")
+    continue
+
+local_path = os.path.join(self.identity_repo_root, action_file)
+os.makedirs(os.path.dirname(local_path), exist_ok=True)
+with open(local_path, "w", encoding="utf-8") as action_handle:
+    json.dump(action, action_handle, indent=2)
+\end{lstlisting}
+
+\textbf{The excerpt shows that invalid signatures are skipped, while verified
+action files are placed under the same relative path in the local repository.
+This allows an action to be relayed through another repository without
+changing its original author or signature. Replication does not require the
+action's author key to be the public key in the fetched repository profile;
+the signature is verified against the key carried by the action itself.}
+
+\textbf{Once a remote has been processed, the client stages
+\texttt{social/actions/} and checks whether the repository is dirty. It
+creates a commit when there are changes to record; when replication adds no
+changes and the repository is otherwise clean, no empty replication commit
+is created. Errors verifying or reading a remote are reported and the loop
+continues to the next configured remote. After processing the remotes, the
+client attempts to push the updated local \texttt{main} branch to
+\texttt{origin}.}
+
+\begin{lstlisting}[caption={Committing replicated actions only when the repository changed}]
+self.repo.git.add("social/actions")
+if self.repo.is_dirty(index=True, working_tree=True, untracked_files=True):
+    self.repo.git.commit(
+        "-m", f"Merge verified actions from {remote.name}/main"
+    )
+
+self.repo.remotes["origin"].push("main")
+\end{lstlisting}
+
+\textbf{The commit message uses “Merge” descriptively, but the implementation
+does not run \texttt{git merge}: it copies verified action files from the
+fetched tree. This is also the basis for multi-hop replication in
+Figure~\ref{fig:multihop_replication}. If Bob has already replicated
+Charlie's action, Alice can receive it when replicating Bob, even without
+directly following Charlie. Alice still verifies the action's own signature,
+so the original author key—not the intermediate repository—remains the basis
+for action authenticity. The locally accepted actions can then be used by
+the feed construction and site publication process described next.}
+
 
 
 \subsection{Feed Construction and Site Publication}
@@ -304,7 +379,25 @@ Note: insert code snippets relevant to above clearly referenced within explanati
 % ShowFeedAction, SitePublisher, and PublishManager accurately; distinguish
 % local feed display from generation/publication of feed.json. Refer to
 % Figure~\ref{fig:feed_construction_workflow} in the System Design chapter.
-
+The feed construction involves constructing a feed.json file from the user's current 'social/actions' directory having been 
+built from the above operations. The feed file is then uploaded to the gh-pages branch of the repository. This branch is 
+statically hosted on Git-Hub Pages, rendering feed content using frontend files of app.js, index.html, style.css. 
+The canonical-social repository is where these frontend files in a directory called site-template are declared so that each 
+repository can contain these upon creation as they all clone from it. Note: I may insert screenshot of site-template of canonical-social.  
+The publish-site command is responsible for generating the feed and updating the static site with its latest content as shown in the 
+Figure~\ref{fig:feed_construction_workflow}. The command corresponds to the publish command of a dedicated SitePublisher class. 
+The method first calls validates template to ensure that the frontend files required to render the site from the clone. 
+The users own profile is verified using the ProfileVerifier class to ensure no impersonation. 
+Then the first major stage of building feed is getting the profile names of users' whos actions are in the feed which is implemented as a dictionary mapping the public key to handle. 
+The 'urlib.request' library is used to make and receive response from the directory and then the ProfileVerifier is again used to verfiy the profiles, neglecting profiles which are not valid. 
+Eventually the profiles are created a dictionary of public key to handle mapping, while the data structure for loading verifying actions is a list of dictionaries. If the files in the 'social/actions'
+path is valid it is loaded as a json object upon verifying the signature with ActionVerfier which is then appended to the list of actions for that user. 
+Now the client prepares the gh-pages branch which first prevents switching branches when the repository contains any uncommitted files (isdirty check). 
+Other checks are that thean an origin remote is configured (to where it must be pushed to). Once these are done, latest repository information from origin (through origin.fetch) is importantly run. 
+This allows client to determine if a local gh-pages branch exists, if it does exist it is checked out and syncrhonised with the remote version with a fast-forward merge bbut if only a remote gh-branches exists a new local tracking branch is created from the report. 
+Lastly, if no gh-pages branch exists at all, a new orphan branch is created and it is preparaed for static site contents by removing all existing files (Note: insert/reference relevant code such as checkout, orphan, etc). Next, the writesitefiles function writes into the validated/clean gh-page 
+by first copying the subdirectories of the template using shutil.copytree(...)  and the individual files with shutil.cop2 but the existing feed.json is excluded from the copy process as it is instead generated dynamically from the users protocol data. This data is passed as a dictionary and written
+ to a new feed.json file using 'json.dump' and then commited and pushed to the branch, so the static site now can update and render or rerender the feed page according to the latest data. Finally, the directory.json is updated with the url of the deployed site through the PublishManger class.
 \subsection{Implementation Verification}
 
 % Briefly describe the test strategy, test environment, and how tests map to
@@ -314,5 +407,11 @@ Note: insert code snippets relevant to above clearly referenced within explanati
 
 \subsection{Implementation Limitations}
 
-% Describe implementation-specific constraints that affect interpretation or
-% reproducibility. Reserve broader implications and future work for Discussion.
+\textbf{Action identifiers use a sequential counter based on the action files
+present in the local repository. If the same identity creates actions
+concurrently from separate repository copies, those copies may select the
+same next identifier.}
+
+% Describe any other implementation-specific constraints that affect
+% interpretation or reproducibility. Reserve broader implications and future
+% work for Discussion.
