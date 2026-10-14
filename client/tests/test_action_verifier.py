@@ -32,3 +32,8 @@ def test_action_verifier_rejects_action_without_signature():
     del action["signature"]
 
     assert ActionVerifier.verify(action) is False
+
+
+def test_action_verifier_rejects_missing_fields_and_invalid_public_key():
+    assert ActionVerifier.verify(None) is False
+    assert ActionVerifier.verify({"author": "not-hex", "signature": "bad"}) is False

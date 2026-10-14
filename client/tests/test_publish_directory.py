@@ -1,7 +1,7 @@
 import json
 from types import SimpleNamespace
 
-from git import Repo
+from git import GitCommandError, Repo
 from git.remote import PushInfo
 import pytest
 
@@ -171,3 +171,93 @@ def test_directory_push_rejection_is_reported_as_failure():
 
     with pytest.raises(RuntimeError, match="Push failed: non-fast-forward"):
         PublishManager._push_directory(directory_repo)
+
+
+def test_merge_directory_json_combines_nonconflicting_entries(tmp_path):
+    directory_repo_path = tmp_path / "directory"
+    directory_repo_path.mkdir()
+    local = {"local.social": {"publicKey": "local-key"}}
+    remote = {"remote.social": {"publicKey": "remote-key"}}
+    fake_repo = SimpleNamespace(
+        index=SimpleNamespace(unmerged_blobs=lambda: {"directory.json": {}}),
+        git=SimpleNamespace(
+            show=lambda stage: json.dumps(
+                local if stage == ":2:directory.json" else remote
+            ),
+            add=lambda path: None,
+            commit=lambda *args: None,
+        ),
+        working_tree_dir=str(directory_repo_path),
+    )
+
+    PublishManager._merge_directory_json(fake_repo)
+
+    assert json.loads((directory_repo_path / "directory.json").read_text()) == {
+        **remote,
+        **local,
+    }
+
+
+def test_merge_directory_json_aborts_unhandled_conflict_types():
+    abort_calls = []
+    fake_repo = SimpleNamespace(
+        index=SimpleNamespace(unmerged_blobs=lambda: {"README.md": {}}),
+        git=SimpleNamespace(merge=lambda *args: abort_calls.append(args)),
+    )
+
+    with pytest.raises(RuntimeError, match="Cannot automatically merge"):
+        PublishManager._merge_directory_json(fake_repo)
+
+    assert abort_calls == [("--abort",)]
+
+
+def test_merge_directory_json_refuses_conflicting_identity_keys():
+    abort_calls = []
+    fake_repo = SimpleNamespace(
+        index=SimpleNamespace(unmerged_blobs=lambda: {"directory.json": {}}),
+        git=SimpleNamespace(
+            show=lambda stage: json.dumps(
+                {"alice.social": {"publicKey": "local" if stage.startswith(":2") else "remote"}}
+            ),
+            merge=lambda *args: abort_calls.append(args),
+        ),
+    )
+
+    with pytest.raises(RuntimeError, match="Conflicting registered public keys"):
+        PublishManager._merge_directory_json(fake_repo)
+
+    assert abort_calls == [("--abort",)]
+
+
+def test_directory_sync_rejects_dirty_repo_and_propagates_nonconflict_merge_error():
+    dirty_repo = SimpleNamespace(is_dirty=lambda **kwargs: True)
+    with pytest.raises(RuntimeError, match="uncommitted changes"):
+        PublishManager._sync_directory_repo(dirty_repo)
+
+    error = GitCommandError("merge", "unrelated histories")
+
+    class Index:
+        def unmerged_blobs(self):
+            return {}
+
+    clean_repo = SimpleNamespace(
+        is_dirty=lambda **kwargs: False,
+        remotes=SimpleNamespace(origin=SimpleNamespace(fetch=lambda branch: None)),
+        git=SimpleNamespace(merge=lambda *args: (_ for _ in ()).throw(error)),
+        index=Index(),
+    )
+    with pytest.raises(GitCommandError):
+        PublishManager._sync_directory_repo(clean_repo)
+
+
+def test_github_pages_url_rejects_malformed_and_nonproject_urls():
+    for url in (
+        None,
+        "http://github.com/alice/repo",
+        "https://github.com/alice/repo?x=1",
+        "https://github.com/alice/repo#main",
+        "https://github.com/alice",
+        "https://github.com/alice/",
+        "https://github.com/alice/.git",
+    ):
+        assert PublishManager.github_pages_url(url) is None

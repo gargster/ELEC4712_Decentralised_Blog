@@ -2,7 +2,9 @@ import io
 import os
 import json
 from pathlib import Path
+from types import SimpleNamespace
 import pytest
+from git import Repo
 
 from src.actions.action_verifier import ActionVerifier
 from src.actions.follow import FollowAction
@@ -323,3 +325,213 @@ def test_follow_action_rejects_handle_missing_from_directory(
 
     with pytest.raises(ValueError, match="not registered in the social directory"):
         FollowAction(str(social_path)).run(Args())
+
+
+def test_action_run_methods_forward_cli_arguments(tmp_path, monkeypatch):
+    social_path = str(tmp_path / "social")
+    args = SimpleNamespace(
+        content="message",
+        target_action="post-bob.social-001",
+        target_handle="bob.social",
+    )
+    cases = [
+        (PostAction, "create_post", "message"),
+        (ReplyAction, "create_reply", ("message", "post-bob.social-001", "bob.social")),
+        (LikeAction, "create_like", ("post-bob.social-001", "bob.social")),
+    ]
+
+    for action_class, method_name, expected in cases:
+        action = action_class(social_path)
+        calls = []
+        monkeypatch.setattr(
+            action,
+            method_name,
+            lambda *values: calls.append(values) or ("action.json", {}),
+        )
+
+        assert action.run(args) == ("action.json", {})
+        assert calls == [expected if isinstance(expected, tuple) else (expected,)]
+
+
+def test_follow_adds_remote_once_and_fetches_profile_from_main(tmp_path):
+    remote_path = tmp_path / "bob-social"
+    remote_repo = Repo.init(remote_path)
+    remote_repo.git.checkout("-b", "main")
+    with remote_repo.config_writer() as config:
+        config.set_value("user", "name", "Follow Test")
+        config.set_value("user", "email", "follow-test@example.com")
+    profile = {"handle": "bob.social", "publicKey": "bob-key"}
+    profile_path = remote_path / "social" / "profile.json"
+    profile_path.parent.mkdir(parents=True)
+    profile_path.write_text(json.dumps(profile), encoding="utf-8")
+    remote_repo.git.add(A=True)
+    remote_repo.index.commit("Add profile")
+
+    local_path = tmp_path / "alice-social"
+    local_repo = Repo.init(local_path)
+    action = FollowAction(str(local_path / "social"))
+    action.add_remote(local_repo, "bob.social", str(remote_path))
+    action.add_remote(local_repo, "bob.social", str(remote_path))
+
+    fetched_profile = action.fetch_profile_git(local_repo, "bob.social")
+
+    assert fetched_profile == profile
+    assert [remote.name for remote in local_repo.remotes] == ["bob.social"]
+
+
+def test_action_base_generates_incrementing_signed_ids(tmp_path, monkeypatch):
+    keypair = base.KeyPair()
+    action_base = base.ActionBase(str(tmp_path / "social"))
+    monkeypatch.setattr(
+        action_base,
+        "_load_identity",
+        lambda: (keypair.public_key(), keypair.private_key(), "alice.social"),
+    )
+
+    first_path, first = action_base._create("post")
+    second_path, second = action_base._create("post")
+
+    assert first["id"] == "post-alice.social-001"
+    assert second["id"] == "post-alice.social-002"
+    assert first["created"].endswith("Z")
+    assert Path(first_path).is_file()
+    assert Path(second_path).is_file()
+    assert ActionVerifier.verify(first)
+    assert ActionVerifier.verify(second)
+
+
+def test_action_base_refuses_private_key_that_does_not_match_profile(
+    tmp_path, monkeypatch
+):
+    profile_key = base.KeyPair()
+    active_key = base.KeyPair()
+    action_base = base.ActionBase(str(tmp_path / "social"))
+    monkeypatch.setattr(
+        action_base,
+        "_load_identity",
+        lambda: (
+            profile_key.public_key(),
+            active_key.private_key(),
+            "alice.social",
+        ),
+    )
+
+    with pytest.raises(ValueError, match="does not match private.key"):
+        action_base._create("post")
+
+    assert not list(Path(action_base.actions_path).iterdir())
+
+
+def test_action_base_loads_active_identity_key_from_client_state(
+    tmp_path, monkeypatch
+):
+    project_root = tmp_path / "project"
+    fake_module_path = project_root / "client" / "src" / "actions" / "base.py"
+    fake_module_path.parent.mkdir(parents=True)
+    monkeypatch.setattr(base, "__file__", str(fake_module_path))
+
+    keypair = base.KeyPair()
+    social_path = project_root / "alice-social" / "social"
+    social_path.mkdir(parents=True)
+    (social_path / "profile.json").write_text(
+        json.dumps(
+            {"handle": "alice.social", "publicKey": keypair.public_key()}
+        ),
+        encoding="utf-8",
+    )
+    client_path = project_root / "client"
+    (client_path / "identity.json").write_text(
+        json.dumps({"activeIdentity": "alice"}), encoding="utf-8"
+    )
+    key_path = client_path / "state" / "alice" / "keystore" / "private.key"
+    key_path.parent.mkdir(parents=True)
+    key_path.write_text(keypair.private_key(), encoding="utf-8")
+
+    loaded = base.ActionBase(str(social_path))._load_identity()
+
+    assert loaded == (
+        keypair.public_key(),
+        keypair.private_key(),
+        "alice.social",
+    )
+
+
+def test_action_base_skips_invalid_ids_and_writes_to_an_explicit_directory(
+    tmp_path, monkeypatch
+):
+    keypair = base.KeyPair()
+    action = base.ActionBase(str(tmp_path / "social"))
+    (Path(action.actions_path) / "post-alice.social-not-a-number.json").write_text(
+        "{}", encoding="utf-8"
+    )
+    (Path(action.actions_path) / "unrelated.json").write_text(
+        "{}", encoding="utf-8"
+    )
+    monkeypatch.setattr(
+        action,
+        "_load_identity",
+        lambda: (keypair.public_key(), keypair.private_key(), "alice.social"),
+    )
+    other_actions = tmp_path / "custom-actions"
+    other_actions.mkdir()
+
+    path, record = action._create("reply", actions_path=str(other_actions))
+
+    assert record["id"] == "reply-alice.social-001"
+    assert Path(path).parent == other_actions
+    assert ActionVerifier.verify(record)
+
+
+def test_action_base_write_strips_json_suffix_from_action_id(tmp_path):
+    action = base.ActionBase(str(tmp_path / "social"))
+
+    path = action._write({"id": "post-001.json"})
+
+    assert Path(path).name == "post-001.json"
+    assert json.loads(Path(path).read_text(encoding="utf-8")) == {
+        "id": "post-001.json"
+    }
+
+
+def test_follow_rejects_non_object_directory_and_missing_registered_key(
+    tmp_path, monkeypatch
+):
+    from src.actions import follow as follow_module
+
+    action = FollowAction(str(tmp_path / "social"))
+    monkeypatch.setattr(
+        follow_module.urllib.request,
+        "urlopen",
+        lambda url, timeout: io.BytesIO(b"[]"),
+    )
+    with pytest.raises(ValueError, match="must be a JSON object"):
+        action._registered_identity("alice.social")
+
+    monkeypatch.setattr(
+        follow_module.urllib.request,
+        "urlopen",
+        lambda url, timeout: io.BytesIO(b'{"alice.social": {}}'),
+    )
+    with pytest.raises(ValueError, match="no registered public key"):
+        action._registered_identity("alice.social")
+
+
+def test_follow_reports_missing_profile_in_fetched_remote(tmp_path, monkeypatch):
+    from src.actions import follow as follow_module
+
+    monkeypatch.setattr(
+        follow_module.git.cmd,
+        "Git",
+        lambda path: SimpleNamespace(
+            show=lambda ref: (_ for _ in ()).throw(RuntimeError("not found"))
+        ),
+    )
+    remote = SimpleNamespace(fetch=lambda branch: None)
+    repo = SimpleNamespace(
+        working_tree_dir=str(tmp_path),
+        remotes={"alice.social": remote},
+    )
+    with pytest.raises(Exception, match="profile.json missing"):
+        FollowAction(str(tmp_path / "social")).fetch_profile_git(
+            repo, "alice.social"
+        )

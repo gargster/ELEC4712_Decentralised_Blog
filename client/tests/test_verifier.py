@@ -24,3 +24,10 @@ def test_verifier_invalid_signature():
 
     v = Verifier(public_key)
     assert v.verify_json(obj, fake_sig) is False
+
+
+def test_verifier_rejects_invalid_base64_signature():
+    kp = KeyPair()
+    verifier = Verifier(kp.public_key())
+
+    assert verifier.verify_json({"handle": "alice.social"}, "%%%not-base64%%") is False

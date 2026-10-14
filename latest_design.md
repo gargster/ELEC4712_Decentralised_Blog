@@ -1,3 +1,48 @@
+# Client Implementation Architecture
+
+This diagram summarises the CLI's main implementation routes and the
+repositories used by discovery and site publication.
+
+```mermaid
+flowchart LR
+    User[User command] --> App[client/app.py]
+
+    subgraph Client[Python client]
+        App --> Identity["identity/<br/>ProfileCreator, KeyPair,<br/>Signer, Verifier"]
+        App --> Factory["actions/action_factory.py<br/>ActionFactory, ActionRegistry"]
+        Factory --> Actions["actions/<br/>ActionBase and Post, Reply,<br/>Like, Follow subclasses"]
+        Factory --> Feed["actions/feed.py<br/>ShowFeedAction"]
+        Actions --> GitPub["publishing/git_publisher.py<br/>GitPublisher"]
+        App --> Replicator["replication/replicator.py<br/>Replicator"]
+        App --> Publish["publishing/publish_manager.py<br/>PublishManager"]
+        App --> SitePub["publishing/site_publisher.py<br/>SitePublisher"]
+        Feed --> ActionVerify[ActionVerifier]
+        Replicator --> ActionVerify
+        SitePub --> ActionVerify
+        Identity --> ProfileVerify[ProfileVerifier]
+        SitePub --> ProfileVerify
+    end
+
+    subgraph Repositories[Repository inputs]
+        UserRepo["User repository<br/>main: profile and actions"]
+        Followed[Followed user repositories]
+        Canonical["canonical-social<br/>site-template: HTML, CSS, JS"]
+        Directory["social-directory<br/>directory.json and directory website"]
+    end
+
+    GitPub --> UserRepo
+    Publish --> UserRepo
+    Publish --> Directory
+    Replicator --> Followed
+    Followed --> Replicator
+    SitePub --> UserRepo
+    SitePub --> Canonical
+    SitePub --> Directory
+    SitePub --> Published["User repository<br/>gh-pages: template and feed.json"]
+    Published --> Pages[GitHub Pages feed]
+    Directory --> DirectorySite[Directory website]
+```
+
 ## Post
 
 ```mermaid

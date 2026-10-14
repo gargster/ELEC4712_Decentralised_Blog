@@ -18,16 +18,13 @@ The prototype is built using the following tools and technologies:
     in the Python client.
 \end{itemize}
 
-The repository contains the \texttt{client} source code,
-\texttt{thesis\_files} for the thesis, and documentation such as
-\texttt{README.md}, which explains how to run the prototype, and
-\texttt{latest\_design.md}, which contains the workflow diagrams. The
-\texttt{docs/archive} directory retains earlier design documents. The client
-entry point is \texttt{client/app.py}. Running \texttt{python app.py} from the
-\texttt{client} directory displays the available commands, including profile
-creation, social actions, replication, feed display and site publication. The
-automated tests use \texttt{pytest}; their results are reported in the Results
-chapter.
+The repository contains the \texttt{client} source code with a dedicated \texttt{tests} directory containing the automated test suite. Documentation including \texttt{README.md}, which explains how to run the prototype, and \texttt{latest\_design.md}, which contains the latest design documentation and workflow diagrams are also in the repository. Earlier design iterations are retained in the \texttt{docs/archive} directory. 
+
+The client entry point is \texttt{client/app.py}. Running \texttt{python app.py} from the \texttt{client} directory displays the available commands, including identity creation, social actions, following, replication, feed display and site publication. Automated testing is implemented using \texttt{pytest}; the testing methodology and results are presented in Chapter~6.
+
+Figure~\ref{fig:implementation_architecture} summarises the organisation of the prototype implementation. User commands are dispatched to the Identity, Actions, Replication, Publishing, and Following \& Discovery modules. The classes within these modules implement the functionality required to realise the protocol design presented in Chapter~4. The implementation also interacts with two external Git repositories: \texttt{canonical-social}, which provides the repository and website templates, and \texttt{social-directory}, which provides account discovery and handle registration services.
+
+\begin{figure}[h] \centering \includegraphics[width=\textwidth]{figures/implementation_architecture.png} \caption{Prototype Implementation Architecture} \label{fig:implementation_architecture} \end{figure}
 
 % Keep this overview concise: the System Design chapter already explains the
 % protocol architecture and workflows. This chapter describes how the
@@ -247,7 +244,15 @@ the existing entry, allowing the directory website to link the handle to
 the published feed. The repository URL remains available separately for
 following and protocol access.
 
-The directory website is a static interface to this JSON data.
+The directory website is a static interface to this JSON data. The social-directory repository is organised as follows: 
+\begin{verbatim} 
+social-directory/ 
+├── directory.json # Registered handles and metadata 
+├── index.html # Discovery website structure 
+├── app.js # Directory loading and rendering 
+└── style.css # Website styling 
+\end{verbatim}
+
 \texttt{index.html} defines elements with the IDs \texttt{member-list},
 \texttt{member-count} and \texttt{directory-status}. In \texttt{app.js},
 \texttt{document.querySelector()} uses these IDs to select the elements
@@ -269,20 +274,13 @@ cards created by \texttt{renderMember()}. The page also updates the profile
 count and an empty-directory message.} Within each card, a valid
 \texttt{siteURL} links the handle to the published feed and the repository
 URL is shown as a separate link. \texttt{style.css} controls the visual
-layout. The website makes directory entries discoverable; the client's
-Follow validation—not the web page—checks that a handle, key and repository
-agree.
+layout. The website makes directory entries discoverable; the client's Follow validation—not the web page—checks that a handle, key and repository agree. Figure~\ref{fig:implementation_social_directory} shows an example of the rendered social-directory website.
 
-% Optional: include a screenshot of the rendered social-directory website
-% (rather than a source-code repository screenshot) to show how users access
-% repository and published-feed links.
-% \begin{figure}[h]
-%     \centering
-%     \includegraphics[width=\textwidth]{figures/social_directory.png}
-%     \caption{Static social-directory website}
-%     \label{fig:implementation_social_directory}
-% \end{figure}
-
+\begin{figure}[h] 
+    \centering 
+    \includegraphics[width=\textwidth]{figures/social_directory.png} 
+    \caption{Example Rendered Social-Directory Website} \label{fig:implementation_social_directory}
+\end{figure}
 
 \subsection{Replication}
 
@@ -446,8 +444,17 @@ return {
 \end{lstlisting}
 
 The shared frontend is stored in the \texttt{site-template} directory
-of the local \texttt{canonical-social} repository. The publisher uses
-\texttt{shutil.copytree()} for template subdirectories and
+of the local \texttt{canonical-social} repository. 
+The shared site template is organised as follows: \begin{verbatim} 
+site-template/ 
+├── index.html # Feed page structure 
+├── app.js # Feed loading and rendering 
+└── style.css # Site styling 
+\end{verbatim}
+
+The publisher copies these files into the \texttt{gh-pages} branch and generates a fresh \texttt{feed.json} containing the user's verified profile and actions.
+
+The publisher uses \texttt{shutil.copytree()} for template subdirectories and
 \texttt{shutil.copy2()} for individual files. It skips any template
 \texttt{feed.json}, because the current profile, profile-name mapping and
 verified actions are serialized to a fresh \texttt{feed.json} using
@@ -545,27 +552,82 @@ else:
     self.repo.git.rm("-r", "-f", ".")
 \end{lstlisting}
 
-After a successful push, \texttt{PublishManager} records the derived
-\texttt{siteURL} in the directory, provided the repository URL and public key
-match the registered entry. GitHub Pages serves the published files, so the
-website reflects the local protocol data available when
-\texttt{publish-site} runs. Later posts or replicated actions appear after
-the site is published again.
+After a successful push, \texttt{PublishManager} records the derived \texttt{siteURL} in the directory, provided the repository URL and public key match the registered entry. GitHub Pages serves the published files, so the website reflects the local protocol data available when \texttt{publish-site} runs. Later posts or replicated actions appear after the site is published again. Figure~\ref{fig:published_social_feed} shows an example of the resulting published feed website.
 
 % Optional screenshot: show the rendered feed website after publication.
-% \begin{figure}[h]
-%     \centering
-%     \includegraphics[width=\textwidth]{figures/published_social_feed.png}
-%     \caption{Published static social feed}
-%     \label{fig:published_social_feed}
-% \end{figure}
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\textwidth]{figures/published_social_feed.png}
+    \caption{Published static social feed}
+    \label{fig:published_social_feed}
+\end{figure}
 
 \subsection{Implementation Verification}
 
-% Briefly describe the test strategy, test environment, and how tests map to
-% important components or requirements. Report actual test outcomes, scenario
-% evidence, and requirement assessments in the Results chapter rather than
-% predicting or asserting them here.
+\textbf{Tests in \texttt{client/tests/} check the implementation at different
+levels. Table~\ref{tab:implementation-test-coverage} maps each group of tests
+to the code it checks and gives examples of the normal and failure cases.
+\texttt{pytest} runs the suite, and Coverage.py reports which Python
+statements the tests execute.}
+
+\begin{table}[htbp]
+    \centering
+    \small
+    \caption{Automated test coverage by implementation area}
+    \label{tab:implementation-test-coverage}
+    \begin{tabular}{|p{4.8cm}|p{9.7cm}|}
+        \hline
+        \textbf{Test group and files} &
+        \textbf{Representative normal and failure cases} \\
+        \hline
+        Identity and validation (unit and profile tests):
+        \texttt{test\_identity.py}, \texttt{test\_profile.py},
+        \texttt{test\_profile\_verifier.py}, \texttt{test\_verifier.py},
+        \texttt{test\_action\_verifier.py}, \texttt{test\_action\_factory.py},
+        \texttt{test\_identity\_loader.py}
+        & \textbf{Normal:} create keys, sign and verify valid profiles and
+        actions, and dispatch a registered action. \textbf{Failure/edge:}
+        reject tampered or unsigned data, invalid keys, unknown actions and
+        missing identity configuration. \\
+        \hline
+        Profile, action and feed behavior (component tests):
+        \texttt{test\_actions.py}, \texttt{test\_feed.py}
+        & \textbf{Normal:} create signed actions; group posts, replies and
+        likes; filter posts to followed authors. \textbf{Failure/edge:}
+        reject mismatched keys and malformed actions; handle duplicate likes
+        and an empty following list. Follow tests also check directory and
+        fetched-profile mismatches. \\
+        \hline
+        Replication and publication (local-Git integration and focused tests):
+        \texttt{test\_replicator.py}, \texttt{test\_git\_publisher.py},
+        \texttt{test\_publish.py}, \texttt{test\_publish\_directory.py},
+        \texttt{test\_site\_publisher.py}
+        & \textbf{Normal:} fetch and accept valid actions, commit and push
+        changes, merge directory entries, and publish a generated feed.
+        \textbf{Failure/edge:} reject invalid actions, refuse replication off
+        \texttt{main}, and handle dirty repositories, rejected pushes and
+        directory merge conflicts. \\
+        \hline
+    \end{tabular}
+\end{table}
+
+The tests use temporary data and controlled dependencies to keep the
+checks isolated and repeatable while still exercising the implementation.
+Where needed, tests create profiles, actions and keys in pytest's temporary
+directories, leaving the user's identity untouched. PyNaCl performs the
+signing and verification with real test keys, so these cryptographic checks
+are not mocked. For directory and profile lookups,
+\texttt{monkeypatch} supplies fixed HTTP responses, allowing success, missing
+data and invalid data to be checked without depending on a live directory.
+Using real temporary repositories and bare remotes lets the Git tests check
+actual fetch, commit and push behavior without publishing to a hosted account.
+Profile-creation tests also clone the configured canonical repository into a
+temporary project, so those tests depend on that repository being reachable.
+
+This section describes the test approach and representative cases.
+The Results chapter reports the observed scenario evidence, test outcomes and
+coverage; it can refer to notable cases from the table without repeating the
+test inventory
 
 \subsection{Implementation Limitations}
 

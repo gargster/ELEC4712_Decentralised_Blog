@@ -2,6 +2,7 @@ import io
 import json
 
 from git import Repo
+import pytest
 
 from src.config import CANONICAL_REPO_NAME, DIRECTORY_JSON_URL
 from src.identity.keypair import KeyPair
@@ -268,3 +269,91 @@ def test_github_pages_url_for_project_and_user_sites():
     assert PublishManager.github_pages_url(
         "https://gitlab.com/alice/alice-social.git"
     ) is None
+
+
+def test_site_publisher_rejects_missing_template_and_dirty_repository(tmp_path):
+    repo_path = tmp_path / "alice-social"
+    repo_path.mkdir()
+    repo = Repo.init(repo_path)
+    repo.git.checkout("-b", "main")
+    configure_repo(repo)
+    repo_path.joinpath("tracked.txt").write_text("tracked", encoding="utf-8")
+    repo.git.add(A=True)
+    repo.index.commit("Initialize")
+    (repo_path / "untracked.txt").write_text("uncommitted", encoding="utf-8")
+
+    publisher = SitePublisher(str(tmp_path), str(repo_path))
+    with pytest.raises(FileNotFoundError, match="Site template not found"):
+        publisher._validate_template()
+
+    with pytest.raises(RuntimeError, match="local changes"):
+        publisher._prepare_branch()
+
+
+def test_site_publisher_validates_template_files_and_repository_setup(tmp_path):
+    repo_path = tmp_path / "alice-social"
+    repo_path.mkdir()
+    repo = Repo.init(repo_path)
+    repo.git.checkout("-b", "main")
+    configure_repo(repo)
+    (repo_path / "tracked.txt").write_text("tracked", encoding="utf-8")
+    repo.git.add(A=True)
+    repo.index.commit("Initialize")
+
+    publisher = SitePublisher(str(tmp_path), str(repo_path))
+    publisher.template_path = str(tmp_path / "template")
+    (tmp_path / "template").mkdir()
+    (tmp_path / "template" / "index.html").write_text("", encoding="utf-8")
+    with pytest.raises(FileNotFoundError, match="app.js, style.css"):
+        publisher._validate_template()
+
+    with pytest.raises(RuntimeError, match="needs an origin remote"):
+        publisher._prepare_branch()
+
+
+def test_profile_url_rejects_unsupported_or_malformed_urls():
+    for invalid_url in (
+        None,
+        "",
+        "not a url",
+        "http://github.com/alice/repo",
+        "https://github.com/alice/repo/extra",
+        "https://github.com/alice/repo?branch=main",
+        "https://github.com/alice/repo#profile",
+    ):
+        assert SitePublisher._profile_url(invalid_url) is None
+
+
+def test_directory_profile_discovery_skips_bad_entries_and_handles_unavailable_directory(
+    tmp_path, monkeypatch, capsys
+):
+    repo_path = tmp_path / "alice-social"
+    repo_path.mkdir()
+    Repo.init(repo_path)
+    publisher = SitePublisher(str(tmp_path), str(repo_path))
+    own = {"publicKey": "alice-key", "handle": "alice.social"}
+
+    monkeypatch.setattr(
+        site_publisher.urllib.request,
+        "urlopen",
+        lambda url, timeout: io.BytesIO(
+            json.dumps(
+                {
+                    "bad-entry": "not an object",
+                    "no-repo": {"repoURL": "https://gitlab.com/a/b"},
+                }
+            ).encode("utf-8")
+        ),
+    )
+    assert publisher._load_profile_names(own) == {"alice-key": "alice.social"}
+    output = capsys.readouterr().out
+    assert "Skipping invalid directory entry" in output
+    assert "Could not locate a GitHub profile" in output
+
+    monkeypatch.setattr(
+        site_publisher.urllib.request,
+        "urlopen",
+        lambda *args, **kwargs: (_ for _ in ()).throw(OSError("offline")),
+    )
+    assert publisher._load_profile_names(own) == {"alice-key": "alice.social"}
+    assert "Could not load discovery directory" in capsys.readouterr().out

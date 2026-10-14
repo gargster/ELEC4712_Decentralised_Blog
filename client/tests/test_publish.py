@@ -1,99 +1,78 @@
-# import os
-# import json
-# from git import Repo
-# from src.publishing.publish_manager import PublishManager
-# from src.utils import identity_loader
+import json
+
+from git import Repo
+
+from src.identity.keypair import KeyPair
+from src.identity.profile_verifier import ProfileVerifier
+from src.identity.signer import Signer
+from src.publishing import publish_manager
+from src.publishing.publish_manager import PublishManager
 
 
-# def test_publish_updates_profile_and_directory(tmp_path, monkeypatch):
-#     # -----------------------------
-#     # 1. Create fake project root
-#     # -----------------------------
-#     project_root = tmp_path / "project"
-#     os.makedirs(project_root)
+def _configure(repo):
+    with repo.config_writer() as config:
+        config.set_value("user", "name", "Publish Test")
+        config.set_value("user", "email", "publish-test@example.com")
 
-#     # -----------------------------
-#     # 2. Create client/ + identity.json
-#     # -----------------------------
-#     client_root = project_root / "client"
-#     os.makedirs(client_root, exist_ok=True)
 
-#     identity_json_path = client_root / "identity.json"
-#     with open(identity_json_path, "w") as f:
-#         json.dump({
-#             "activeIdentity": "bharat",
-#             "repoPath": "bharat-social"
-#         }, f)
+def test_publish_updates_signed_profile_and_pushes_to_configured_origin(
+    tmp_path, monkeypatch
+):
+    project_root = tmp_path / "project"
+    repo_path = project_root / "alice-social"
+    repo_path.mkdir(parents=True)
+    repo = Repo.init(repo_path)
+    repo.git.checkout("-b", "main")
+    _configure(repo)
 
-#     # Patch load_identity() so PublishManager uses our temp identity.json
-#     def fake_load_identity():
-#         with open(identity_json_path) as f:
-#             return json.load(f)
+    keypair = KeyPair()
+    profile = {
+        "handle": "alice.social",
+        "publicKey": keypair.public_key(),
+        "repoURL": None,
+        "displayName": "Alice",
+        "bio": "Test profile",
+        "created": "2026-10-01T00:00:00Z",
+    }
+    profile["signature"] = Signer(keypair.private_key()).sign_json(profile)
+    profile_path = repo_path / "social" / "profile.json"
+    profile_path.parent.mkdir(parents=True)
+    profile_path.write_text(json.dumps(profile), encoding="utf-8")
+    repo.git.add(A=True)
+    repo.index.commit("Create signed profile")
 
-#     monkeypatch.setattr(identity_loader, "load_identity", fake_load_identity)
+    origin_path = tmp_path / "alice-origin.git"
+    Repo.init(origin_path, bare=True)
+    repo.create_remote("origin", str(origin_path))
+    repo.git.push("--set-upstream", "origin", "main")
 
-#     # -----------------------------
-#     # 3. Create fake repo structure
-#     # -----------------------------
-#     repo_root = project_root / "bharat-social"
-#     social_root = repo_root / "social"
-#     os.makedirs(social_root, exist_ok=True)
+    key_path = project_root / "client" / "state" / "alice" / "keystore" / "private.key"
+    key_path.parent.mkdir(parents=True)
+    key_path.write_text(keypair.private_key(), encoding="utf-8")
+    site_directory_updates = []
+    monkeypatch.setattr(
+        publish_manager,
+        "load_identity",
+        lambda: {"activeIdentity": "alice", "repoPath": "alice-social"},
+    )
+    monkeypatch.setattr(PublishManager, "_ensure_registered_key", lambda *args: None)
+    monkeypatch.setattr(
+        PublishManager,
+        "update_directory",
+        lambda self, handle, url, public_key: site_directory_updates.append(
+            (handle, url, public_key)
+        ),
+    )
 
-#     profile_path = social_root / "profile.json"
-#     with open(profile_path, "w") as f:
-#         json.dump({
-#             "handle": "bharat.social",
-#             "displayName": "Bharat",
-#             "bio": "Student at USYD",
-#             "publicKey": "ed25519:FAKEKEY",
-#             "signature": "initialsig"
-#         }, f)
+    PublishManager(str(project_root)).publish(str(origin_path))
 
-#     # -----------------------------
-#     # 4. Create keystore + private key
-#     # -----------------------------
-#     keystore_path = client_root / "state" / "bharat" / "keystore"
-#     os.makedirs(keystore_path, exist_ok=True)
+    updated_profile = json.loads(profile_path.read_text(encoding="utf-8"))
+    assert updated_profile["repoURL"] == str(origin_path)
+    assert ProfileVerifier(updated_profile).verify()["publicKey"] == keypair.public_key()
+    assert site_directory_updates == [
+        ("alice.social", str(origin_path), keypair.public_key())
+    ]
+    assert repo.remotes.canonical.url.endswith("canonical-social.git")
 
-#     private_key_path = keystore_path / "private.key"
-#     with open(private_key_path, "w") as f:
-#         f.write("FAKE_PRIVATE_KEY")
-
-#     # -----------------------------
-#     # 5. Create directory.json
-#     # -----------------------------
-#     directory_path = client_root / "directory.json"
-#     with open(directory_path, "w") as f:
-#         json.dump({}, f)
-
-#     # -----------------------------
-#     # 6. Init local Git repo
-#     # -----------------------------
-#     repo = Repo.init(repo_root)
-#     repo.index.add([str(profile_path)])
-#     repo.index.commit("Initial commit")
-
-#     # -----------------------------
-#     # 7. Run publish()
-#     # -----------------------------
-#     pm = PublishManager(str(project_root))
-#     pm.publish("https://example.com/bharat-social.git")
-
-#     # -----------------------------
-#     # 8. Verify profile.json updated
-#     # -----------------------------
-#     with open(profile_path) as f:
-#         updated_profile = json.load(f)
-
-#     assert updated_profile["repoURL"] == "https://example.com/bharat-social.git"
-#     assert updated_profile["signature"] != "initialsig"
-
-#     # -----------------------------
-#     # 9. Verify directory.json updated
-#     # -----------------------------
-#     with open(directory_path) as f:
-#         directory_data = json.load(f)
-
-#     assert "bharat.social" in directory_data
-#     assert directory_data["bharat.social"]["localPath"] == "bharat-social"
-#     assert directory_data["bharat.social"]["repoURL"] == "https://example.com/bharat-social.git"
+    remote_profile = json.loads(Repo(origin_path).git.show("main:social/profile.json"))
+    assert remote_profile == updated_profile
