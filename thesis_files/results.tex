@@ -1,31 +1,237 @@
-\section{Results} This chapter evaluates the implemented prototype through a series of demonstration scenarios and automated tests. Each scenario focuses on a core protocol capability and provides evidence that the proposed design operates as intended. 
+\section{Results}
+This chapter evaluates the implemented prototype through end-to-end demonstration scenarios and security checks. The results provide practical evidence for the design and implementation described in Chapters~\ref{chap:system-design} and~\ref{chap:implementation} (adjust these labels to match the thesis). Rather than repeating each workflow in isolation, the scenarios are presented in the order in which the prototype was exercised: identity creation and publication, social interaction, replication, feed publication, and security validation. Discovery and following are included where they occur in the user workflow, since they are closely connected in the implementation.
 
-\subsection{Scenario 1: Identity Creation} This scenario demonstrates the creation of a new protocol identity. \begin{itemize} \item Generate Ed25519 key pair. \item Create signed \texttt{profile.json}. \item Verify profile signature. \item Demonstrate identity portability. \end{itemize} Include: \begin{itemize} \item Profile creation screenshot. \item Example generated \texttt{profile.json}. \item Signature verification output. \end{itemize} 
+\subsection{Identity Creation and Publication}
+A new identity was created using the \texttt{profile create} command. The client cloned the canonical repository template, generated an Ed25519 key pair, and created a signed \texttt{social/profile.json}. At this stage, the profile's \texttt{repoURL} was \texttt{null}, because the user repository had not yet been published. This demonstrates the initial separation between the identity profile and its eventual hosting location.
 
-\subsection{Scenario 2: Publishing Social Actions} This scenario demonstrates creation and publication of social actions. \begin{itemize} \item Create post. \item Create reply. \item Create like. \item Create follow. \end{itemize} Include: \begin{itemize} \item Terminal screenshots. \item Generated JSON action examples. \item Resulting repository state. \end{itemize} 
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\textwidth]{figures/clone_canonical.png}
+    \caption{Initialisation of a user repository from the canonical template}
+    \label{fig:results-clone-canonical}
+\end{figure}
 
-\subsection{Scenario 3: Repository Replication} This scenario demonstrates pull-based replication and action acceptance. \begin{itemize} \item Initial repository state. \item Replication execution. \item Signature verification. \item Acceptance of valid actions. \end{itemize} Include: \begin{itemize} \item Before replication screenshot. \item Replication output. \item After replication screenshot. \item Accepted action examples. \end{itemize} 
+After creating an empty remote repository, the \texttt{publish} command pushed the local repository, updated \texttt{repoURL}, re-signed the profile, and registered the account in the social directory. The profile retained the same public key while its repository URL was added. This is consistent with the identity model in Chapter~\ref{chap:system-design}: the public key identifies the account cryptographically, while the repository URL identifies its current storage location.
 
-\subsection{Scenario 4: Multi-Hop Replication} This scenario demonstrates propagation of actions through intermediate repositories. Example: \begin{center} Alice $\rightarrow$ Bob $\rightarrow$ Carol \end{center} Demonstrate: \begin{itemize} \item Alice publishes an action. \item Bob replicates Alice. \item Carol replicates Bob. \item Carol receives Alice's action through Bob. \item Signature verification still uses Alice's public key. \end{itemize} Include: \begin{itemize} \item Repository screenshots. \item Replication output. \item Verification evidence. \end{itemize} 
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\textwidth]{figures/publish_alice_repo.png}
+    \caption{Published user repository containing the protocol files}
+    \label{fig:results-publish-user}
+\end{figure}
 
-\subsection{Scenario 5: Feed Construction} This scenario demonstrates construction of a feed from accepted actions. Demonstrate: \begin{itemize} \item Post aggregation. \item Reply reconstruction. \item Like aggregation. \item Follow filtering. \item Multi-hop content visibility. \end{itemize} Include: \begin{itemize} \item Feed output screenshots. \item Generated \texttt{feed.json}. \item Feed rendering examples. \end{itemize} 
+The resulting directory entry records the handle, repository URL and public key. The directory website makes the account discoverable through its human-readable handle. The screenshots below show the directory data and its rendered website; the separate deployment-navigation screenshot is omitted because it documents how to reach the website rather than a protocol result.
 
-\subsection{Scenario 6: Discovery and Following} This scenario demonstrates account discovery and follow creation. Demonstrate: \begin{itemize} \item Directory lookup. \item Profile retrieval. \item Profile verification. \item Follow creation. \end{itemize} Include: \begin{itemize} \item Directory screenshots. \item Discovery output. \item Follow workflow screenshots. \end{itemize} 
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\textwidth]{figures/directory_with_alice.png}
+    \caption{Social-directory entry registered for Alice}
+    \label{fig:results-directory-entry}
+\end{figure}
 
-\subsection{Scenario 7: Site Publication} This scenario demonstrates publication of a feed website through GitHub Pages. Demonstrate: \begin{itemize} \item Feed generation. \item gh-pages update. \item Site publication. \item Browser rendering. \end{itemize} Include: \begin{itemize} \item Publication output. \item gh-pages contents. \item Website screenshots. \end{itemize} 
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\textwidth]{figures/directory_web_alice.png}
+    \caption{Social-directory website displaying Alice's account}
+    \label{fig:results-directory-site}
+\end{figure}
 
-\subsection{Automated Testing} Automated tests were developed to validate the correctness of the prototype implementation. \subsubsection*{Unit Testing} The unit test suite verifies individual components including: \begin{itemize} \item Key generation. \item Signing and verification. \item Profile validation. \item Action validation. \item Feed aggregation logic. \end{itemize} \subsubsection*{Integration Testing} Integration tests verify interactions between components including: \begin{itemize} \item Identity creation. \item Follow workflow. \item Replication workflow. \item Discovery workflow. \item Feed construction. \end{itemize} Include: \begin{itemize} \item Test execution screenshot. \item Test summary. \item Coverage report. \end{itemize} 
+Together, these results demonstrate the implemented identity creation and publication workflow. The signed profile is stored with the user's protocol data, while the directory provides a public lookup from handle to repository and public key. The directory is a trusted source for this mapping; the profile signature verifies the profile against its public key but does not, by itself, establish ownership of a human-readable handle.
 
-\subsection{Security Validation} This section evaluates the security properties implemented by the prototype and demonstrates how cryptographic validation and directory checks protect against common attacks. 
+\subsection{Publishing Social Actions and Following}
+After publication, Alice created a post using the \texttt{post} command. The resulting signed JSON action was committed and pushed to \texttt{social/actions/} in Alice's repository. Figure~\ref{fig:results-alice-post} shows the action in the repository. The action contains the author public key, timestamp, content and signature, consistent with the action structure described in Chapter~\ref{chap:system-design}. The repository screenshot is used as the primary evidence here; reproducing the full JSON separately would repeat the same fields and make the results section longer without adding much evidence.
 
-\subsubsection*{Case 1: Action Tampering} Demonstrate: \begin{itemize} \item Create a valid signed action. \item Modify the action contents after signing. \item Verify the modified action. \end{itemize} Expected result: \begin{itemize} \item Signature verification fails. \item The action is rejected. \end{itemize} Discussion: The signature validation mechanism detects modifications to signed actions and protects action integrity. 
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\textwidth]{figures/alice_post1.png}
+    \caption{Alice's signed post stored in the repository}
+    \label{fig:results-alice-post}
+\end{figure}
 
-\subsubsection*{Case 2: Impersonation Attempt} Demonstrate: \begin{itemize} \item Construct an action claiming Alice's public key. \item Sign the action using a different user's private key. \item Attempt verification. \end{itemize} Expected result: \begin{itemize} \item Signature verification fails. \item The action is rejected. \end{itemize} Discussion: A user cannot successfully publish actions on behalf of another user without possession of the corresponding private key. 
+Alice and Bob were then used as separate protocol participants. Bob created and published his own repository and post. Alice discovered Bob through the social directory and ran \texttt{follow}. The client checked the supplied repository URL against the directory entry, fetched and verified Bob's signed profile, and compared the profile's handle, public key and repository URL with the registered values. The resulting Follow action targets Bob's public key, and Bob's repository is added as a named Git remote for later replication.
 
-\subsubsection*{Case 3: Repository Replacement} Demonstrate: \begin{itemize} \item Existing directory entry: \begin{itemize} \item Handle: alice.social \item Public key: Key A \end{itemize} \item Replacement repository containing: \begin{itemize} \item Handle: alice.social \item Public key: Key B \end{itemize} \item Execute Follow. \end{itemize} Expected result: \begin{itemize} \item Follow operation fails. \item Profile verification succeeds. \item Directory consistency check fails. \end{itemize} Discussion: This demonstrates identity-continuity protection through comparison of directory and profile public keys. 
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\textwidth]{figures/alice_follow_bob.png}
+    \caption{Follow action created by Alice for Bob}
+    \label{fig:results-follow-bob}
+\end{figure}
 
-\subsubsection*{Case 4: Multi-Hop Replication Trust} Demonstrate: \begin{center} Alice $\rightarrow$ Bob $\rightarrow$ Carol \end{center} \begin{itemize} \item Alice creates a signed action. \item Bob replicates the action. \item Carol receives the action from Bob. \item Carol verifies the action. \end{itemize} Expected result: \begin{itemize} \item Verification uses Alice's public key. \item Bob's repository does not become the trust root. \end{itemize} Discussion: Trust remains anchored to the original author rather than intermediate replication repositories.
+The Follow action records the social relationship, while the Git remote provides a source for replication. These are related but distinct results: creating a Follow action does not itself import Bob's actions into Alice's local action store. The repository and remote state therefore provide evidence that discovery and following are connected to, but separate from, replication.
 
+\subsection{Replication and Social Interaction}
+Alice ran \texttt{replicate} after following Bob. The client fetched the configured remote, verified candidate action files, and accepted Bob's valid post into Alice's local \texttt{social/actions/} directory. Figure~\ref{fig:results-replicated-bob-post} shows Bob's post after replication. This demonstrates pull-based action exchange: the post is authored and signed by Bob, but becomes available in Alice's repository after she replicates from Bob.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\textwidth]{figures/alice_bob_post.png}
+    \caption{Bob's post accepted into Alice's repository through replication}
+    \label{fig:results-replicated-bob-post}
+\end{figure}
+
+Once the post was available locally, Alice created a Like action and a Reply action targeting Bob's post. Both actions were written to Alice's repository as signed JSON files. These examples demonstrate that the prototype supports the implemented social-action types and can reference content received from another repository.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\textwidth]{figures/alice_like.png}
+    \caption{Like action created by Alice for Bob's post}
+    \label{fig:results-alice-like}
+\end{figure}
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\textwidth]{figures/alice_reply.png}
+    \caption{Reply action created by Alice for Bob's post}
+    \label{fig:results-alice-reply}
+\end{figure}
+
+The results show the creation of a post, follow, like and reply through the implemented command-line client. They also illustrate the division described in the design and implementation chapters: action creation writes signed protocol data, following configures a replication source, and replication independently fetches and validates remote actions.
+
+\subsection{Multi-Hop Replication}
+A multi-hop scenario was used to test whether an action could propagate through an intermediate repository without changing its original authorship. Charlie published a post in his own repository. Bob followed Charlie and replicated, after which Charlie's post was present in Bob's local action store. Alice then replicated from her configured remotes and received Charlie's post through Bob.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\textwidth]{figures/bob_charlie_post.png}
+    \caption{Charlie's post accepted into Bob's repository}
+    \label{fig:results-bob-charlie}
+\end{figure}
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\textwidth]{figures/alice_charlie.png}
+    \caption{Charlie's post subsequently accepted into Alice's repository}
+    \label{fig:results-alice-charlie}
+\end{figure}
+
+The replicated action retains Charlie's author public key and signature in both repositories. Alice therefore verifies the action against the key named in the action's \texttt{author} field, rather than treating Bob as its author. This is evidence that the prototype's replication process can relay a signed action across multiple repositories while retaining its original cryptographic authorship. It demonstrates multi-hop propagation for the tested path; it does not imply that every repository in the network automatically receives every action.
+
+\subsection{Feed Construction and Site Publication}
+The terminal feed and published website are presentation layers over the locally available action set. After creating and replicating actions, Alice ran \texttt{publish-site}. The client generated a fresh \texttt{feed.json} from the profile and valid local actions, copied the shared website template to the separate \texttt{gh-pages} branch, and pushed the updated branch. The website then rendered Alice's profile and social activity, including the post, like, reply and replicated content.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\textwidth]{figures/alice_gh_pages.png}
+    \caption{Generated feed data and static-site files on the \texttt{gh-pages} branch}
+    \label{fig:results-gh-pages}
+\end{figure}
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\textwidth]{figures/alice_web_bob.png}
+    \caption{Alice's published feed displaying interactions with Bob's post}
+    \label{fig:results-feed-bob}
+\end{figure}
+
+After the multi-hop scenario, Alice published the site again. The updated page displayed Charlie's post, showing that content received through replication can be included in the published feed after the next site update.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\textwidth]{figures/alice_web_charlie.png}
+    \caption{Alice's published feed displaying Charlie's multi-hop post}
+    \label{fig:results-feed-charlie}
+\end{figure}
+
+These results distinguish replication from publication. Replication updates the local set of accepted actions; \texttt{publish-site} generates and publishes a snapshot of that local state. The site does not independently replicate actions, and new or received actions appear on it only after the feed is published again. The deployment-navigation screenshot is not included because the published page and \texttt{gh-pages} contents provide more direct evidence of the result.
+
+\subsection{Security Validation}
+Four focused scenarios were used to examine the security checks implemented in the prototype. The cases cover action integrity, key-based authorship verification, consistency between a directory entry and a retrieved profile, and preservation of the original author during multi-hop replication. The results demonstrate the behaviour of the implemented checks for these cases rather than a general proof of protocol security.
+
+\subsubsection{Action Tampering}
+Bob first created a valid signed post with the content \texttt{Hello world}. The content was then modified directly in the repository to \texttt{Hello world, I changed this}, while the original signature was retained. When Alice ran \texttt{replicate}, the modified action was rejected and was not added to Alice's local action store.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\textwidth]{figures/bob_post_changed.png}
+    \caption{Tampered post content with the original signature retained}
+    \label{fig:results-tampered-action}
+\end{figure}
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\textwidth]{figures/alice_reject_tamper.png}
+    \caption{Replication rejecting the tampered action}
+    \label{fig:results-reject-tamper}
+\end{figure}
+
+This outcome is consistent with the integrity check described in the implementation chapter: changing signed content changes the data being verified, so the original signature no longer validates.
+
+\subsubsection{Impersonation Attempt}
+For the impersonation test, Bob created a valid post signed using Bob's private key. The action's \texttt{author} field was then replaced with Alice's public key, while Bob's signature and the other fields were retained. When Alice replicated, the modified action was rejected. Neither this action nor the previously tampered action was added to Alice's local action directory.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\textwidth]{figures/bob_impersonated.png}
+    \caption{Action modified to claim Alice's public key while retaining Bob's signature}
+    \label{fig:results-impersonated-action}
+\end{figure}
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\textwidth]{figures/alice_reject_impersonation.png}
+    \caption{Replication rejecting the impersonation attempt}
+    \label{fig:results-reject-impersonation}
+\end{figure}
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\textwidth]{figures/alice_no_bob.png}
+    \caption{Rejected actions absent from Alice's accepted action directory}
+    \label{fig:results-rejected-actions-absent}
+\end{figure}
+
+The result shows that changing the claimed author key does not make an action valid under that key. The verifier rejects the action because the retained signature does not validate against the public key specified in the modified action.
+
+\subsubsection{Repository Replacement}
+The repository-replacement scenario examined whether a new key could be presented for an already registered handle and repository URL. Initially, the directory stored the public key for \texttt{case3-target.social}. A replacement profile was then generated with the same handle and repository URL but a different key, and it was signed using the replacement key. The replacement profile's own signature was valid, but the key did not match the public key registered in the directory.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\textwidth]{figures/directory_case3.png}
+    \caption{Original public key registered for the test handle in the directory}
+    \label{fig:results-directory-original-key}
+\end{figure}
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\textwidth]{figures/case3_changed.png}
+    \caption{Replacement profile using a different public key for the same handle and repository URL}
+    \label{fig:results-replacement-profile}
+\end{figure}
+
+When Alice attempted to follow the handle, the client rejected the operation and did not create a Follow action. This distinguishes profile-signature validity from directory consistency: a replacement profile can be correctly signed by its new key, yet still fail the check that the key matches the directory's registered identity.
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=\textwidth]{figures/reject_follow.png}
+    \caption{Follow operation rejected because the replacement identity does not match the directory}
+    \label{fig:results-reject-replacement}
+\end{figure}
+
+This result supports the identity-continuity check implemented by the prototype. It relies on the directory's registered handle-to-key mapping; it does not protect against a malicious or compromised directory changing that mapping.
+
+\subsubsection{Multi-Hop Replication Trust}
+The multi-hop scenario illustrated in Figure~\ref{fig:results-alice-charlie} also provides evidence relevant to replication trust. Charlie's action was received by Alice through Bob, but its author field and signature remained unchanged. The result is consistent with the design decision to verify actions using the original author's public key rather than the key of the repository that relays them. This is not a separate security mechanism; it is the same action-signature validation applied during replication.
+
+\subsection{Automated Testing}
+The implementation chapter describes the unit, component and local-Git integration tests in \texttt{client/tests/}, including tests for signing and verification, action creation, feed aggregation, following, replication and site publication. The test methodology and covered cases are summarised in Table~\ref{tab:implementation-test-coverage}. This section should report the actual execution result from the final test run, including the number of tests passed or failed and the measured coverage, once those values have been confirmed from the test output. They should not be inferred from the test inventory alone.
+
+% Replace the placeholders below with values from the actual final run.
+% Example structure only; do not leave unverified values in the submitted thesis:
+% \begin{itemize}
+%     \item Test result: \texttt{[N] passed, [N] failed}
+%     \item Statement coverage: \texttt{[X]\%}
+% \end{itemize}
+% If you have a screenshot of the final pytest and coverage output, include it:
+% \begin{figure}[htbp]
+%     \centering
+%     \includegraphics[width=\textwidth]{figures/test_execution.png}
+%     \caption{Automated test execution and coverage report}
+%     \label{fig:results-test-execution}
+% \end{figure}
+
+\subsection{Results Summary}
+The demonstrations show that the prototype can create and publish signed identities, create the implemented social actions, discover and follow accounts through a public directory, fetch and validate actions from configured repositories, propagate an action across multiple repositories, and publish the resulting local feed as a static website. The security scenarios further show rejection of the tested tampered action, impersonation attempt and repository replacement. These observations provide implementation-level evidence for the workflows described in the System Design and Implementation chapters. The evaluation is limited to the demonstrated scenarios and the automated tests actually executed; broader security guarantees and limitations are considered in the Discussion chapter.
 
 
 
