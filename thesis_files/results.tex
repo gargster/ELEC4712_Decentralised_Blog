@@ -1,0 +1,51 @@
+\section{Results} This chapter evaluates the implemented prototype through a series of demonstration scenarios and automated tests. Each scenario focuses on a core protocol capability and provides evidence that the proposed design operates as intended. 
+
+\subsection{Scenario 1: Identity Creation} This scenario demonstrates the creation of a new protocol identity. \begin{itemize} \item Generate Ed25519 key pair. \item Create signed \texttt{profile.json}. \item Verify profile signature. \item Demonstrate identity portability. \end{itemize} Include: \begin{itemize} \item Profile creation screenshot. \item Example generated \texttt{profile.json}. \item Signature verification output. \end{itemize} 
+
+\subsection{Scenario 2: Publishing Social Actions} This scenario demonstrates creation and publication of social actions. \begin{itemize} \item Create post. \item Create reply. \item Create like. \item Create follow. \end{itemize} Include: \begin{itemize} \item Terminal screenshots. \item Generated JSON action examples. \item Resulting repository state. \end{itemize} 
+
+\subsection{Scenario 3: Repository Replication} This scenario demonstrates pull-based replication and action acceptance. \begin{itemize} \item Initial repository state. \item Replication execution. \item Signature verification. \item Acceptance of valid actions. \end{itemize} Include: \begin{itemize} \item Before replication screenshot. \item Replication output. \item After replication screenshot. \item Accepted action examples. \end{itemize} 
+
+\subsection{Scenario 4: Multi-Hop Replication} This scenario demonstrates propagation of actions through intermediate repositories. Example: \begin{center} Alice $\rightarrow$ Bob $\rightarrow$ Carol \end{center} Demonstrate: \begin{itemize} \item Alice publishes an action. \item Bob replicates Alice. \item Carol replicates Bob. \item Carol receives Alice's action through Bob. \item Signature verification still uses Alice's public key. \end{itemize} Include: \begin{itemize} \item Repository screenshots. \item Replication output. \item Verification evidence. \end{itemize} 
+
+\subsection{Scenario 5: Feed Construction} This scenario demonstrates construction of a feed from accepted actions. Demonstrate: \begin{itemize} \item Post aggregation. \item Reply reconstruction. \item Like aggregation. \item Follow filtering. \item Multi-hop content visibility. \end{itemize} Include: \begin{itemize} \item Feed output screenshots. \item Generated \texttt{feed.json}. \item Feed rendering examples. \end{itemize} 
+
+\subsection{Scenario 6: Discovery and Following} This scenario demonstrates account discovery and follow creation. Demonstrate: \begin{itemize} \item Directory lookup. \item Profile retrieval. \item Profile verification. \item Follow creation. \end{itemize} Include: \begin{itemize} \item Directory screenshots. \item Discovery output. \item Follow workflow screenshots. \end{itemize} 
+
+\subsection{Scenario 7: Site Publication} This scenario demonstrates publication of a feed website through GitHub Pages. Demonstrate: \begin{itemize} \item Feed generation. \item gh-pages update. \item Site publication. \item Browser rendering. \end{itemize} Include: \begin{itemize} \item Publication output. \item gh-pages contents. \item Website screenshots. \end{itemize} 
+
+\subsection{Automated Testing} Automated tests were developed to validate the correctness of the prototype implementation. \subsubsection*{Unit Testing} The unit test suite verifies individual components including: \begin{itemize} \item Key generation. \item Signing and verification. \item Profile validation. \item Action validation. \item Feed aggregation logic. \end{itemize} \subsubsection*{Integration Testing} Integration tests verify interactions between components including: \begin{itemize} \item Identity creation. \item Follow workflow. \item Replication workflow. \item Discovery workflow. \item Feed construction. \end{itemize} Include: \begin{itemize} \item Test execution screenshot. \item Test summary. \item Coverage report. \end{itemize} 
+
+\subsection{Security Validation} This section evaluates the security properties implemented by the prototype and demonstrates how cryptographic validation and directory checks protect against common attacks. 
+
+\subsubsection*{Case 1: Action Tampering} Demonstrate: \begin{itemize} \item Create a valid signed action. \item Modify the action contents after signing. \item Verify the modified action. \end{itemize} Expected result: \begin{itemize} \item Signature verification fails. \item The action is rejected. \end{itemize} Discussion: The signature validation mechanism detects modifications to signed actions and protects action integrity. 
+
+\subsubsection*{Case 2: Impersonation Attempt} Demonstrate: \begin{itemize} \item Construct an action claiming Alice's public key. \item Sign the action using a different user's private key. \item Attempt verification. \end{itemize} Expected result: \begin{itemize} \item Signature verification fails. \item The action is rejected. \end{itemize} Discussion: A user cannot successfully publish actions on behalf of another user without possession of the corresponding private key. 
+
+\subsubsection*{Case 3: Repository Replacement} Demonstrate: \begin{itemize} \item Existing directory entry: \begin{itemize} \item Handle: alice.social \item Public key: Key A \end{itemize} \item Replacement repository containing: \begin{itemize} \item Handle: alice.social \item Public key: Key B \end{itemize} \item Execute Follow. \end{itemize} Expected result: \begin{itemize} \item Follow operation fails. \item Profile verification succeeds. \item Directory consistency check fails. \end{itemize} Discussion: This demonstrates identity-continuity protection through comparison of directory and profile public keys. 
+
+\subsubsection*{Case 4: Multi-Hop Replication Trust} Demonstrate: \begin{center} Alice $\rightarrow$ Bob $\rightarrow$ Carol \end{center} \begin{itemize} \item Alice creates a signed action. \item Bob replicates the action. \item Carol receives the action from Bob. \item Carol verifies the action. \end{itemize} Expected result: \begin{itemize} \item Verification uses Alice's public key. \item Bob's repository does not become the trust root. \end{itemize} Discussion: Trust remains anchored to the original author rather than intermediate replication repositories.
+
+
+
+
+\subsection{Requirement Evaluation} This section evaluates the implemented prototype against the functional requirements defined in Chapter~3. 
+
+\subsubsection*{FR-01: Portable Identity} Evidence: \begin{itemize} \item Identity creation scenario. \item Cryptographic key ownership. \item Host-independent profiles. \end{itemize} Assessment: Satisfied. 
+
+\subsubsection*{FR-02: Hosting Independence} Evidence: \begin{itemize} \item Git repository portability. \item GitHub Pages publication. \item Separation of protocol and hosting. \end{itemize} Assessment: Satisfied. 
+
+\subsubsection*{FR-03: Pull-Based Replication} Evidence: \begin{itemize} \item Replication scenario. \item Git fetch workflow. \item Multi-hop replication. \end{itemize} Assessment: Satisfied. 
+
+\subsubsection*{FR-04: Structured JSON Actions} Evidence: \begin{itemize} \item Post actions. \item Reply actions. \item Like actions. \item Follow actions. \end{itemize} Assessment: Satisfied. 
+
+\subsubsection*{FR-05: Dedicated Storage Structure} Evidence: \begin{itemize} \item social/profile.json \item social/actions/ \end{itemize} Assessment: Satisfied. 
+
+\subsubsection*{FR-06: Authenticity and Integrity} Evidence: \begin{itemize} \item Digital signatures. \item Profile verification. \item Action verification. \item Action tampering validation. \item Impersonation validation. \end{itemize} Assessment: Satisfied.
+
+\subsubsection*{FR-07: Serverless Discovery} Evidence: \begin{itemize} \item Discovery directory. \item Handle lookup. \item Repository discovery. \item Repository replacement validation. \end{itemize} Assessment: Satisfied.
+\subsubsection*{FR-08: Client Abstraction} Evidence: \begin{itemize} \item User commands. \item Automated Git operations. \end{itemize} Assessment: Satisfied. 
+
+\subsubsection*{FR-09: Interoperability} Evidence: \begin{itemize} \item Git repositories. \item JSON actions. \item Standard Git workflows. \end{itemize} Assessment: Satisfied. \subsection{Limitations} Discuss: \begin{itemize} \item Directory trust assumptions. \item Replication latency. \item Repository growth. \item Current GitHub Pages publication approach. \item Prototype-only constraints. \end{itemize} 
+
+\subsection{Summary} Summarise the evaluation results and provide a transition to the Discussion chapter.
