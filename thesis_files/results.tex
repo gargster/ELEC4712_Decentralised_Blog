@@ -345,22 +345,9 @@ The follow operation was rejected, as shown in Figure~\ref{fig:results-reject-re
     \caption{Alice's follow attempt rejected because the profile's replacement public key conflicts with the key registered in the social directory}
     \label{fig:results-reject-replacement}
 \end{figure}
-
-\subsection{Automated Testing}
-The implementation chapter describes the unit, component and local-Git integration tests in \texttt{client/tests/}, including tests for signing and verification, action creation, feed aggregation, following, replication and site publication. The test groups and representative cases are summarised in Table~\ref{tab:implementation-test-coverage}. Insert the results from the final test run here, including the actual number of passed and failed tests and the measured coverage. These figures should be taken from the executed test output rather than inferred from the test inventory. If a screenshot of the final test run is available, it may be included as supplementary evidence; it should not replace the numeric result in the text.
-
-% Add verified results from the final test run before submission, for example:
-% \begin{itemize}
-%     \item Tests: \texttt{N passed, N failed}
-%     \item Statement coverage: \texttt{X\%}
-% \end{itemize}
-% Optional, only if this screenshot exists:
-% \begin{figure}[htbp]
-%     \centering
-%     \includegraphics[width=\textwidth]{figures/test_execution.png}
-%     \caption{Automated test execution and coverage report}
-%     \label{fig:results-test-execution}
-% \end{figure}
+\subsection{Automated Testing} Automated testing was used to validate the correctness of the prototype implementation. The test suite consists of unit, component and local-Git integration tests covering identity management, social action creation, following, replication, feed construction and site publication. The final test run executed 66 automated tests, all of which passed successfully. No test failures were observed. \begin{verbatim} 
+66 passed in 56.59s 
+\end{verbatim} Coverage analysis was then performed using Coverage.py. The resulting report showed 95\% statement coverage across the Python implementation, with the majority of modules achieving coverage above 90\%. Identity, action creation and verification components achieved full coverage, while the publishing and site-publication modules achieved 90\% coverage. The replication module achieved 95\% coverage. Figure~\ref{fig:results-test-coverage} shows the generated coverage report. \begin{figure}[htbp] \centering \includegraphics[width=\textwidth]{figures/results_test_coverage.png} \caption{Coverage Report from the Final Automated Test Run} \label{fig:results-test-coverage} \end{figure} These results provide evidence that the principal protocol operations, including signing, verification, action creation, following, replication, publication and feed generation, were exercised through automated tests in addition to the end-to-end workflow scenarios presented earlier in this chapter.
 
 \subsection{Requirement Evaluation}
 Table~\ref{tab:implementation-test-coverage} summarises automated test coverage; the scenarios above provide complementary end-to-end evidence against the functional requirements introduced earlier in the thesis. Table~\ref{tab:results-requirement-evaluation} summarises how the demonstrated behaviour relates to those requirements.

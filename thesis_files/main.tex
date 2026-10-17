@@ -1,0 +1,98 @@
+\documentclass[manuscript,screen]{acmart}
+% ---------------------------------------------------------
+% Packages
+% ---------------------------------------------------------
+\usepackage{listings}
+\usepackage{needspace}
+
+\lstset{
+    basicstyle=\ttfamily\small,
+    columns=fullflexible,
+    keepspaces=true,
+    breaklines=true,
+    frame=none,
+    xleftmargin=1em,
+    aboveskip=0.5em,
+    belowskip=0.5em
+}
+
+% ---------------------------------------------------------
+% Metadata
+% ---------------------------------------------------------
+
+\title{Git for a Decentralised Social Media Protocol}
+
+\author{Bharat Garg}
+\affiliation{
+  \institution{University of Sydney}
+  \city{Sydney}
+  \country{Australia}
+}
+\email{bgar5324@uni.sydney.edu.au}
+
+\author{Rahul}
+\affiliation{
+  \institution{University of Sydney}
+  \city{Sydney}
+  \country{Australia}
+}
+
+% ---------------------------------------------------------
+% Begin Document
+% ---------------------------------------------------------
+
+\begin{document}
+
+% -------------------------
+% Abstract
+% -------------------------
+\begin{abstract}
+This project covers...
+\end{abstract}
+
+\keywords{decentralised identity, Git-based protocols, replication, portable identity, social media protocols}
+
+\maketitle
+
+% -------------------------
+% Acknowledgements
+% -------------------------
+\section*{Acknowledgements}
+I would like to thank my supervisor Dr Rahul Gopinath for his guidance throughout this project.
+
+% -------------------------
+% Table of Contents + Lists
+% -------------------------
+\tableofcontents
+\listoffigures
+\listoftables
+
+% ---------------------------------------------------------
+% Chapters (split into separate files)
+% ---------------------------------------------------------
+
+\input{chapters/introduction}
+\input{chapters/litreview}
+\input{chapters/methodology}
+\input{chapters/design}
+\input{chapters/implementation}
+\input{chapters/results}
+\input{chapters/discussion}
+
+% ---------------------------------------------------------
+% Appendices
+% ---------------------------------------------------------
+
+\appendix
+\input{appendices/diagrams}
+\input{appendices/schemas}
+\input{appendices/repo-structures}
+
+% ---------------------------------------------------------
+% Bibliography
+% ---------------------------------------------------------
+
+\bibliographystyle{ACM-Reference-Format}
+\bibliography{thesis}
+
+\end{document}

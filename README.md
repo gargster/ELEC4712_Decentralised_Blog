@@ -166,9 +166,35 @@ they are not part of the source documentation.
 
 ## Tests
 
-From the repository root:
+Install the test and coverage tools if they are not already available:
+
+```powershell
+python -m pip install pytest coverage
+```
+
+From the repository root, run the tests:
 
 ```powershell
 cd client
 python -m pytest
 ```
+
+To run the suite while collecting coverage and generate both terminal and HTML
+reports:
+
+```powershell
+cd client
+python -m coverage erase
+python -m coverage run --source=src -m pytest
+python -m coverage report -m
+python -m coverage html
+```
+
+`coverage report -m` prints statement coverage for each source file and the
+overall total; `Missing` lists uncovered line numbers. The HTML report is
+written to `client/htmlcov/index.html`. Open that file in a browser to inspect
+coverage by file, function or class. Coverage.py measures which statements
+execute, so a high percentage does not by itself show that every behaviour or
+branch has been tested. The plain `python -m pytest` command reports the test
+count and pass/fail result; the coverage command also runs the test suite and
+prints its result before generating the coverage summary.

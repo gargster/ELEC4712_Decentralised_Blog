@@ -1,0 +1,171 @@
+\section{Methodology / Requirements Analysis}
+
+
+\subsection{Methodology Overview}
+
+The methodology for deriving the requirements of the proposed Git‑native protocol was based on a structured comparison of two families of decentralised systems: non‑Git protocols and Git‑based prototypes. Each protocol was examined using a consistent framework covering identity, content representation, replication behaviour, discovery, and social actions. Sequence diagrams were created to understand posting, following, and replication workflows in practice.
+
+By comparing these systems across common architectural dimensions, recurring gaps were identified. These gaps form the basis of the Synthesis of Gaps section and were translated into functional requirements and design principles that guide the Git‑native architecture presented in the next chapter.
+
+
+\subsection*{Synthesis of Gaps}
+
+The literature review shows that decentralised social protocols fall into two broad families—non‑Git
+and Git‑based—each solving different problems but neither providing a complete decentralised
+architecture.
+
+\textbf{Non‑Git protocols solve identity and structured actions, but fail at replication and
+decentralisation.}
+ActivityPub provides a rich social vocabulary and server‑validated integrity, but its push‑based
+inbox/outbox model creates heavy infrastructure requirements and ties identity to servers. Nostr
+solves identity portability through public keys, but lacks ordering, reliable replication, and
+human‑readable handles. SSB provides strong cryptographic integrity and offline‑first replication, but
+gossip synchronisation is slow and append‑only logs grow indefinitely. sAT demonstrates static
+hosting and confidentiality, but replication is slow and discovery requires manual domain exchange.
+AT Protocol provides structured records and portable identity, but remains server‑dependent and
+does not support peer‑to‑peer replication.
+
+Across these systems, three limitations consistently appear:  
+(1) identity is either server‑bound or cryptographic but not human‑readable;  
+(2) replication is heavy, unreliable, or slow;  
+(3) decentralised discovery is missing entirely.
+
+\textbf{Git‑based protocols address replication efficiency, but fail at identity, discovery, and
+structured social actions.}
+Git-based systems adopt Git’s pull‑based DAG replication, which directly addresses the scalability
+and ordering problems seen in ActivityPub, Nostr, SSB, and sAT. Gitweets shows that Git can
+replicate social content efficiently, but posts stored in commit messages limit expressiveness.
+Social4Git demonstrates file‑based posts and Git’s integrity model, but lacks replies, likes, signing,
+and discovery. Gitsocial introduces structured metadata and richer social actions, but posts embedded
+in commits prevent editing and identity remains tied to repository URLs. Octotown provides rich
+interactions through GitHub Issues, but is fully dependent on GitHub and lacks Git‑level integrity.
+Git‑as‑Federation‑Transport demonstrates server‑to‑server Git replication with JSON posts, but
+identity is server‑bound and users do not own their data.
+
+Across Git‑based systems, three limitations consistently appear:  
+(1) identity is tied to hosting providers rather than portable cryptographic keys;  
+(2) discovery requires knowing repository URLs or relying on GitHub’s follow graph;  
+(3) social actions are incomplete or stored in formats unsuitable for editing or interoperability.
+
+\textbf{Together, these observations reveal a unified set of gaps that neither family of protocols
+solves.}
+Non‑Git protocols provide structured social actions and portable identity (in Nostr), but fail at
+replication, ordering, and decentralised discovery. Git‑based protocols provide efficient, pull‑based
+replication and integrity‑preserving history, but fail at identity portability, discovery, and complete
+social functionality. No existing protocol combines portable identity, structured JSON actions,
+decentralised discovery, full social vocabulary, and efficient DAG‑based replication.
+
+This motivates the need for a Git‑native protocol that integrates the strengths of both families while
+addressing their shared limitations.
+
+\subsection{Functional Requirements}
+
+The following functional requirements were derived directly from the gaps identified in the literature review and the comparative analysis of existing decentralised social protocols. Each requirement is justified using observations from the surveyed systems and reflects the capabilities needed for a decentralised social protocol built on Git-based replication.
+
+\subsubsection*{Identity Requirements}
+
+\textbf{FR-01: Identity must be user-owned, portable, and independent of hosting providers.}
+
+\textit{Justification:}
+\begin{itemize}
+    \item ActivityPub ties identity to servers; users lose identity if a server shuts down.
+    \item Octotown binds identity to GitHub accounts, making identity non-portable.
+    \item Git-as-Transport ties identity to server domains.
+    \item Social4Git shows partial portability across Git providers.
+    \item Nostr demonstrates fully portable identity through cryptographic keys.
+    \item AT Protocol shows that human-readable handles can be mapped to keys.
+\end{itemize}
+
+\subsubsection*{Hosting Requirements}
+
+\textbf{FR-02: The protocol must avoid dependence on a single hosting provider or server-based infrastructure.}
+
+\textit{Justification:}
+\begin{itemize}
+    \item ActivityPub requires always-online servers, creating centralisation and high hosting cost.
+    \item Octotown depends entirely on GitHub’s Issues system.
+    \item sAT demonstrates decentralised hosting using simple file structures.
+    \item Gitweets shows that Git repositories can host social content across multiple providers.
+\end{itemize}
+
+\subsubsection*{Replication Requirements}
+
+\textbf{FR-03: Replication must be pull-based and incremental, transferring only new content since the client’s last known state.}
+
+\textit{Justification:}
+\begin{itemize}
+    \item ActivityPub’s push fan-out model scales poorly as follower count increases.
+    \item Gitweets shows that pull-based replication avoids server load and scales naturally.
+    \item Git-as-Transport highlights inefficiency when full history is transferred instead of incremental updates.
+    \item Nostr lacks reliable replication ordering, reinforcing the need for structured pull-based synchronisation.
+\end{itemize}
+
+\subsubsection*{Data Model Requirements}
+
+\textbf{FR-04: Posts and social actions must be stored in structured formats such as JSON.}
+
+\textit{Justification:}
+\begin{itemize}
+    \item Gitweets shows commit messages cannot represent structured or media-rich posts.
+    \item Gitsocial demonstrates limitations of embedding posts inside commits.
+    \item sAT uses JSON envelopes to represent posts and actions.
+    \item Git-as-Transport stores posts as JSON files, showing extensibility and compatibility with Git.
+\end{itemize}
+
+\subsubsection*{Storage Layout Requirements}
+
+\textbf{FR-05: Each user's social data must be isolated in a dedicated directory or repository structure.}
+
+\textit{Justification:}
+\begin{itemize}
+    \item sAT isolates all social data in a dedicated directory, simplifying hosting and replication.
+    \item Octotown’s group-level storage forces clients to scan entire issue trackers.
+    \item Git-as-Transport shows that per-user directories support incremental replication and clear separation of social content.
+\end{itemize}
+
+\subsubsection*{Security Requirements}
+
+\textbf{FR-06: The protocol must provide integrity and authenticity through cryptographic signatures, with optional support for confidentiality.}
+
+\textit{Justification:}
+\begin{itemize}
+    \item Git-based prototypes rely on Git’s commit hashing but cannot verify authorship of posts.
+    \item Social4Git and gitsocial allow anyone with repo access to create posts, requiring signatures for authenticity.
+    \item sAT demonstrates that encrypted JSON content is feasible for confidentiality.
+    \item No surveyed Git-based protocol provides both integrity and authenticity, making signatures essential.
+\end{itemize}
+
+\subsubsection*{Discovery Requirements}
+
+\textbf{FR-07: The protocol must provide a serverless discovery mechanism that enables users to locate repositories without requiring prior exchange of repository URLs.}
+
+\textit{Justification:}
+\begin{itemize}
+    \item ActivityPub uses WebFinger, which is server-dependent.
+    \item AT Protocol uses DNS-based DIDs, introducing infrastructure complexity..
+    \item Nostr lacks built-in discovery; users must know relay addresses.
+    \item Git-based prototypes require users to manually know repository URLs, creating a usability barrier for discovering users.
+\end{itemize}
+
+\subsubsection*{Usability Requirements}
+
+\textbf{FR-08: The protocol must abstract underlying Git operations behind a client interface.}
+
+\textit{Justification:}
+\begin{itemize}
+    \item Gitweets exposes Git directly to users, requiring knowledge of Git commands.
+    \item Social4Git improves abstraction but still requires CLI usage.
+    \item Gitsocial requires users to run Git commands manually.
+    \item A decentralised protocol must hide Git complexity to be usable.
+\end{itemize}
+
+\subsubsection*{Interoperability Requirements}
+
+\textbf{FR-09: The protocol must reuse existing infrastructure (Git, HTTPS) and define a standard format compatible across Git-supported hosts.}
+
+\textit{Justification:}
+\begin{itemize}
+    \item All Git-based prototypes rely on Git hosting, remotes, and replication.
+    \item There is no consistency in how posts are stored across prototypes.
+    \item A standard format ensures interoperability across GitHub, GitLab, Gitea, and other Git hosts.
+\end{itemize}
