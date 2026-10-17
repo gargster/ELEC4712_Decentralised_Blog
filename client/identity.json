@@ -1,6 +1,6 @@
 {
-  "activeIdentity": "testperson4",  
-  "repoPath": "testperson4-social",
+  "activeIdentity": "alice",
+  "repoPath": "alice-social",
   "publicKey": "...",
   "privateKey": "..."
 }

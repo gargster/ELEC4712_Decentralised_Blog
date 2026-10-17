@@ -4,6 +4,7 @@
 import argparse
 import os
 import json
+import sys
 
 # Import identity modules
 from src.actions.feed import ShowFeedAction
@@ -183,7 +184,13 @@ def main():
     # ---------------- ALL OTHER SOCIAL ACTIONS ----------------
     # Use factory method pattern for all other social actions
     action = ActionFactory.create(args.command, SOCIAL_PATH)
-    path, obj = action.run(args)
+    try:
+        path, obj = action.run(args)
+    except ValueError as error:
+        if args.command != "follow":
+            raise
+        print(f"[FOLLOW] Rejected: {error}", file=sys.stderr)
+        raise SystemExit(1) from None
 
     if isinstance(action, ShowFeedAction):
         return
