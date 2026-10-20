@@ -2,7 +2,7 @@
 The following are functional requirements arranged by its type, justifed by what we observed in the analysis of existing protocols from alternatives.md:
 
 ## Identity Requirements
-FR-01: The identity must be user-level, portable and not  coupled to a single hosting provider
+FR-01: The identity must be user-level, portable and not coupled to a single hosting provider
 ### Justification (What we observed):
 - We saw that the fundamental issues with ActivityPub was that identity was tied to servers (user loses identity if server shuts down) so identity must not depend on a single host.
 - Similarly octototown was dependent on GitHub for its full identity and Git-as-Transport was tied to the server domain, which made identity non-portable.

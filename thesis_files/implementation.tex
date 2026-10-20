@@ -1,4 +1,4 @@
-\section{Implementation}\label{chap:implementation}
+\section{Implementation}\label{sec:implementation}
 
 % Explain how the prototype realises the design described in Chapter 4.
 % Focus on implementation choices, component responsibilities, and how
@@ -564,11 +564,14 @@ After a successful push, \texttt{PublishManager} records the derived \texttt{sit
 
 \subsection{Implementation Verification}
 
-\textbf{Tests in \texttt{client/tests/} check the implementation at different
-levels. Table~\ref{tab:implementation-test-coverage} maps each group of tests
-to the code it checks and gives examples of the normal and failure cases.
-\texttt{pytest} runs the suite, and Coverage.py reports which Python
-statements the tests execute.}
+Tests in \texttt{client/tests/} check the implementation at different levels,
+from individual components to workflows using temporary Git repositories.
+Table~\ref{tab:implementation-test-coverage} groups the test files by the
+implementation areas they exercise and gives examples of normal, failure and
+edge cases. These examples show both what the client is expected to do and
+how it responds to invalid data or repository conditions; they are not a list
+of every assertion in the suite. \texttt{pytest} runs the tests, while
+Coverage.py reports which Python statements they execute.
 
 \begin{table}[htbp]
     \centering
@@ -578,7 +581,7 @@ statements the tests execute.}
     \begin{tabular}{|p{4.8cm}|p{9.7cm}|}
         \hline
         \textbf{Test group and files} &
-        \textbf{Representative normal and failure cases} \\
+        \textbf{Representative normal, failure and edge cases} \\
         \hline
         Identity and validation (unit and profile tests):
         \texttt{test\_identity.py}, \texttt{test\_profile.py},
@@ -590,13 +593,13 @@ statements the tests execute.}
         reject tampered or unsigned data, invalid keys, unknown actions and
         missing identity configuration. \\
         \hline
-        Profile, action and feed behavior (component tests):
+        Action creation, Follow and feed behavior (component tests):
         \texttt{test\_actions.py}, \texttt{test\_feed.py}
-        & \textbf{Normal:} create signed actions; group posts, replies and
-        likes; filter posts to followed authors. \textbf{Failure/edge:}
-        reject mismatched keys and malformed actions; handle duplicate likes
-        and an empty following list. Follow tests also check directory and
-        fetched-profile mismatches. \\
+        & \textbf{Normal:} create signed Post, Reply, Like and Follow actions;
+        group posts, replies and likes; filter posts to followed authors.
+        \textbf{Failure/edge:} reject an unregistered handle, a mismatched
+        profile key or URL, malformed actions and mismatched active keys;
+        handle duplicate likes and an empty following list. \\
         \hline
         Replication and publication (local-Git integration and focused tests):
         \texttt{test\_replicator.py}, \texttt{test\_git\_publisher.py},
@@ -611,23 +614,22 @@ statements the tests execute.}
     \end{tabular}
 \end{table}
 
-The tests use temporary data and controlled dependencies to keep the
-checks isolated and repeatable while still exercising the implementation.
-Where needed, tests create profiles, actions and keys in pytest's temporary
-directories, leaving the user's identity untouched. PyNaCl performs the
-signing and verification with real test keys, so these cryptographic checks
-are not mocked. For directory and profile lookups,
-\texttt{monkeypatch} supplies fixed HTTP responses, allowing success, missing
-data and invalid data to be checked without depending on a live directory.
-Using real temporary repositories and bare remotes lets the Git tests check
-actual fetch, commit and push behavior without publishing to a hosted account.
-Profile-creation tests also clone the configured canonical repository into a
-temporary project, so those tests depend on that repository being reachable.
+The tests use temporary data and controlled dependencies to make the checks
+repeatable without changing the user's identity. Pytest's temporary
+directories hold test profiles, actions and keys. PyNaCl performs signing and
+verification with real test keys, so the cryptographic results are not
+mocked. For directory and profile lookups, \texttt{monkeypatch} supplies
+controlled HTTP responses, including missing or invalid data, without relying
+on a live directory. Other tests use temporary Git repositories and bare
+remotes to exercise real fetch, commit and push operations without publishing
+to a hosted account. Profile-creation tests also clone the configured
+canonical repository into a temporary project, so those tests still depend
+on that repository being reachable.
 
-This section describes the test approach and representative cases.
-The Results chapter reports the observed scenario evidence, test outcomes and
-coverage; it can refer to notable cases from the table without repeating the
-test inventory
+This table describes the test approach and representative cases. The Results
+chapter reports the observed end-to-end demonstrations, test outcomes and
+coverage, and uses the table as context rather than repeating the test
+inventory.
 
 \subsection{Implementation Limitations}
 
