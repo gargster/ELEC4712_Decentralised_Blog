@@ -1,34 +1,185 @@
-\section{Discussion and Conclusion} 
-\subsection{Discussion} 
-\subsubsection*{Identity and Portability} Discuss: 
-\begin{itemize} 
-\item Public-key identities. \item Host-independent identity. \item Separation of identity from repository location. \item Repository migration without identity loss. 
-\end{itemize} 
-Compare with: 
-\begin{itemize} \item ActivityPub. \item Nostr. \item AT Protocol. 
-\end{itemize} 
-The implemented protocol did not bind identity to a single hosting provider as the protocol uses a public-key-based indentity model, where each user's identity is defined by the Ed25519 public key in the user's profile.json which is independently hosted across git repositories. Thus repository migration can happen without identity loss. Compared to earlier surveyed protocols we discussed like ActvityPub where identity was tied to servers, and it contrasted with Octotown who was dependent on GitHub only. The approach was more aligned with Nostr 
-static profile file. The user's private key is responsible for signing social actions. Also, the protocol mirrors the basic principle shown in Social4Git where identity can move between Git providers. Although the public key is the authoritative identity, it is mapped to a human-readable handle in the profile file allowing the discovery layer to find users similar to the AT protocol which supplements portable identity systen with human-readable domain handles. However this brings trade-off as their must be trust in directory for handle-to-key verification.
+\section{Discussion and Conclusion}
+\subsection{Discussion}
 
-\subsubsection*{Replication and Distribution} Discuss: \begin{itemize} \item Pull-based replication. \item Repository-centric distribution. \item Multi-hop replication. \item Trust remaining with the original author. \end{itemize} Compare with: \begin{itemize} \item ActivityPub federation. \item Nostr relay model. \item Secure Scuttlebutt replication. \end{itemize} 
+The results show how the prototype brings together ideas that the literature
+review found separately across non-Git and Git-based systems. Non-Git
+protocols provide examples of portable identity, structured actions and
+static hosting, while Git-based prototypes show how repositories can support
+pull-based exchange. The discussion considers what the implemented system
+demonstrates against those approaches, as well as where the prototype still
+depends on a particular provider or lacks evaluation. The contribution is the
+combination of these mechanisms in a working prototype; it is not a claim
+that each mechanism is new by itself.
 
-The protocol made use of pull-based replication, where clients fetch only new social data since their last known state. Instead of having to store followed users in client side files and copying across files, existing git infrastructure is used. Git inherently supports incremental replication. 
-In contrast to Git-as-Transport which transferred entire git history which was highlighted as replication bottleneck. ActivityPub showed that push fan-out (where updates are pushed to each follower) create load and scaling issues as push delivery becomes expensive as number of followers grow - reinforcing need for a pull-based model. Simiarly, Nostr replication although decentralised was shown to be insufficient due to unreliability of relays. The protocol mirrors the surveyed Git-based prototypes (Gitsocial, Social4Git, Gitweets) where posting = push, commit and replcication = fetch commits to only transfer new commits. However it is slightly different as only the social/actions files are replicated across, keeping social activity and identity (profile.json) separate. The protocol further supports an interesting property called Multi-Hop Propogation as users can recieve post from the users they don't follow by replicating although trust still remains with the original author of the post and not the follower the user got the social action through.
+\subsubsection*{Identity and Portability}
 
-\subsubsection*{Discovery and Usability} Discuss: \begin{itemize} \item Human-readable handles. \item Directory-based discovery. \item GitHub Pages publication. \item Browser-based feed access. \end{itemize} \subsubsection*{Comparison with Existing Systems} Discuss: \begin{itemize} \item ActivityPub. \item Nostr. \item Secure Scuttlebutt. \item AT Protocol. \item Gitweets. \item Social4Git. \item GitSocial. \end{itemize} Discuss strengths and weaknesses relative to each. 
+The identity model separates a user's cryptographic identity from the
+repository where their data is stored. The client creates an Ed25519 key pair
+and stores the private key locally; the public key and human-readable handle
+are included in the signed \texttt{profile.json}. During publication, the
+client adds the repository URL to the profile and signs it again with the
+same key. The Results chapter shows that the public key remains unchanged
+when Alice's repository is published (Figure~\ref{fig:results-publish-user}).
+This demonstrates separation between identity and repository location, but
+the scenarios do not show Alice migrating her repository to another host.
 
-One of the key problems of the explored protocols was that did not support decentralised discovery mechanism where clients can locate user profiles and cotnent and content across different hosting providers without requiring central server.  ActivityPub introduces dicovery but is server-mediated via WebFinger making it unsuitable for static hosting. Whie AT Protocol uses a DID Service for a DNS-based global handle registry, which introduces centralisation. Nostr was less centralised with relay servers but is different approach to this protocol. The protocol aimed to address the problems of existing git based protocols like Gitweets and Socia4Git which require to know each other's repository URL to follow each other by mapping user handles to this URL in a dedicated social directory which is statically hosted. While this has own downside as may not be fully decentralised since need to trust owner of the reposiotry but still protocols itself doesn't couple to GitHub like Octotown which depends on GitHub's follows system. 
+This model is closest to Nostr's use of a public key as a portable identity,
+while the profile handle gives users a readable name to use when discovering
+accounts \cite{fiatfaj2026}. ActivityPub identities are associated with an
+account on a server, so moving between servers involves a different
+server-controlled account representation \cite{w3cActivityPub2018}. AT
+Protocol also separates a handle from a cryptographic identifier through
+DIDs, but its identity and data workflows involve services such as DID
+infrastructure and Personal Data Servers \cite{atproto2026}. Among the Git
+systems in the survey, Social4Git identifies users through repository URLs,
+while Octotown uses GitHub usernames; neither provides the same
+key-as-identity model described here \cite{social4git2026,octotown2026}.
 
-With respect to usability, the directory repository is hosted in github pages and automatically when user is created and published their profile is added to the directory and pushed so the static site gets update in short amount of time and gets rendered nicely. The user can then easily find people to follow marked by their human readable handle and the repository URL button takes them to their corresponding repository where thy can use the link to follow and interact with that user. This is much more usable compared to the primitive git-based models seen which are all terminal based and url is required to know. Furthermore user's can deploy their feed for the current state of their social/actions. This similarly is hosted on GitHub Pages on their gh-pages branch. It provides the user's own details in profile and all the posts in the user's feed with the author and content and time/date posted along with any likes and replies. Also a filter is provided to allow users to view only posts from users who are directly followed. 
+The result should be read as evidence for the identity model, rather than
+proof that the current prototype is already provider-independent. A key can
+remain the same when a repository URL changes, but discovery depends on the
+social directory being updated and trusted. The canonical repository and
+directory are configured on GitHub, and the prototype's site publication
+also uses GitHub Pages. Therefore, the design separates identity from
+location, while the current deployment still has GitHub dependencies.
 
-Thus compared to existing git-based protocols the implemented static pages for rendering content is major improvement as none provide show a rich rendering experience for users to view their feed and find other users. But the core protocol actions still require utilising a command line interface and running commands like 'python app.py replicate' for respective functionality which will be discussed in limitations further. However this is still better than models like Gitweets which exposes git operations to users meaning they must understand native commands like git fetch. Thus the core functionality Command line is more similar to protocols social4git and gitsocial which abstract further with commands like social4git sync. Although the static site rendering shows usuability is improved from existing protocols but still needs work on in the future.
+\subsubsection*{Replication and Distribution}
 
-\subsubsection*{Static Hostable - provider agnostic/interoperability}
-The protocol is not locked into a single provider compared to ActivityPub which showed the high infrastructure cost and centralisation drawback of server-based hosting. While Octotown reinforced danger of depending on single provider (GitHub). Git infrastructure has been seen to be reliable with many git-based prototypes using Git Hosting from established infrastructure while static hosting in sAT enables it to run fully on static files. Thus the protocol was a hybrid of this to define a standard format which any git-based social client can use across git-supported static host by reusing existing infrastructure.
+Replication is pull-based: a client fetches the configured remotes when the
+user runs the command, rather than having a server push every post to every
+follower. The implementation then reads candidate JSON files from each
+remote's \texttt{social/actions/} directory, verifies the actions, and writes
+valid files into the local action store. Git fetch makes the remote history
+available; the client-side verifier decides which social actions to accept.
+This distinction matters because Git itself does not validate the action
+signatures. The design is described in Section~\ref{chap:system-design}, and
+the implementation details are in Section~\ref{chap:implementation}.
+
+The Results chapter shows both direct replication from Bob and a multi-hop
+case in which Alice receives Charlie's signed post through Bob
+(Figures~\ref{fig:results-replicated-bob-post} and
+\ref{fig:results-alice-charlie}). Charlie remains the action's author after
+it passes through Bob, so the repository that relays an action does not
+replace the identity that signed it. This is a useful property of the
+prototype's repository-based distribution model. Git-based systems such as
+Gitweets, Social4Git and gitsocial also use Git fetch for pull-based
+replication, so the contribution is not pull replication alone. The
+prototype combines it with signed action files, client-side acceptance
+checks and the demonstrated multi-hop path
+\cite{gitweets2026,social4git2026,gitsocial2026}.
+
+This result does not establish a performance advantage at scale. Git fetch
+can transfer Git objects missing from the local repository, but the current
+replicator scans the remote action directory and verifies its JSON files on
+each run. The evaluation does not measure transferred data, replication
+latency or behavior with large repositories. ActivityPub distributes
+activities through server inboxes, Nostr relies on relays, and Secure
+Scuttlebutt exchanges missing log entries through gossip; each uses a
+different distribution model and has different availability and scaling
+trade-offs \cite{w3cActivityPub2018,fiatfaj2026,ssbConsortium2026}. Git-as-Federation-Transport
+also uses Git, but its repositories are server-level and its distribution
+workflow is server-centric rather than user-to-user
+\cite{gittransport2026}.
+
+\subsubsection*{Discovery and Usability}
+
+The prototype's social directory maps a human-readable handle to a repository
+URL and public key. The directory website lets users look up a handle and
+see the repository URL; the current Follow command still requires both the
+handle and URL, then checks the supplied URL and fetched profile against the
+directory entry. The Results chapter shows the directory website and
+Alice's Follow workflow (Figures~\ref{fig:results-directory-site} and
+\ref{fig:results-follow-bob}). This reduces the need to exchange repository
+URLs out of band, but it is not yet a handle-only Follow workflow. It
+addresses a discovery gap in Gitweets, Social4Git and gitsocial, where users
+need to know repository URLs, and differs from Octotown's use of GitHub's
+own follow graph \cite{gitweets2026,social4git2026,gitsocial2026,octotown2026}.
+
+The directory is static-hostable, but it is still a shared registry with a
+maintainer and a known URL. It is therefore more accurate to describe this
+as handle-based discovery through a static directory than as fully
+decentralised discovery. This is a trade-off against ActivityPub's
+server-mediated WebFinger and AT Protocol's DID and handle services, while
+Nostr's relay model does not itself provide the same handle-to-repository
+lookup \cite{w3cActivityPub2018,atproto2026,fiatfaj2026}. The directory page
+and the user's feed provide a browser-readable view of accounts and posts,
+but creating, following and replicating actions still requires the command
+line client. The feed is also a published snapshot: it must be regenerated
+after new local or replicated actions arrive. These results show a more
+accessible way to browse the prototype's data, but they do not demonstrate a
+fully browser-based social client or measure usability with users.
+
+\subsubsection*{Static Hosting and Interoperability}
+
+The prototype separates protocol data from the published feed. Profiles and
+actions are kept on \texttt{main}; the publisher generates \texttt{feed.json}
+and copies it with the site template to \texttt{gh-pages}. This allows a
+static host to serve a readable feed without running a social application
+server. The approach shares sAT's use of static files for hosting, but the
+prototype uses Git repositories for synchronisation and does not implement
+sAT's encrypted posts or key exchange \cite{sat2026}. Its use of Git also
+differs from Git-as-Federation-Transport, where a server manages a repository
+for multiple users \cite{gittransport2026}. The Results chapter demonstrates
+the generated feed on GitHub Pages (Figure~\ref{fig:results-feed-bob}); this
+is evidence for the current deployment, not for static hosting on every
+provider.
+
+The data model and Git remotes are designed to avoid making the user's
+protocol repository itself a GitHub-only format. However, the current
+implementation has provider-specific dependencies: the canonical template
+and social directory URLs are configured for GitHub, feed profile-name
+lookup converts GitHub repository URLs to raw GitHub URLs, and site URL
+generation supports GitHub Pages. All end-to-end repository examples in the
+Results chapter use GitHub. As a result, provider independence and
+cross-provider interoperability remain design goals rather than demonstrated
+properties of this prototype. A scenario that publishes one user's protocol
+repository on GitLab and follows or replicates it from another host would
+strengthen the evidence, but would not remove the shared GitHub dependencies
+for the directory and current site publisher.
+
+This distinction also matters for interoperability. Reusing Git and JSON
+provides familiar transport and a structured format, but does not by itself
+ensure that independently developed clients interpret fields, action types
+and signature inputs in the same way. No independent client or cross-host
+implementation was evaluated. Unlike Octotown, the protocol data is not
+stored in GitHub Issues or tied to GitHub's follow graph; unlike Gitweets,
+posts are not represented only by commit messages. These are useful design
+differences, but broad interoperability would require a published schema and
+tests between separate implementations \cite{octotown2026,gitweets2026}.
 
 \subsubsection*{Structured JSON Encoded Social Actions}
-The protocol represents social actions (e.g. post, reply, follow, like) using a small, predefined set of action types which is building upon existing protocols like ActivityPub which showed how sturcutred social activites provide a rich social vocabularly and Nostr similarly used different type for different social actions. The encoded storage for these action types is JSON which the clients generate automatically when user perform social actions. This is similar to sAT and Git-as-Transport who store posts as JSON files reinforcing the flesibla extensible nature of JSON for social data and can support future extensions like media and references. This is an improvement on other Git-based protocols like Gitweets and GitSocial which showed limitations of embedding posts inside commit message and how it is unsuitable for structured posts.
 
+Social interactions are represented as signed JSON objects with a type and
+fields for the data needed by that action. The current implementation
+supports four types: Post, Reply, Like and Follow. For example, a Reply
+records its target action in \texttt{inReplyTo}, the target handle in
+\texttt{targetHandle} and its own text in \texttt{content}; a Like records
+the target action and handle without changing the original post. The Results
+chapter shows these objects in Alice's repository
+(Figures~\ref{fig:results-alice-post}, \ref{fig:results-alice-like} and
+\ref{fig:results-alice-reply}). The feed can use these explicit references
+to associate replies and likes with their target posts.
+
+Structured social objects are not unique to this prototype. ActivityPub's
+activities and Nostr's event kinds show how types can distinguish social
+operations; sAT and Git-as-Federation-Transport also store social data as
+JSON \cite{w3cActivityPub2018,fiatfaj2026,sat2026,gittransport2026}. The
+comparison with Gitweets and gitsocial is that their surveyed designs put
+post content and metadata in commit messages, while this implementation
+stores action data in separate JSON files. Social4Git also uses files for
+posts, so the distinction is the explicit shared action structure and
+references between actions, rather than file storage by itself
+\cite{gitweets2026,gitsocial2026,social4git2026}.
+
+This structure makes the current actions easier for the client to verify and
+for the feed to index than unstructured commit-message text. It also gives
+the protocol a defined place to add fields or action types. However, the
+prototype currently implements only Post, Reply, Like and Follow; it has no
+Boost/Retweet action, media support or private posts. JSON is extensible, but
+extension alone does not guarantee compatibility: clients still need to
+agree on the schema and signing rules. The contribution is therefore a
+working, verifiable action model for the implemented features, while broader
+social vocabulary and interoperability remain future work.
 \subsection{Security Considerations} Discuss the security mechanisms implemented in the prototype and their effectiveness. 
 
 \subsubsection*{Protected Threats} Discuss: \begin{itemize} \item Profile tampering. \item Action tampering. \item User impersonation. \item Repository replacement with a different key. \end{itemize} Reference: \begin{itemize} \item Security Validation results. \item Profile signature verification. \item Action signature verification. \item Directory key checks. \end{itemize} 
