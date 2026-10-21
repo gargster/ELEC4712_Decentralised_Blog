@@ -3,9 +3,9 @@
 The results presented in Chapter~\ref{sec:results} demonstrated that the
 prototype supports portable identity, structured social actions,
 pull-based replication, account discovery and feed publication. These
-results provide evidence that the requirements identified in Chapter~3
+results provide evidence that the requirements identified in Chapter~\ref{sec:methodology}
 can be realised through the Git-native protocol proposed in
-Chapter~\ref{sec:system-design}.
+Chapter~\ref{chap:system-design}.
 
 The following sections discuss the major design decisions of the
 protocol, compare them with existing approaches, and examine the
@@ -13,151 +13,135 @@ trade-offs revealed through implementation and evaluation.
 
 \subsubsection*{Identity and Portability}
 
-A key outcome of the implemented protocol is the separation of identity
-from repository location. As described in the Identity Model presented
-in Chapter~\ref{sec:system-design}, identity is defined by an Ed25519
-public key rather than a repository URL or hosting provider. A user's
-public key therefore acts as the authoritative identifier, while
-repositories function solely as storage and distribution mechanisms.
+The protocol's identity model builds on the portable public-key identities
+used by Nostr: a user's Ed25519 public key identifies them, while the Git
+repository stores and distributes their data \cite{fiatjaf2026}. This differs
+from ActivityPub, where identity is associated with a server domain
+\cite{w3cActivityPub2018}, and from Octotown, which uses a GitHub username
+\cite{octotown2026}. Social4Git showed that repositories can move between
+providers, but it did not provide a portable cryptographic identity
+\cite{social4git2026}.
 
 The identity-creation and publication workflows presented in
-Chapter~\ref{sec:results} demonstrated that repository URLs are treated
-as metadata associated with a signed identity rather than forming part of
-the identity itself. This distinction allows repositories to be
-relocated without requiring the creation of a new account or social
-identity.
-
-Compared with ActivityPub, this provides a stronger notion of identity
-portability. ActivityPub identities are generally associated with server
-domains and therefore remain dependent on the continued operation and
-policies of a particular server. Similarly, Octotown inherits GitHub's
-account model and ties identity directly to a GitHub username. In
-contrast, the implemented protocol is more closely aligned with Nostr,
-where public keys rather than infrastructure determine identity
-ownership. The design also shares similarities with Social4Git, which
-demonstrated that repositories can move between providers, although
-Social4Git lacked a portable cryptographic identity layer.
+Chapter~\ref{sec:results} show how this works in the prototype. The client
+adds the repository URL to Alice's signed profile, and
+Figure~\ref{fig:results-publish-user} shows that publication uses the same
+public key. This separates the key that identifies the user from the
+repository location recorded in the profile. The Results demonstrate this
+separation during publication, although they do not show a repository
+migration between hosts.
 
 The protocol supplements cryptographic identities with human-readable
 handles. This approach is conceptually similar to the handle-based layer
 used by AT Protocol, where a user-friendly identifier is mapped to a
 portable cryptographic identity. The directory therefore improves
-discoverability without changing the underlying identity model.
+discoverability without changing the underlying identity model
+\cite{atproto2026}.
 
-The results also highlighted an important trade-off. Public-key-based
-identities provide portability and independence from hosting providers,
-but they are not convenient for human users. Meaningful discovery
-requires a mechanism for associating identities with user-friendly
-handles. The repository-replacement scenario demonstrated that digital
-signatures alone are insufficient for identity continuity; continuity
-also depends on a trusted record linking a handle to its previously
-registered public key. Thus, while the protocol reduces dependence on
-hosting providers, it introduces a limited trust dependency in the
-discovery layer.
+The repository-replacement scenario also shows why the protocol pairs keys
+with handles. A public key can verify a signed profile, but users need a
+readable handle to find an account. AT Protocol uses a similar handle layer
+alongside its cryptographic identifiers \cite{atproto2026}; in this
+prototype, the social directory maps each handle to its registered key and
+repository URL. The scenario demonstrates that Follow checks this mapping
+before accepting the profile, so identity continuity depends on the
+directory entry as well as the signature.
 
 \subsubsection*{Replication and Distribution}
 
 The implemented protocol adopts a pull-based replication model built on
-Git's native synchronisation mechanisms. Rather than distributing
-updates through server-to-server delivery, repositories explicitly
-retrieve content from configured remotes and locally verify it before
-acceptance.
+Git's native synchronisation mechanisms. A client fetches from configured
+remotes, then checks candidate action files locally before accepting them.
+This means Git transfers repository data while the client decides which
+actions are valid for its local store.
 
-The literature review highlighted several limitations in alternative
-distribution approaches. ActivityPub relies on push-based fan-out, where
-servers are responsible for delivering activities to followers.
-Although effective, this design places increasing load on servers as the
-number of followers grows. Nostr uses relays to forward events but
-provides weaker guarantees regarding state management and ordering.
-Secure Scuttlebutt removes servers entirely through peer-to-peer gossip,
-but replication becomes increasingly expensive as message histories
-grow.
+The literature review highlighted different trade-offs in the surveyed
+distribution approaches. ActivityPub uses server-to-server delivery, with
+servers forwarding activities to followers; this can place increasing load
+on servers as their follower networks grow \cite{w3cActivityPub2018}. Nostr
+uses relays to forward events, but its relays do not track client state and
+provide weak ordering guarantees \cite{fiatjaf2026,stackernews2026}. Secure
+Scuttlebutt removes servers through peer-to-peer gossip, although its
+append-only feeds grow as messages accumulate
+\cite{ssbConsortium2026}.
 
-The implemented design instead reuses Git's pull-based replication
-model, as demonstrated by Gitweets, Social4Git and GitSocial. However,
-the protocol extends these systems by replicating verified protocol
-actions rather than treating Git history itself as the social feed. Git
-is therefore reused as a transport and distribution mechanism, while
-protocol-level validation remains the responsibility of the client.
+Gitweets, Social4Git and GitSocial already use Git repositories and fetch
+operations to share social data \cite{gitweets2026,social4git2026,gitsocial2026}.
+Git-as-Federation-Transport also uses Git, but its repositories are managed
+at the server level rather than for each user's social data
+\cite{gittransport2026}.
+This implementation builds on that approach by storing each interaction as
+a signed action file, separate from the Git commit that carries it. After
+fetching a remote, the client scans its \texttt{social/actions/} directory,
+checks candidate signatures and accepts valid action files into the local
+store. Git provides the repository transfer; the client applies the
+protocol's acceptance checks.
 
-The replication and interaction workflows presented in
-Chapter~\ref{sec:results} demonstrated that signed actions can be
-fetched, verified and accepted using only standard Git operations. This
-addresses one of the key shortcomings identified in the survey, namely
-the reliance on specialised replication infrastructure while still
-maintaining structured social interactions.
-
-A particularly interesting outcome of the implementation was the
-emergence of multi-hop replication. The results showed that Alice was
-able to receive Charlie's post through Bob, despite not directly
-following Charlie. This behaviour enables social content to spread
-beyond immediate follow relationships while preserving authenticity.
-
-Unlike simple repository mirroring, trust does not move to the
-repository distributing the content. Verification continues to use the
-original author's public key, meaning that intermediate repositories act
-as transport mechanisms rather than trust anchors. The multi-hop
-replication scenario therefore demonstrates that repository-centric
-distribution can support decentralised content propagation without
-requiring trusted intermediaries.
-
-More broadly, the results suggest that Git's repository and remote model
-can provide an effective foundation for social-data exchange. Existing
-Git-based systems demonstrated pull-based replication, but the current
-implementation extends this concept with cryptographic verification and
-structured social actions, producing a more complete replication model.
+The Results show this process in Alice's direct replication from Bob and
+in the multi-hop scenario where Alice receives Charlie's post through Bob
+(Figures~\ref{fig:results-replicated-bob-post} and
+\ref{fig:results-alice-charlie}). Alice receives the same signed action
+Charlie created and verifies it using Charlie's public key. Bob's repository
+passes the action on, but Bob does not become its author. This demonstrates
+multi-hop propagation for the tested workflow while keeping authorship with
+the user who signed the action. The evaluation does not measure how this
+workflow performs with larger repositories.
 
 \subsubsection*{Discovery and Usability}
 
 Discovery emerged as one of the most significant gaps identified during
-the protocol survey. ActivityPub provides discovery through WebFinger
-and server infrastructure, while AT Protocol relies on DID and
-DNS-based services. Nostr provides portable identities but lacks a
-widely adopted built-in discovery mechanism. Most Git-based systems
-require repository URLs to be exchanged manually before any interaction
-can occur.
+the protocol survey. ActivityPub provides discovery through WebFinger and
+server infrastructure \cite{w3cActivityPub2018}, while AT Protocol uses
+DID and handle services \cite{atproto2026}. Nostr provides portable
+identities, but its relay model does not provide the same handle-to-repository
+lookup \cite{fiatjaf2026}. Most Git-based systems require repository URLs
+to be exchanged manually before users can connect to an account
+\cite{gitweets2026,social4git2026,gitsocial2026}.
 
 To address this limitation, the implemented protocol introduces a public
 social directory that maps handles to repository URLs and public keys.
-This allows users to discover accounts through familiar identifiers
-while preserving cryptographic verification during the Follow workflow.
-The directory therefore serves as a usability layer rather than a source
-of authenticity, with signatures continuing to provide authorship and
-integrity guarantees.
+Users can look up a handle in the directory to find the repository URL,
+rather than needing to obtain it from the account owner. During Follow, the
+client checks the URL and fetched profile's handle and public key against
+the directory entry. Signatures verify that the profile and actions match
+the listed public key; the directory links that key to the handle.
 
 The discovery and follow workflows presented in
-Chapter~\ref{sec:results} demonstrated that this approach significantly
-reduces the need for prior repository-URL exchange compared with
-Gitweets, Social4Git and GitSocial. Instead of requiring users to know a
-repository URL in advance, accounts can be located through a
-human-readable handle and then validated against the corresponding
-directory entry.
+Chapter~\ref{sec:results} demonstrate this approach as Alice follows Bob
+(Figures~\ref{fig:results-directory-site} and
+\ref{fig:results-follow-bob}). Unlike Gitweets, Social4Git and GitSocial,
+where users need to obtain a repository URL before connecting, this
+directory lets them find the URL using a handle
+\cite{gitweets2026,social4git2026,gitsocial2026}. The user then provides
+that URL to the Follow command. The client checks that it matches the URL
+registered for the handle, then checks that the fetched profile has the
+same handle, public key and repository URL as the directory entry.
 
-The implementation also introduced static-site publication through
-GitHub Pages. The generated websites provide browser-accessible feeds
-displaying profile information, posts, replies and likes. Unlike the
-protocol itself, which operates through Git repositories and JSON
-actions, these websites exist purely as presentation layers. Feed
-publication therefore improves accessibility without altering the
-underlying protocol workflows.
+The implementation also adds static-site publication through GitHub
+Pages. The generated websites provide browser-accessible feeds displaying
+profile information, posts, replies and likes (Figure~\ref{fig:results-feed-bob}).
+These pages present data generated from the protocol's Git repositories and
+JSON actions; they do not change how those actions are created or replicated.
+This gives users a browser-based way to view their feed alongside the
+command-line protocol client.
 
 An important observation from the implementation is that usability
 improvements frequently introduce additional trust assumptions. The
 social directory significantly improves discoverability, and
 browser-based feeds improve accessibility, but neither feature is
-strictly required for protocol operation. The protocol can function
-entirely through Git repositories and cryptographic identities. This
-reinforces a broader distinction between the core protocol and
-supporting infrastructure: usability services can be layered on top of
-the protocol without becoming part of the protocol's trust model.
+strictly required for protocol operation. Social actions can be stored and
+exchanged through Git repositories, with cryptographic identities used to
+sign and verify them. Account discovery uses the shared directory to map
+handles to repositories and public keys. This separates social-data
+exchange from the directory used to find accounts.
 
-Compared with earlier Git-based systems, this represents a substantial
-improvement in usability. Gitweets exposes Git operations directly to
-users, while Social4Git and GitSocial still require users to know
-repository URLs and invoke protocol-specific commands. The browser-based
-directory and feed publication workflows developed in this project make
-the protocol more accessible without changing the underlying
-architecture.
+Compared with earlier Git-based systems, the directory and published feeds
+add browser-based account discovery and feed viewing. Gitweets exposes Git
+operations directly to users \cite{gitweets2026}, while Social4Git and
+GitSocial use protocol-specific commands and require repository URLs to
+connect \cite{social4git2026,gitsocial2026}. The prototype therefore makes
+finding accounts and viewing posts more accessible, while core actions such
+as following and replication still use the command-line client.
 
 Nevertheless, the prototype remains primarily command-line oriented.
 Users still perform operations such as following, replication and
@@ -170,26 +154,26 @@ mainstream social-networking applications.
 
 The protocol represents social interactions through a structured
 vocabulary consisting of Posts, Replies, Likes and Follows. This design
-was informed by the survey of existing systems. ActivityPub
-demonstrated the value of modelling social interactions through
-explicit activity types, while Nostr similarly distinguishes different
-social actions through event kinds.
+was informed by the survey of existing systems. ActivityPub models
+interactions through explicit activity types \cite{w3cActivityPub2018},
+while Nostr distinguishes actions through event kinds \cite{fiatjaf2026}.
 
-Unlike Gitweets and GitSocial, which embed social content within commit
-messages, the implemented protocol stores social actions as independent
-JSON objects. This allows metadata such as authorship, timestamps,
-signatures and references to be represented explicitly rather than
-inferred from Git history. The resulting structure is easier to
-validate, process and extend across different implementations.
+Unlike Gitweets, which uses commit messages for posts, and GitSocial, which
+stores its action metadata in Git commit messages, the implemented protocol
+stores social actions as independent JSON objects
+\cite{gitweets2026,gitsocial2026}. This allows authorship, timestamps,
+signatures and references to be represented as fields rather than inferred
+from Git history. The client can validate these structured objects, and the
+format provides a basis for extending the action vocabulary.
 
 The action creation and interaction workflows presented in
-Chapter~\ref{sec:results} demonstrated the use of a common action
-structure across Posts, Replies, Likes and Follows. These relationships
-were subsequently reconstructed during feed construction without relying
-on provider-specific functionality. This separation of creation,
-replication and presentation produced a cleaner architecture than
-approaches that couple social activity directly to version-control
-operations.
+Chapter~\ref{sec:results} show the common structure across Posts, Replies,
+Likes and Follows. For example, a Reply stores the referenced post ID and
+target handle alongside its content, while a Like stores the target post ID
+and handle. Feed construction uses these fields to connect each interaction
+to its post and author. This keeps social relationships in the action data
+rather than relying on provider-specific functionality or inferring them
+from Git history.
 
 The use of JSON also provides extensibility. The protocol currently
 supports only four action types, but the common action structure allows
@@ -215,12 +199,15 @@ Git-based and non-Git-based decentralised social systems while
 addressing several recurring limitations identified during the
 literature review.
 
-From Nostr and AT Protocol, it adopts portable cryptographic identity.
-From ActivityPub and Nostr, it adopts the concept of structured social
-actions. From Gitweets, Social4Git and GitSocial, it adopts
-repository-centric storage and pull-based replication. These concepts
-were successfully integrated into a single Git-native architecture
-without requiring a central platform for social-data exchange.
+Nostr demonstrates the use of portable public-key identity
+\cite{fiatjaf2026}, while AT Protocol maps human-readable handles to
+cryptographic identifiers \cite{atproto2026}. ActivityPub and Nostr
+provide examples of structured social actions and event types
+\cite{w3cActivityPub2018,fiatjaf2026}. Gitweets, Social4Git and GitSocial
+show how repositories can support social-data storage and pull-based
+replication \cite{gitweets2026,social4git2026,gitsocial2026}. The prototype
+brings these ideas together: users store and exchange social actions
+through Git repositories, while account discovery uses a shared directory.
 
 The results presented in Chapter~\ref{sec:results} indicate that this
 approach is feasible in practice. The prototype successfully
@@ -229,7 +216,7 @@ replication, discovery through human-readable handles, multi-hop
 content propagation and browser-accessible static feeds. Collectively,
 these capabilities address many of the limitations identified in the
 survey of existing protocols and subsequently formalised as requirements
-in Chapter~3.
+in Chapter~\ref{sec:methodology}.
 
 However, the implementation also revealed that some challenges are
 transformed rather than eliminated. Identity portability reduces
@@ -248,11 +235,28 @@ limitations and future directions discussed in the following sections.
 
 \subsection{Security Considerations} Discuss the security mechanisms implemented in the prototype and their effectiveness. 
 
+The identity is tied to the cyrptographic public key as opposed to the handle or repository URL. When the identity is created a Ed25519 public/private key pair is generated by the client. Importantly this private key is under the control of the client within the user's public repository. The generated profile.json has the public key for the user and signature of the profile which other users can verify with the public key. However this must be first published so others can interact, so importantly the profile is resigned. Verification of profile is very important because users should only interact with trusted users as it provides authencity/integrity that the user is who they claim to be. However this not only one time check and then all actions from that idenity are not blindly accepted, as their still may be attacks like man-in-the middle. The individual actions themselves are signed and verified with the corresponding public key. Specifically, authencity is provided as particpants can confirm that the action was created by the holder of the corresponding private key and integrity by ensuring it has not been modified after signing. This builds upon the explored git-based protocols like Social4Git and GitSocial which also have integrity through git's existing hashing of commits. However in such protocols anyone with access to the repository can create posts and followers cannot verify that posts was created by the claimed author. Thus showing how this protocol improves on them with signing to prove authencity. However, compared to the non-git based protocol sAT, there is no encryption mechanism meaning no confidentiality of posts as will further be discussed in security limitations.  
+
+The verification of profile involves checking if the verified handle and repourl matches and onto of it, before making the follow the protocol utilises the social-directory for another security check. It checks that the repository URL provided to follow that user matches the registered repository URL and rejects a mismatch so that the user does not follow a impersonated user who is trying to replace repository with a different key as shown in the security validation results. However this relies on trusting the owner of the social-directory. Publihsing an identity also has security checks to ensure a registered publickey is not replaced, which is important to ensure identity theft. 
+
+On the frontend, although 'social/action' only contains actions which are individually verified as well as the profile of the user from which the actions are coming from are validated, before publishing to the static site (by creating the feed), the actions are verified again with same infrastructure (ActionVerifier) to ensure in meantime no malformed actions are accepted and published, only then are they added to the list to be serialised.
+
+
 \subsubsection*{Protected Threats} Discuss: \begin{itemize} \item Profile tampering. \item Action tampering. \item User impersonation. \item Repository replacement with a different key. \end{itemize} Reference: \begin{itemize} \item Security Validation results. \item Profile signature verification. \item Action signature verification. \item Directory key checks. \end{itemize} 
 
+The evaluation demonstrated that the protocol protects against several classes of integrity and authenticity attacks through cryptographic verification and directory-based identity checks. 
+The action-tampering scenario showed that modifying the contents of a previously signed action invalidates its signature. During replication, the modified action was rejected and was not added to the receiving repository's local action store. This demonstrates that protocol actions cannot be altered after publication without detection. 
+
+The impersonation scenario demonstrated that possession of another user's public key is insufficient to create valid actions on their behalf. Although the modified action claimed Alice's public key as its author, the signature had been generated by Bob's private key. Verification therefore failed and the action was rejected. This shows that authorship remains tied to possession of the corresponding private key. 
+
+The repository-replacement scenario addressed a different threat. A replacement profile was created using a different key pair while claiming the same handle as an existing account. Although the replacement profile was validly signed by its own key, the Follow operation rejected it because the profile's public key did not match the key previously registered for that handle in the social directory. This provides protection against identity replacement provided that the directory's handle-to-key mapping remains trustworthy. Finally, the multi-hop replication experiment showed that trust remains anchored to the original author rather than to intermediate repositories. Actions received through another repository are verified against the public key recorded in the action itself, ensuring that replication does not transfer trust to the repository relaying the content.
+
 \subsubsection*{Trust Assumptions} Discuss: \begin{itemize} \item Trusted social-directory. \item Handle-to-key mapping. \item Directory administrator trust. \end{itemize} 
+Although actual protocol doesn't depend on a central authority or heavy infrastructure like ActivityPub and AT Protocol for identity, profile creation and replication and their verification as they are signed and verified with public key infrastructure. The social-directory is not core part of protocol instead allows users to conveniently find profile of other users. However, it has been utilised for handling cases where a fraudulent user could replace your repository and generate a valid signature by illegal means which normal verification could not detect as covered in the repository-replacement scenario. Thus trust is on the adminstrator of the social-directory which is currently me and no one else can modify it without my approval. An alternative approach would be to publish a signed identity document at a well-known URI associated with the user's repository or domain. This will be discussed in the future work.
+Also the canonical-social repository is currently acting as the place where users receive the structure of the social/actions directory and the frontend files used to render the published feeds. Although the identity isn't provided and the client themselves generate the profile.json, if the canonical-social gets corrupted and the project-template containing logic to render the static website based on the feed, then feed rendering would be impacted thus showing the trust on the owner of the canonical-social. However feed rendering is not the core portocol, and a separaet repositry could be created to clone from withotu impacting the core protocol, its still important to note this assumption under current state of the protocol.
 
 \subsubsection*{Security Limitations} Discuss: \begin{itemize} \item No confidentiality. \item No private messaging. \item No moderation. \item No spam resistance. \item No Sybil-resistance mechanisms. \end{itemize} 
+One of the core issues which this protocol was looking to address was the moderation burden protocols like ActivityPub placed on each server, which often resembeled centralised control. The core actions of this protocol do not depend on such a authority but this at the cost of leaving users exposed. Moderation and access control is still important as it leaves users exposed from malicious and or spam users. This is similar to Nostr which was seen as a limitation so the protocol should instead support moderation and access control without relying on server operators. Means like signed blocklist/trust lists maybe be adopted as will be discused in the future work section. Integrity and authencity has been extensively discusssed and demonstrates but confidentiality has not been addressed. Although it is not common in the surveyed protocols (e.g. SSB only providing integrity), it is shown through sAT that it is possible and may be useful to be adapted to be an extra option for private (confidential posts) as opposed to exercising encryption for all posts where integrity may be enough. sAT showed that encrypting each post with a symmetric key and distribute for each follow was computationally expensive, so a session/group-key based approach may be better as will be expanded on in future work section.
 
 \subsection{Limitations} Discuss: \begin{itemize} \item Directory trust assumptions. \item Repository growth over time. \item Replication latency. \item CLI-oriented prototype. \item Limited social vocabulary. \item GitHub Pages publication workflow. \end{itemize} 
 
