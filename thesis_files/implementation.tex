@@ -443,16 +443,22 @@ return {
 }
 \end{lstlisting}
 
-The shared frontend is stored in the \texttt{site-template} directory
-of the local \texttt{canonical-social} repository. 
-The shared site template is organised as follows: \begin{verbatim} 
+The canonical repository includes the shared frontend in its
+\texttt{site-template} directory. \texttt{profile create} clones this
+repository into the user's repository, so the user's local copy contains
+the template used by \texttt{publish-site}. The template is organised as
+follows: \begin{verbatim} 
 site-template/ 
 ├── index.html # Feed page structure 
 ├── app.js # Feed loading and rendering 
 └── style.css # Site styling 
 \end{verbatim}
 
-The publisher copies these files into the \texttt{gh-pages} branch and generates a fresh \texttt{feed.json} containing the user's verified profile and actions.
+Before switching from the user's current branch to \texttt{gh-pages}, the
+publisher copies the local template to a temporary directory. This keeps the
+template available after the branch switch. It then copies the template
+files into \texttt{gh-pages} and generates a fresh \texttt{feed.json}
+containing the user's verified profile and actions.
 
 The publisher uses \texttt{shutil.copytree()} for template subdirectories and
 \texttt{shutil.copy2()} for individual files. It skips any template
@@ -499,7 +505,7 @@ empty-feed or loading errors. \texttt{style.css} supplies the colours,
 typography and layout for the rendered page, using the same visual style as
 the social directory.
 
-% Optional screenshot: show canonical-social/site-template and its
+% Optional screenshot: show a user's site-template and its
 % index.html, app.js, and style.css files.
 % \begin{figure}[h]
 %     \centering
@@ -631,13 +637,3 @@ chapter reports the observed end-to-end demonstrations, test outcomes and
 coverage, and uses the table as context rather than repeating the test
 inventory.
 
-\subsection{Implementation Limitations}
-
-Action identifiers use a sequential counter based on the action files
-present in the local repository. If the same identity creates actions
-concurrently from separate repository copies, those copies may select the
-same next identifier.
-
-% Describe any other implementation-specific constraints that affect
-% interpretation or reproducibility. Reserve broader implications and future
-% work for Discussion.

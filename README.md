@@ -96,16 +96,18 @@ site link.
 ## Maintaining the canonical template
 
 Normal account creation clones the canonical repository configured in
-`client/src/config.py`. To maintain or customize the shared site template,
-clone that canonical repository, edit the files under `site-template/`, then
-commit and push the changes to its `main` branch. New accounts receive the
-template version in the canonical repository when they are created.
+`client/src/config.py`, including its `site-template/` directory. To maintain
+or customize the shared template, edit those files in the canonical
+repository, then commit and push the changes to its `main` branch. New
+accounts receive the template version in the canonical repository when they
+are created.
 
-`publish-site` reads the template from the project's local
-`canonical-social/site-template/` checkout. Update that checkout from the
-canonical repository when you want site publishing to use the latest
-template. Existing user repositories do not need to be changed for this
-publisher-side template update.
+`publish-site` reads `site-template/` from the user's repository and copies
+its files into `gh-pages` along with a freshly generated `feed.json`. It
+temporarily saves the template before switching branches so it remains
+available during publication. Existing accounts can update their local
+template from the canonical repository when they want to adopt a newer
+version.
 
 ## Publish a GitHub Pages site
 

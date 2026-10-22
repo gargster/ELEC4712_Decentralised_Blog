@@ -602,3 +602,184 @@ classDiagram
 `ShowFeedAction` is omitted from this focused view: although it currently
 inherits from `ActionBase` and is registered by the factory, it displays a
 feed rather than creating a social action.
+
+## Future Extensions (Proposed, Not Implemented)
+
+The workflows below adapt ideas from `docs/archive/design.md` to the current
+prototype described in this document and in the thesis. They are proposals
+for further design, not implemented behaviour or complete protocol
+specifications. In particular, a signed index can still omit entries;
+signatures on moderation data do not establish that a list should be
+trusted; and the current Ed25519 identity keys are signing keys, not
+automatically encryption keys.
+
+### Social Action and Conversation Extensions
+
+The current action types are Post, Reply, Like and Follow. This possible
+workflow shows how an explicit repost or quote could reference an existing
+signed post, and how a client could render replies as a nested conversation.
+Update and Delete actions would also need explicit reference and conflict
+rules; deletion from a feed would not erase copies already present in Git
+history.
+
+```mermaid
+sequenceDiagram
+    actor Author
+    participant Client as Author client
+    participant Repo as Author repository
+    participant Reader as Reader client
+
+    Author->>Client: Create repost or quote
+    Client->>Repo: Commit and publish signed action with target post ID
+    Reader->>Repo: Fetch repository updates
+    Repo-->>Reader: Provide action files
+    Reader->>Reader: Verify signatures and resolve target IDs
+    Reader->>Reader: Display repost or quote with original attribution
+    Reader->>Reader: Link replies by inReplyTo to render conversation tree
+```
+
+**Open design questions:** define how references remain resolvable when the
+original action is unavailable; specify update and deletion semantics across
+replicated history; and determine how clients display missing, conflicting
+or deleted targets.
+
+### Feed Indexing and Verification
+
+The current replicator scans candidate action files and verifies them on
+each run. An index could help clients identify actions that may need
+processing, while retaining verification of each signed action file. Git
+fetch transfers repository objects independently, so this workflow should
+be understood as a possible reduction in repeated scanning and verification,
+not an assumed reduction in network transfer.
+
+```mermaid
+sequenceDiagram
+    actor Author
+    participant Client as Author client
+    participant Repo as Author repository
+    participant Follower as Replicating client
+
+    Author->>Client: Create social action
+    Client->>Client: Sign action and update index of action IDs
+    Client->>Client: Sign updated index
+    Client->>Repo: Commit action and signed index
+    Follower->>Repo: Fetch repository updates
+    Repo-->>Follower: Make fetched commit, tree and index available
+    Follower->>Follower: Verify index signature and read candidate IDs
+    Follower->>Follower: Read candidate files from fetched action tree
+    Follower->>Follower: Verify each action signature before accepting it
+    opt Index missing, invalid, or periodic completeness check
+        Follower->>Follower: Scan fetched action tree for unindexed files
+        Follower->>Follower: Verify and accept valid actions
+    end
+```
+
+**Open design questions:** define index format, versioning and signing;
+handle stale, incomplete or maliciously selective indexes; and determine how
+often clients perform a full scan so that an index cannot silently hide an
+action. The index should remain a discovery aid rather than a replacement
+for checking action signatures.
+
+### Optional Moderation Recommendations
+
+The archived design explored signed blocklists and trust lists. A safer
+starting point is to treat a signed list as a recommendation from its
+publisher, not as a rule that automatically controls another user's feed.
+Users can choose whether to follow a list and can retain local filtering
+preferences. Moderation changes feed presentation; it does not prevent
+replication or guarantee protection against spam or Sybil accounts.
+
+```mermaid
+sequenceDiagram
+    actor Curator
+    participant CuratorClient as List publisher client
+    participant Repo as Publisher repository
+    actor User
+    participant Reader as Reader client
+
+    Curator->>CuratorClient: Create block or trust recommendations
+    CuratorClient->>CuratorClient: Sign list with publisher identity
+    CuratorClient->>Repo: Commit and publish list
+    User->>Reader: Choose to follow this moderation list
+    Reader->>Repo: Fetch list during replication
+    Repo-->>Reader: Provide signed list
+    Reader->>Reader: Verify list against publisher profile key
+    Reader->>User: Ask whether to apply the verified list
+    User->>Reader: Accept or decline and keep local overrides
+    Reader->>Reader: Apply accepted rules when rendering feed
+```
+
+**Open design questions:** distinguish private local blocks from public
+recommendations; make list updates, removals and conflicts understandable;
+and ensure users can identify who issued a list and decide whether to trust
+it. Applying a list should not change which repository actions are fetched
+or accepted.
+
+### Optional Confidentiality for Posts
+
+The archived design explored reusing a symmetric session key for related
+private posts and encrypting that key separately for each recipient. This
+diagram retains that high-level idea but leaves encryption-key discovery
+and management unresolved. Recipient encryption keys must be authenticated
+and defined separately from the current Ed25519 signing keys, unless a
+reviewed key-derivation approach is specified.
+
+```mermaid
+sequenceDiagram
+    actor Author
+    participant Client as Author client
+    participant Repo as Author repository
+    participant Reader as Recipient client
+
+    Author->>Client: Compose post for selected recipients
+    Client->>Client: Obtain authenticated recipient encryption keys
+    Client->>Client: Create or select session key
+    Client->>Client: Encrypt post and create recipient key envelopes
+    Client->>Client: Sign encrypted action and key-distribution data
+    Client->>Repo: Commit and publish ciphertext and envelopes
+    Reader->>Repo: Fetch repository updates
+    Repo-->>Reader: Provide signed ciphertext and key envelope
+    Reader->>Reader: Verify signatures and check recipient envelope
+    Reader->>Reader: Decrypt session key, then decrypt post
+    Reader->>Reader: Display post only after successful decryption
+```
+
+**Open design questions:** select authenticated encryption and key
+distribution mechanisms; protect private keys on user devices; define key
+rotation and access removal; and assess what metadata remains visible to
+repositories and other readers. Previously decrypted content cannot be
+recalled from recipients, which should be part of the threat model.
+
+### Media Attachments
+
+Media could be stored as ordinary repository files for small attachments or
+managed through Git LFS for larger files, subject to hosting support. The
+signed action should identify the attachment and its expected digest so a
+client can check the retrieved bytes. A Git LFS pointer alone does not
+guarantee that the corresponding object remains available.
+
+```mermaid
+sequenceDiagram
+    actor Author
+    participant Client as Author client
+    participant Repo as Author repository
+    participant Reader as Reader client
+
+    Author->>Client: Create post with media attachment
+    Client->>Client: Store media and calculate content digest
+    Client->>Client: Create and sign action with media reference and digest
+    Client->>Repo: Commit action and media file or Git LFS pointer
+    Reader->>Repo: Fetch action and request referenced media
+    Repo-->>Reader: Provide action and available media object
+    Reader->>Reader: Verify action signature and media digest
+    alt Reference and digest are valid
+        Reader->>Reader: Render post with media
+    else Media is missing or does not match
+        Reader->>Reader: Render post text and report unavailable media
+    end
+```
+
+**Open design questions:** set attachment size and type limits; evaluate
+Git LFS and provider support; handle missing or removed objects; and decide
+whether external media URLs are permitted and how their availability and
+integrity are presented to users.
