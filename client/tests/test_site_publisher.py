@@ -4,7 +4,7 @@ import json
 from git import Repo
 import pytest
 
-from src.config import CANONICAL_REPO_NAME, DIRECTORY_JSON_URL
+from src.config import DIRECTORY_JSON_URL
 from src.identity.keypair import KeyPair
 from src.identity.signer import Signer
 from src.publishing import site_publisher
@@ -26,10 +26,10 @@ def sign_object(data, private_key):
 def test_publish_site_creates_branch_with_verified_feed(tmp_path, monkeypatch):
     project_root = tmp_path / "project"
     user_repo_path = project_root / "alice-social"
-    template_path = project_root / CANONICAL_REPO_NAME / "site-template"
+    template_path = user_repo_path / "site-template"
     bare_origin_path = tmp_path / "alice-origin.git"
-    template_path.mkdir(parents=True)
     user_repo_path.mkdir(parents=True)
+    template_path.mkdir()
 
     (template_path / "index.html").write_text(
         '<script src="./app.js" defer></script>', encoding="utf-8"

@@ -1,6 +1,7 @@
 import json
 import os
 import shutil
+import tempfile
 import urllib.parse
 import urllib.request
 
@@ -8,7 +9,7 @@ from git import Repo
 from git.remote import PushInfo
 
 from src.actions.action_verifier import ActionVerifier
-from src.config import CANONICAL_REPO_NAME, DIRECTORY_JSON_URL
+from src.config import DIRECTORY_JSON_URL
 from src.identity.profile_verifier import ProfileVerifier
 from src.publishing.publish_manager import PublishManager
 
@@ -19,11 +20,7 @@ class SitePublisher:
         self.identity_repo_root = identity_repo_root
         self.repo = Repo(identity_repo_root)
         self.social_path = os.path.join(identity_repo_root, "social")
-        self.template_path = os.path.join(
-            project_root,
-            CANONICAL_REPO_NAME,
-            "site-template"
-        )
+        self.template_path = os.path.join(identity_repo_root, "site-template")
 
     def _load_profile(self, profile_path: str) -> dict:
         with open(profile_path, "r", encoding="utf-8") as profile_file:
@@ -245,25 +242,38 @@ class SitePublisher:
         feed = self._build_feed()
 
         original_branch = self.repo.active_branch.name
-        try:
-            self._prepare_branch()
-            self._write_site_files(feed)
-            self._commit_and_push()
-            profile = feed["profile"]
-            site_url = PublishManager.github_pages_url(profile.get("repoURL"))
-            if site_url is not None:
-                PublishManager(self.project_root).update_site_url(
-                    profile["handle"],
-                    profile["repoURL"],
-                    profile["publicKey"],
-                    site_url,
+        source_template_path = self.template_path
+        with tempfile.TemporaryDirectory(
+            dir=self.project_root
+        ) as temporary_directory:
+            template_snapshot_path = os.path.join(
+                temporary_directory,
+                "site-template"
+            )
+            shutil.copytree(source_template_path, template_snapshot_path)
+            self.template_path = template_snapshot_path
+            try:
+                self._prepare_branch()
+                self._write_site_files(feed)
+                self._commit_and_push()
+                profile = feed["profile"]
+                site_url = PublishManager.github_pages_url(
+                    profile.get("repoURL")
                 )
-            else:
-                print(
-                    "[SITE] Could not add a directory link: profile repository "
-                    "is not a supported GitHub repository URL."
-                )
-            print("[SITE] Published site to gh-pages")
-        finally:
-            if self.repo.active_branch.name != original_branch:
-                self.repo.git.checkout(original_branch)
+                if site_url is not None:
+                    PublishManager(self.project_root).update_site_url(
+                        profile["handle"],
+                        profile["repoURL"],
+                        profile["publicKey"],
+                        site_url,
+                    )
+                else:
+                    print(
+                        "[SITE] Could not add a directory link: profile repository "
+                        "is not a supported GitHub repository URL."
+                    )
+                print("[SITE] Published site to gh-pages")
+            finally:
+                self.template_path = source_template_path
+                if self.repo.active_branch.name != original_branch:
+                    self.repo.git.checkout(original_branch)
