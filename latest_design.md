@@ -624,7 +624,7 @@ history.
 
 ```mermaid
 sequenceDiagram
-    actor Author
+    participant Author as Author
     participant Client as Author client
     participant Repo as Author repository
     participant Reader as Reader client
@@ -654,7 +654,7 @@ not an assumed reduction in network transfer.
 
 ```mermaid
 sequenceDiagram
-    actor Author
+    participant Author as Author
     participant Client as Author client
     participant Repo as Author repository
     participant Follower as Replicating client
@@ -682,7 +682,7 @@ for checking action signatures.
 
 ### Optional Moderation Recommendations
 
-The archived design explored signed blocklists and trust lists. A safer
+One option is to publish signed blocklists and trust lists. A safer
 starting point is to treat a signed list as a recommendation from its
 publisher, not as a rule that automatically controls another user's feed.
 Users can choose whether to follow a list and can retain local filtering
@@ -691,10 +691,10 @@ replication or guarantee protection against spam or Sybil accounts.
 
 ```mermaid
 sequenceDiagram
-    actor Curator
+    participant Curator as Curator
     participant CuratorClient as List publisher client
     participant Repo as Publisher repository
-    actor User
+    participant User as User
     participant Reader as Reader client
 
     Curator->>CuratorClient: Create block or trust recommendations
@@ -717,16 +717,16 @@ or accepted.
 
 ### Optional Confidentiality for Posts
 
-The archived design explored reusing a symmetric session key for related
-private posts and encrypting that key separately for each recipient. This
-diagram retains that high-level idea but leaves encryption-key discovery
-and management unresolved. Recipient encryption keys must be authenticated
-and defined separately from the current Ed25519 signing keys, unless a
-reviewed key-derivation approach is specified.
+One option is to reuse a symmetric session key for related private posts
+and encrypt that key separately for each recipient. This diagram shows that
+high-level idea but leaves encryption-key discovery and management
+unresolved. Recipient encryption keys must be authenticated and defined
+separately from the current Ed25519 signing keys, unless a reviewed
+key-derivation approach is specified.
 
 ```mermaid
 sequenceDiagram
-    actor Author
+    participant Author as Author
     participant Client as Author client
     participant Repo as Author repository
     participant Reader as Recipient client
@@ -760,7 +760,7 @@ guarantee that the corresponding object remains available.
 
 ```mermaid
 sequenceDiagram
-    actor Author
+    participant Author as Author
     participant Client as Author client
     participant Repo as Author repository
     participant Reader as Reader client

@@ -151,7 +151,7 @@ level of abstraction than systems which expose native Git commands
 directly, it does not yet offer the level of accessibility expected of
 mainstream social-networking applications.
 
-\subsection{Social Vocabulary and Data Representation}
+\subsection{Social Vocabulary and Data Representation}\label{sec:social-vocabulary-data}
 
 The protocol represents social interactions through a structured
 vocabulary consisting of Posts, Replies, Likes and Follows. This design
@@ -301,7 +301,7 @@ does not establish which account owner created a particular post
 storage and replication while its own signature checks link each action
 to the key named as its author.
 
-\subsubsection{Trust Assumptions}
+\subsubsection{Trust Assumptions}\label{sec:trust-assumptions}
 
 Signature verification does not require a server to approve each post or
 replication step. The prototype's account discovery has a separate trust
@@ -481,8 +481,8 @@ make a static page update itself whenever a new action is created.
 
 \subsubsection{Social vocabulary and presentation}\label{sec:limitation-social-vocabulary}
 
-The preceding subsection, \emph{Social Vocabulary and Data Representation},
-explains why the prototype stores actions as structured JSON objects. The
+Section~\ref{sec:social-vocabulary-data} explains why the prototype stores
+actions as structured JSON objects. The
 current vocabulary contains four types: Posts, Replies, Likes and Follows.
 This extends beyond Gitweets' post-focused workflow, which has no built-in
 Follow action \cite{gitweets2026}. Social4Git's reviewed design does not include
@@ -578,9 +578,18 @@ through account setup, posting, following, replication and publishing
 their feed. The interface could help create a repository through a Git host
 where this is available, or let users enter a repository URL from another
 host. Testing this workflow with users would show whether it makes setup and
-publication clearer. It would also be useful to explore ways to find
-accounts without relying on the same shared directory, while still checking
-that a handle points to the right key and repository.
+publication clearer. 
+
+The directory-trust limitation described in Section~\ref{sec:trust-assumptions} arises
+because the shared directory is responsible for linking user handles to public keys and 
+repositories. One possible future direction is to publish a signed identity document at a 
+well-known URI~\cite{rfc8615} on a domain controlled by the user. The document could contain 
+the user's handle, public key and repository URL, allowing clients to retrieve and verify this 
+information directly from the user's domain rather than relying solely on the shared directory. 
+This could reduce dependence on the directory and provide a more decentralised way to distribute 
+identity information. However, it would introduce different trust assumptions, as trust would 
+depend on control of the domain, and practical issues such as key rotation, domain ownership 
+changes and domain expiration would need to be considered.
 
 The repository-growth limitation in
 Section~\ref{sec:limitation-repository-growth} also points to work on
@@ -600,10 +609,9 @@ downloaded. The workflow in Figure~\ref{fig:future-feed-index} shows one
 possibility. Testing with larger repositories and more users would show
 whether it improves processing time.
 
-\begin{figure}[htbp]
+\begin{figure}[h]
     \centering
-    \fbox{\parbox[c][3.5cm][c]{0.9\textwidth}{\centering
-    Feed-indexing workflow figure to be added.}}
+    \includegraphics[width=\textwidth]{figures/feed_indexing_workflow.png}
     \caption{Possible use of an index while retaining client-side action verification}
     \label{fig:future-feed-index}
 \end{figure}
@@ -615,34 +623,65 @@ includes Update and Delete activities \cite{w3cActivityPub2018}, while
 GitSocial has repost and quote actions \cite{gitsocial2026}. Future work
 could define similar signed actions that link back to the original post.
 It could also improve how the feed displays replies to replies, which the
-current action data can already represent. Media such as images and video
-would need a clear way to store files, link them to posts and show when a
-file is no longer available. Git LFS could be tested as one option for
-larger files, including whether it works with different Git hosts.
+current action data can already represent. 
+
+
+Section~\ref{sec:limitation-social-vocabulary} also identified the lack of media support 
+as a limitation of the current prototype. Supporting images and video would require a clear 
+way to store media, link it to posts and indicate when referenced files are no longer available. 
+Figure~\ref{fig:future-media} outlines one possible workflow for attaching and verifying media. 
+Git LFS could be evaluated as an option for larger files, including whether it works consistently 
+across different Git hosts.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\textwidth]{figures/media_attachment_workflow.png}
+    \caption{Possible workflow for attaching and verifying media in a post}
+    \label{fig:future-media}
+\end{figure}
+
+\subsubsection{Identity recovery and private posts}
 
 The security limitations in Section~\ref{sec:limitation-security} point to
-further work on account recovery, private posts and moderation. A recovery
-process should let someone who loses a key prove that they can use a new
-one without allowing another person to take
-over their handle. Private posts could use one shared encryption key (a
-session key) for a group of related posts, as explored in the archived
-design notes. sAT provides an example of encrypted content on static hosting
-\cite{sat2026}. The current identity
-keys sign actions but do not encrypt them, so a design would need to explain
-how recipients get encryption keys, what happens when access is removed,
-and what information remains visible in the repository. The
+further work on account recovery and private posts. A recovery process
+should let someone who loses a key prove that they can use a new one without
+allowing another person to take over their handle. One option for private
+posts is to encrypt a group of related posts with the same randomly
+generated key, called a session key,
+and give each authorised recipient a separately encrypted copy of that key.
+This could avoid distributing a new key for every post, but would make key
+changes more important when someone joins or leaves the group. sAT provides
+an example of encrypted content on static hosting \cite{sat2026}. The
+current identity keys sign actions but do not encrypt them, so a design
+would need to explain how recipients get encryption keys, what happens when
+access is removed, and what information remains visible in the repository. The
 workflow in Figure~\ref{fig:future-confidentiality} illustrates this idea.
-Moderation could let users keep their own block choices private and choose
-whether to use signed recommendations from others. These choices could
-change what appears in a feed, but would not stop unwanted actions from
-being replicated or prevent users from creating many accounts.
 
-\begin{figure}[htbp]
+\begin{figure}[h]
     \centering
-    \fbox{\parbox[c][3.5cm][c]{0.9\textwidth}{\centering
-    Confidentiality workflow figure to be added.}}
+    \includegraphics[width=\textwidth]{figures/confidentiality_workflow.png}
     \caption{Illustrative workflow for optional encrypted posts and recipient key distribution}
     \label{fig:future-confidentiality}
+\end{figure}
+
+\subsubsection{Moderation}
+
+Section~\ref{sec:limitation-security} notes that signed blocklists, trust
+lists or reputation systems could reduce the impact of coordinated accounts.
+One possible design is to let users choose whether to apply signed lists
+published by other users or communities. The client could check who issued
+each list, but the signature would not show whether its recommendations are
+accurate. Users would decide whether to trust a list, and could keep their
+personal block choices local. Figure~\ref{fig:future-moderation} shows this
+optional approach. It would let users filter or prioritise activity from
+sources they trust, but would not change replication or prevent someone from
+creating many accounts.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=\textwidth]{figures/moderation_workflow.png}
+    \caption{Possible workflow for users to choose and apply signed moderation lists}
+    \label{fig:future-moderation}
 \end{figure}
 
 \subsection{Conclusion} Revisit: \begin{itemize} \item Research question. \item Objectives from Chapter 1. \end{itemize} Summarise: \begin{itemize} \item Main protocol design contributions. \item Prototype implementation contributions. \item Evaluation findings. \item Security findings. \end{itemize} Conclude with: \begin{itemize} \item Overall effectiveness of the Git-native approach. \item Key limitations. \item Potential future impact and directions. \end{itemize}
