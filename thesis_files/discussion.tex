@@ -570,6 +570,8 @@ The directions below build on the limitations discussed above. They describe
 what could be investigated next; they are not features of the current
 prototype.
 
+\subsubsection{Usability and publication}
+
 The command-line and publication limitations in
 Sections~\ref{sec:limitation-command-line} and
 \ref{sec:limitation-feed-publication} point to one area for future work:
@@ -579,6 +581,8 @@ their feed. The interface could help create a repository through a Git host
 where this is available, or let users enter a repository URL from another
 host. Testing this workflow with users would show whether it makes setup and
 publication clearer. 
+
+\subsubsection{Directory and identity discovery}
 
 The directory-trust limitation described in Section~\ref{sec:trust-assumptions} arises
 because the shared directory is responsible for linking user handles to public keys and 
@@ -590,6 +594,8 @@ This could reduce dependence on the directory and provide a more decentralised w
 identity information. However, it would introduce different trust assumptions, as trust would 
 depend on control of the domain, and practical issues such as key rotation, domain ownership 
 changes and domain expiration would need to be considered.
+
+\subsubsection{Replication and indexing}
 
 The repository-growth limitation in
 Section~\ref{sec:limitation-repository-growth} also points to work on
@@ -616,6 +622,8 @@ whether it improves processing time.
     \label{fig:future-feed-index}
 \end{figure}
 
+\subsubsection{Social interactions}
+
 The action and feed limitations in
 Section~\ref{sec:limitation-social-vocabulary} suggest another direction:
 supporting more kinds of interaction. ActivityPub
@@ -625,6 +633,8 @@ could define similar signed actions that link back to the original post.
 It could also improve how the feed displays replies to replies, which the
 current action data can already represent. 
 
+
+\subsubsection{Media support}
 
 Section~\ref{sec:limitation-social-vocabulary} also identified the lack of media support 
 as a limitation of the current prototype. Supporting images and video would require a clear 
@@ -684,4 +694,52 @@ creating many accounts.
     \label{fig:future-moderation}
 \end{figure}
 
-\subsection{Conclusion} Revisit: \begin{itemize} \item Research question. \item Objectives from Chapter 1. \end{itemize} Summarise: \begin{itemize} \item Main protocol design contributions. \item Prototype implementation contributions. \item Evaluation findings. \item Security findings. \end{itemize} Conclude with: \begin{itemize} \item Overall effectiveness of the Git-native approach. \item Key limitations. \item Potential future impact and directions. \end{itemize}
+\subsection{Conclusion}
+
+This thesis asked how a lightweight, Git-native social protocol could combine
+portable identity, structured social actions, pull-based replication and a
+complete social vocabulary, while supporting account discovery without
+relying on a central social platform to store and exchange social data. The
+literature review showed that the surveyed systems
+offer different parts of this combination: several non-Git protocols provide
+portable identity or a rich set of social actions, while Git-based systems
+demonstrate repository-based exchange but often provide limited discovery,
+identity or structured interactions. The requirements derived from this
+comparison, set out in Chapter~\ref{sec:methodology}, guided the protocol
+design in Chapter~\ref{chap:system-design} and the prototype in
+Chapter~\ref{sec:implementation}.
+
+The prototype demonstrates one way to bring these ideas together. An
+Ed25519 public key identifies each user independently of the location of
+their repository. Posts, Replies, Likes and Follows are stored as structured
+JSON actions, signed by their authors and exchanged through Git-based,
+pull-based replication. The evaluation in Chapter~\ref{sec:results} showed
+direct and multi-hop action replication, and tested rejection of tampered
+actions, impersonation attempts and a replacement profile whose key did not
+match the directory entry.
+Together, these results provide evidence that the main design and its core
+workflows can be implemented and exercised in a working prototype.
+
+The prototype also combines repository-based exchange with supporting
+services for discovery and presentation. A shared directory lets users
+look up a handle without first knowing its repository URL, and static-site
+publication provides a browser-based view of a user's feed. These features
+address gaps identified in the Git-based systems reviewed, while the
+underlying actions remain stored and exchanged through users' repositories.
+End-to-end demonstrations and automated tests support the implementation's
+tested behaviour, but do not establish how the protocol would perform at
+larger scale or how usable it would be for a broad range of people.
+
+The research question is therefore addressed through a feasible design and
+prototype, rather than a complete social-networking system. In particular,
+the prototype does not yet provide a complete social vocabulary: it
+implements four action types, while editing, deleting and formally resharing
+posts remain future work. Discovery relies on a trusted shared directory,
+and creating, replicating and publishing actions still requires the
+command-line client. The thesis discusses these and other
+limitations, including confidentiality and repository growth, and identifies
+directions for future work. Overall, the results show that Git can provide
+the storage and exchange foundation for a social protocol with portable,
+verifiable identity and structured interactions. They also show that
+discovery, presentation and ease of use require additional design choices
+and trust assumptions beyond Git itself.
